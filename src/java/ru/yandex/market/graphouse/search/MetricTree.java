@@ -20,7 +20,9 @@ public class MetricTree {
         StringBuilder answer = new StringBuilder();
         String[] levels = query.split("\\.");
         search(root, levels, 0, answer);
-        answer.deleteCharAt(answer.length() - 1);
+        if (answer.length() > 0) {
+            answer.deleteCharAt(answer.length() - 1);
+        }
         return answer.toString();
     }
 
