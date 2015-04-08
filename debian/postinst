@@ -1,0 +1,36 @@
+#!/bin/sh
+
+case $1 in
+configure)
+	DAEMON=graphouse
+	LOGDIR=/var/log/$DAEMON
+	RUNDIR=/var/run/$DAEMON
+	LIBDIR=/var/lib/yandex/$DAEMON/
+	CONFIGDIR=/etc/yandex/graphouse/conf.d/
+	mkdir -p $LOGDIR
+	mkdir -p $RUNDIR
+	mkdir -p $LIBDIR
+	mkdir -p $CONFIGDIR
+
+	if ! chown $DAEMON:nogroup -R $LOGDIR $RUNDIR 2>/dev/null
+	then
+		useradd $DAEMON -g nogroup
+		chown $DAEMON:nogroup -R $LOGDIR $RUNDIR
+	fi
+	update-rc.d $DAEMON defaults > /dev/null
+	chown -R $DAEMON:nogroup $LOGDIR $RUNDIR $LIBDIR
+;;
+
+abort-upgrade|abort-remove|abort-deconfigure)
+;;
+*)
+	echo "postinst called with unknown argument \`$1'" >&2
+;;
+
+esac
+
+    mkdir -p /var/log/$DAEMON/hprof/$DAEMON
+    chown $DAEMON:nogroup /var/log/$DAEMON/hprof/$DAEMON
+
+exit 0
+

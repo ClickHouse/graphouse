@@ -1,0 +1,33 @@
+#!/usr/bin/make -f
+
+package=yandex-graphouse
+
+build:
+	dh_testdir
+	ant -Dis.debuild=true -f 'rbuild.xml' rebuild
+	touch build
+
+clean:
+	dh_testroot
+	dh_testdir
+	rm -rf build
+	ant -f 'rbuild.xml' clean
+	dh_clean
+
+binary-indep: build
+
+binary-arch: build
+
+binary: binary-indep binary-arch
+	dh_testroot
+	dh_testdir
+	ant -Ddest.dir=$(CURDIR)/debian/yandex-graphouse -f 'rbuild.xml' install
+	dh_installinit --name=graphouse --noscripts
+	dh_installdeb
+	dh_gencontrol
+	dh_fixperms
+	dh_md5sums
+	dh_builddeb
+
+
+.PHONY: binary binary-arch binary-indep clean checkroot

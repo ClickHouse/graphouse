@@ -1,0 +1,12 @@
+Source: yandex-graphouse
+Section: yandex
+Priority: optional
+Maintainer: Dmitry Andreev <andreevdm@yandex-team.ru>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.4
+
+Package: yandex-graphouse
+Architecture: all
+Depends: yandex-jdk7 (>=7.17), yandex-environment, yandex-market-datasources
+Description: Build graphics for logs
+

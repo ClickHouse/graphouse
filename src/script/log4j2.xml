@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="debug">
+    <Appenders>
+        <Console name="CONSOLE" target="SYSTEM_OUT">
+            <!--<PatternLayout pattern="%d %-5p [%t] %C{2} (%F:%L) - %m%n"/>-->
+            <PatternLayout pattern="%d %-5p %x [%c{1} %t] %m%n"/>
+        </Console>
+        <!--<File name="TEMP" fileName="temp">-->
+            <!--<PatternLayout pattern="%d %-5p [%t] %C{2} (%F:%L) - %m%n"/>-->
+        <!--</File>-->
+        <Async name="ASYNC">
+            <!--<AppenderRef ref="TEMP"/>-->
+            <AppenderRef ref="CONSOLE"/>
+        </Async>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="ASYNC"/>
+        </Root>
+    </Loggers>
+</Configuration>
