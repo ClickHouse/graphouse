@@ -14,6 +14,7 @@ import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -40,6 +41,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     public void afterPropertiesSet() throws Exception {
         metricQueue = new ArrayBlockingQueue<>(cacheSize);
         executorService = Executors.newFixedThreadPool(writersCount);
+        new Thread(this, "Metric cacher thread");
     }
 
     public void submitMetric(Metric metric) {
@@ -50,7 +52,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     public void run() {
         while (!Thread.interrupted()) {
             try {
-                Thread.sleep(flushIntervalSeconds);
+                Thread.sleep(TimeUnit.SECONDS.toMillis(flushIntervalSeconds));
                 createBatches();
             } catch (InterruptedException ignored) {
             }
@@ -58,7 +60,10 @@ public class MetricCacher implements Runnable, InitializingBean {
     }
 
     private void createBatches() {
-        log.info("Metric queue size: " + metricQueue);
+        if (metricQueue.isEmpty()){
+            return;
+        }
+        log.info("Metric queue size: " + metricQueue + ", active writers: " + activeWriters.get());
         //TODO мониторинг, если очередь слишком большая
         while (activeWriters.get() < writersCount) {
             List<Metric> metrics = createBatch();
