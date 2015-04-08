@@ -41,7 +41,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     public void afterPropertiesSet() throws Exception {
         metricQueue = new ArrayBlockingQueue<>(cacheSize);
         executorService = Executors.newFixedThreadPool(writersCount);
-        new Thread(this, "Metric cacher thread");
+        new Thread(this, "Metric cacher thread").start();
     }
 
     public void submitMetric(Metric metric) {
