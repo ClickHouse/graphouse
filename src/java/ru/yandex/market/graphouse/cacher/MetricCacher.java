@@ -63,7 +63,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         if (metricQueue.isEmpty()){
             return;
         }
-        log.info("Metric queue size: " + metricQueue + ", active writers: " + activeWriters.get());
+        log.info("Metric queue size: " + metricQueue.size() + ", active writers: " + activeWriters.get());
         //TODO мониторинг, если очередь слишком большая
         while (activeWriters.get() < writersCount) {
             List<Metric> metrics = createBatch();
