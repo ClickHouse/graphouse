@@ -5,7 +5,6 @@ import ru.yandex.market.graphouse.Metric;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -21,8 +20,10 @@ public class MetricInputStream extends InputStream {
     private final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
     private List<Metric> metrics;
 
-    private ByteBuffer buffer = ByteBuffer.allocate(4096);
+    private ByteArrayBuffer buffer = new ByteArrayBuffer(1000);
     private int rowNum = 0;
+    private int rowPosition = 0;
+
 
     public MetricInputStream(List<Metric> metrics) {
         this.metrics = metrics;
@@ -33,7 +34,13 @@ public class MetricInputStream extends InputStream {
         if (!fillBuffer()) {
             return -1;
         }
-        return buffer.get();
+        if (rowPosition >= buffer.length()) {
+            readRow();
+        }
+        if (rowPosition >= buffer.length()) {
+            return -1;
+        }
+        return buffer.byteAt(rowPosition++);
     }
 
     @Override
@@ -41,8 +48,9 @@ public class MetricInputStream extends InputStream {
         if (!fillBuffer()) {
             return -1;
         }
-        int read = Math.min(buffer.remaining(), len);
-        buffer.get(b, off, read);
+        int read = Math.min(len, buffer.length() - rowPosition);
+        System.arraycopy(buffer.buffer(), rowPosition, b, off, read);
+        rowPosition += read;
         return read;
     }
 
@@ -50,10 +58,10 @@ public class MetricInputStream extends InputStream {
      * @return false если данные закончились
      */
     private boolean fillBuffer() {
-        if (buffer.remaining() == 0) {
+        if (rowPosition >= buffer.length()) {
             readRow();
         }
-        return buffer.remaining() > 0;
+        return rowPosition >= buffer.length();
     }
 
     private void readRow() {
@@ -61,19 +69,21 @@ public class MetricInputStream extends InputStream {
             return;
         }
 
+        rowPosition = 0;
         buffer.clear();
+
         Metric metric = metrics.get(rowNum);
 
         appendBytes(metric.getName().getBytes());
-        buffer.putChar('\t');
+        buffer.append('\t');
         appendBytes(Double.toString(metric.getValue()).getBytes());
-        buffer.putChar('\t');
+        buffer.append('\t');
         append(metric.getTime());
-        buffer.putChar('\t');
+        buffer.append('\t');
         appendBytes(dateFormat.format(metric.getUpdated()).getBytes());
-        buffer.putChar('\t');
+        buffer.append('\t');
         append(getTimestampSeconds(metric.getUpdated()));
-        buffer.putChar('\n');
+        buffer.append('\n');
         rowNum++;
     }
 
@@ -82,7 +92,7 @@ public class MetricInputStream extends InputStream {
     }
 
     private void appendBytes(byte[] bytes) {
-        buffer.put(bytes, 0, bytes.length);
+        buffer.append(bytes, 0, bytes.length);
     }
 
     private static int getTimestampSeconds(Date date) {
