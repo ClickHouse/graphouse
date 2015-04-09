@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.server;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
@@ -17,6 +18,7 @@ import java.net.Socket;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -49,6 +51,15 @@ public class MetricServer implements InitializingBean {
         for (int i = 0; i < threadCount; i++) {
             executorService.submit(new MetricServerWorker());
         }
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            @Override
+            public void run() {
+                log.info("Shutting down metric server");
+                executorService.shutdownNow();
+                IOUtils.closeQuietly(serverSocket);
+                log.info("Metric server stopped");
+            }
+        }));
         log.info("Metric server started");
     }
 

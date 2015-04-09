@@ -39,6 +39,29 @@ public class MetricCacher implements Runnable, InitializingBean {
         metricQueue = new ArrayBlockingQueue<>(cacheSize);
         executorService = Executors.newFixedThreadPool(writersCount);
         new Thread(this, "Metric cacher thread").start();
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            @Override
+            public void run() {
+                log.info("Shutting down metric cacher. Saving all cached metrics...");
+                while (!metricQueue.isEmpty()){
+                    log.info(metricQueue.size() + " metrics remaining");
+                    createBatches();
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+                executorService.shutdown();
+                while (!executorService.isTerminated()){
+                    log.info("Awaiting save completion");
+                    try {
+                        executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+                log.info("Metric cacher stopped");
+            }
+        }));
     }
 
     public void submitMetric(Metric metric) {
