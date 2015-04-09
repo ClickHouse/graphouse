@@ -21,7 +21,7 @@ public class MetricInputStream extends InputStream {
     private final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
     private List<Metric> metrics;
 
-    private ByteBuffer buffer = ByteBuffer.allocate(10000);
+    private ByteBuffer buffer = ByteBuffer.allocate(4096);
     private int rowNum = 0;
 
     public MetricInputStream(List<Metric> metrics) {
@@ -51,9 +51,8 @@ public class MetricInputStream extends InputStream {
      */
     private boolean fillBuffer() {
         if (buffer.remaining() == 0) {
-            for (int i = 0; i < 5; i++) {
-                readRow();
-            }
+            buffer.clear();
+            readRow();
         }
         return buffer.remaining() > 0;
     }
