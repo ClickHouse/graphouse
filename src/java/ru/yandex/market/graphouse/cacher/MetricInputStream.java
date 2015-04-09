@@ -51,7 +51,6 @@ public class MetricInputStream extends InputStream {
      */
     private boolean fillBuffer() {
         if (buffer.remaining() == 0) {
-            buffer.clear();
             readRow();
         }
         return buffer.remaining() > 0;
@@ -62,6 +61,7 @@ public class MetricInputStream extends InputStream {
             return;
         }
 
+        buffer.clear();
         Metric metric = metrics.get(rowNum);
 
         appendBytes(metric.getName().getBytes());
