@@ -1,9 +1,5 @@
 package ru.yandex.market.graphouse.search;
 
-import ru.yandex.market.graphouse.Metric;
-import sun.nio.fs.Globs;
-
-import java.nio.file.*;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -53,13 +49,11 @@ public class MetricTree {
             }
         } else {
             Pattern pattern = createPattern(level);
-            PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + level);
             if (isLast) {
                 addPatternAnswer(parentDir, pattern, answer);
             } else {
                 for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
-                    Path path = Paths.get(dirEntry.getKey());
-                    if (matcher.matches(path)) {
+                    if (pattern.matcher(dirEntry.getKey()).matches()) {
                         search(dirEntry.getValue(), levels, levelIndex + 1, answer);
                     }
                 }
