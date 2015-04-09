@@ -133,7 +133,11 @@ public class MetricCacher implements Runnable, InitializingBean {
                     log.info("Saved " + metrics.size() + " metrics in " + processed + "ms");
                     ok = true;
                 } catch (Exception e) {
-                    log.error("Failed to save metrics.", e);
+                    log.error("Failed to save metrics. Waiting 1 second before retry", e);
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ignored) {
+                    }
                 }
             }
             activeWriters.decrementAndGet();
