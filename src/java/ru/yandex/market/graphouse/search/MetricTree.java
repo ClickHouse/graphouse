@@ -1,11 +1,13 @@
 package ru.yandex.market.graphouse.search;
 
 import ru.yandex.market.graphouse.Metric;
+import sun.nio.fs.Globs;
 
 import java.nio.file.*;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.regex.Pattern;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -30,9 +32,9 @@ public class MetricTree {
         }
         boolean isLast = (levelIndex == levels.length - 1);
         String level = levels[levelIndex];
-        boolean pattern = containsExpressions(level);
+        boolean isPattern = containsExpressions(level);
 
-        if (!pattern) {
+        if (!isPattern) {
             if (isLast) {
                 addSimpleAnswer(parentDir, level, answer);
             } else {
@@ -50,10 +52,10 @@ public class MetricTree {
                 }
             }
         } else {
-            //TODO нахрен переписать
+            Pattern pattern = createPattern(level);
             PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + level);
             if (isLast) {
-                addPatternAnswer(parentDir, matcher, answer);
+                addPatternAnswer(parentDir, pattern, answer);
             } else {
                 for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
                     Path path = Paths.get(dirEntry.getKey());
@@ -63,6 +65,12 @@ public class MetricTree {
                 }
             }
         }
+    }
+
+    private Pattern createPattern(String globPattern) {
+        globPattern = globPattern.replace("*", "[-_0-9a-zA-Z]+");
+        globPattern = globPattern.replace("?", "[-_0-9a-zA-Z]");
+        return Pattern.compile(globPattern);
     }
 
     private void addSimpleAnswer(Dir parentDir, String name, StringBuilder answer) {
@@ -79,16 +87,14 @@ public class MetricTree {
         }
     }
 
-    private void addPatternAnswer(Dir parentDir, PathMatcher matcher, StringBuilder answer) {
+    private void addPatternAnswer(Dir parentDir, Pattern pattern, StringBuilder answer) {
         for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
-            Path path = Paths.get(dirEntry.getKey());
-            if (matcher.matches(path)) {
+            if (pattern.matcher(dirEntry.getKey()).matches()) {
                 addAnswer(dirEntry.getValue(), answer);
             }
         }
         for (Map.Entry<String, MetricName> metricEntry : parentDir.metrics.entrySet()) {
-            Path path = Paths.get(metricEntry.getKey());
-            if (matcher.matches(path)) {
+            if (pattern.matcher(metricEntry.getKey()).matches()) {
                 addAnswer(metricEntry.getValue(), answer);
             }
         }
