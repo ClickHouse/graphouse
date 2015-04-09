@@ -5,10 +5,13 @@ import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Resource;
 import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -50,13 +53,15 @@ public class MetricSearchServlet extends HttpServlet {
 
     private void search(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String query = req.getParameter("query");
+        final PrintWriter writer = resp.getWriter();
         if (query == null || query.isEmpty()) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            resp.getOutputStream().println("Usage: /search?query=<searchquery>");
+            writer.println("Usage: /search?query=<searchquery>");
             return;
         }
-        String answer = metricSearch.search(query);
-        resp.getOutputStream().print(answer);
+        metricSearch.search(query, writer);
+//        String answer = metricSearch.search(query);
+//        resp.getOutputStream().print(answer);
     }
 
     @Resource

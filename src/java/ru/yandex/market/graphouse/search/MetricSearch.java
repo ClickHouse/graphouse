@@ -2,15 +2,11 @@ package ru.yandex.market.graphouse.search;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.eclipse.jetty.server.Connector;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.ServerConnector;
-import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
 import ru.yandex.market.clickhouse.ClickhouseTemplate;
-import ru.yandex.market.graphouse.Metric;
 
+import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -43,7 +39,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 Thread.sleep(FLUSH_INTERVAL_MILLIS);
             } catch (InterruptedException ignored) {
             }
-            if (!newMetricQueue.isEmpty()){
+            if (!newMetricQueue.isEmpty()) {
                 log.info("Saving " + newMetricQueue.size() + " metric names");
             }
             //TODO save thread
@@ -63,8 +59,8 @@ public class MetricSearch implements InitializingBean, Runnable {
         metricTree.ban(metric);
     }
 
-    public String search(String query) {
-        return metricTree.search(query);
+    public void search(String query, Appendable result) throws IOException {
+        metricTree.search(query, result);
     }
 
     @Required

@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.search;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -11,18 +12,15 @@ import java.util.regex.Pattern;
  */
 public class MetricTree {
 
-    private final Dir root = new Dir("");
+    private final Dir root = new Dir(null, "");
 
-    //TODO передавать сюда стрим
-    public String search(String query) {
-        StringBuilder answer = new StringBuilder();
+    public void search(String query, Appendable result) throws IOException {
         String[] levels = query.split("\\.");
-        search(root, levels, 0, answer);
-        return answer.toString();
+        search(root, levels, 0, result);
     }
 
 
-    private void search(Dir parentDir, String[] levels, int levelIndex, StringBuilder answer) {
+    private void search(Dir parentDir, String[] levels, int levelIndex, Appendable result) throws IOException {
         if (parentDir.ban) {
             return;
         }
@@ -32,29 +30,29 @@ public class MetricTree {
 
         if (!isPattern) {
             if (isLast) {
-                addSimpleAnswer(parentDir, level, answer);
+                appendSimpleResult(parentDir, level, result);
             } else {
                 Dir dir = parentDir.dirs.get(level);
                 if (dir != null) {
-                    search(dir, levels, levelIndex + 1, answer);
+                    search(dir, levels, levelIndex + 1, result);
                 }
             }
         } else if (level.equals("*")) {
             if (isLast) {
-                addAllAnswer(parentDir, answer);
+                appendAllResult(parentDir, result);
             } else {
                 for (Dir dir : parentDir.dirs.values()) {
-                    search(dir, levels, levelIndex + 1, answer);
+                    search(dir, levels, levelIndex + 1, result);
                 }
             }
         } else {
             Pattern pattern = createPattern(level);
             if (isLast) {
-                addPatternAnswer(parentDir, pattern, answer);
+                appendPatternResult(parentDir, pattern, result);
             } else {
                 for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
                     if (pattern.matcher(dirEntry.getKey()).matches()) {
-                        search(dirEntry.getValue(), levels, levelIndex + 1, answer);
+                        search(dirEntry.getValue(), levels, levelIndex + 1, result);
                     }
                 }
             }
@@ -67,43 +65,53 @@ public class MetricTree {
         return Pattern.compile(globPattern);
     }
 
-    private void addSimpleAnswer(Dir parentDir, String name, StringBuilder answer) {
-        addAnswer(parentDir.dirs.get(name), answer);
-        addAnswer(parentDir.metrics.get(name), answer);
+    private void appendSimpleResult(Dir parentDir, String name, Appendable result) throws IOException {
+        appendResult(parentDir.dirs.get(name), result);
+        appendResult(parentDir.metrics.get(name), result);
     }
 
-    private void addAllAnswer(Dir parentDir, StringBuilder answer) {
+    private void appendAllResult(Dir parentDir, Appendable result) throws IOException {
         for (Dir dir : parentDir.dirs.values()) {
-            addAnswer(dir, answer);
+            appendResult(dir, result);
         }
         for (MetricName metric : parentDir.metrics.values()) {
-            addAnswer(metric, answer);
+            appendResult(metric, result);
         }
     }
 
-    private void addPatternAnswer(Dir parentDir, Pattern pattern, StringBuilder answer) {
+    private void appendPatternResult(Dir parentDir, Pattern pattern, Appendable result) throws IOException {
         for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
             if (pattern.matcher(dirEntry.getKey()).matches()) {
-                addAnswer(dirEntry.getValue(), answer);
+                appendResult(dirEntry.getValue(), result);
             }
         }
         for (Map.Entry<String, MetricName> metricEntry : parentDir.metrics.entrySet()) {
             if (pattern.matcher(metricEntry.getKey()).matches()) {
-                addAnswer(metricEntry.getValue(), answer);
+                appendResult(metricEntry.getValue(), result);
             }
         }
     }
 
-    private void addAnswer(Dir dir, StringBuilder answer) {
+    private void appendResult(Dir dir, Appendable result) throws IOException {
         if (dir != null && !dir.ban) {
-            answer.append(dir.fullName).append('\n');
+            appendDir(dir, result);
+            result.append('\n');
         }
     }
 
-    private void addAnswer(MetricName metric, StringBuilder answer) {
+    private void appendResult(MetricName metric, Appendable result) throws IOException {
         if (metric != null && !metric.ban) {
-            answer.append(metric.fullName).append('\n');
+            appendDir(metric.parent, result);
+            result.append(metric.name).append('\n');
         }
+    }
+
+    private void appendDir(Dir dir, Appendable result) throws IOException {
+        if (dir.isRoot()) {
+            return;
+        }
+        appendDir(dir.parent, result);
+        result.append(dir.name).append('.');
     }
 
     /**
@@ -163,17 +171,20 @@ public class MetricTree {
     }
 
     private static class Dir {
-        private final String fullName;
+        private final Dir parent;
+        private final String name;
         private final ConcurrentMap<String, MetricName> metrics = new ConcurrentHashMap<>();
         private final ConcurrentMap<String, Dir> dirs = new ConcurrentHashMap<>();
         private volatile boolean ban = false;
 
-        public Dir(String fullName) {
-            this.fullName = fullName;
+        public Dir(Dir parent, String name) {
+            this.parent = parent;
+            this.name = name;
         }
 
-        public Dir(String fullName, boolean ban) {
-            this.fullName = fullName;
+        public Dir(Dir parent, String name, boolean ban) {
+            this.parent = parent;
+            this.name = name;
             this.ban = ban;
         }
 
@@ -182,7 +193,7 @@ public class MetricTree {
             if (dir != null) {
                 return dir;
             }
-            Dir newDir = new Dir(fullName + name + ".");
+            Dir newDir = new Dir(this, name);
             dir = dirs.putIfAbsent(name, newDir);
             return dir == null ? newDir : dir;
         }
@@ -191,7 +202,7 @@ public class MetricTree {
             if (metrics.containsKey(name)) {
                 return false;
             }
-            MetricName newMetricName = new MetricName(fullName + name);
+            MetricName newMetricName = new MetricName(this, name);
             return metrics.putIfAbsent(name, newMetricName) == null;
         }
 
@@ -204,28 +215,37 @@ public class MetricTree {
             return metrics.get(name);
         }
 
+        private boolean isRoot() {
+            return parent == null;
+        }
+
         @Override
         public String toString() {
-            return "Dir{" +
-                "fullName='" + fullName + '\'' +
-                '}';
+            if (isRoot()) {
+                return "ROOT";
+            }
+            if (parent.isRoot()) {
+                return name;
+            } else {
+                return parent.toString() + "." + name;
+            }
         }
     }
 
     private static class MetricName {
-        private final String fullName;
+        private final Dir parent;
+        private final String name;
 
-        public MetricName(String fullName) {
-            this.fullName = fullName;
+        public MetricName(Dir parent, String name) {
+            this.parent = parent;
+            this.name = name;
         }
 
         private volatile boolean ban = false;
 
         @Override
         public String toString() {
-            return "MetricName{" +
-                "fullName='" + fullName + '\'' +
-                '}';
+            return parent.toString() + "." + name;
         }
     }
 

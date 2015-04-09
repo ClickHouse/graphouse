@@ -2,6 +2,7 @@ package ru.yandex.market.graphouse.search;
 
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
 
 import static org.junit.Assert.*;
@@ -29,10 +30,31 @@ public class MetricTreeTest {
     }
 
 
-    private void search(String pattern, String... expected) {
+    private void search(String pattern, String... expected) throws IOException {
         Arrays.sort(expected);
-        String[] actual = tree.search(pattern).split("\\n");
+        StringBuilder result = new StringBuilder();
+        tree.search(pattern, result);
+        String[] actual = result.toString().split("\\n");
         Arrays.sort(actual);
         assertArrayEquals(expected, actual);
+    }
+
+    private static class StringBuilderResultAppender implements SearchResultAppender {
+        private StringBuilder builder = new StringBuilder();
+
+        @Override
+        public void append(String string) {
+            builder.append(string);
+        }
+
+        @Override
+        public void append(char c) {
+            builder.append(c);
+        }
+
+        @Override
+        public String toString() {
+            return builder.toString();
+        }
     }
 }
