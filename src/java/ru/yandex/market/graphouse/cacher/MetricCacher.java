@@ -11,10 +11,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -30,7 +27,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private int writersCount = 10;
     private int flushIntervalSeconds = 5;
 
-    private Queue<Metric> metricQueue;
+    private BlockingQueue<Metric> metricQueue;
     private AtomicInteger activeWriters = new AtomicInteger(0);
 
     private ClickhouseTemplate clickhouseTemplate;
@@ -45,7 +42,11 @@ public class MetricCacher implements Runnable, InitializingBean {
     }
 
     public void submitMetric(Metric metric) {
-        metricQueue.add(metric);
+        try {
+            metricQueue.put(metric);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -60,7 +61,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     }
 
     private void createBatches() {
-        if (metricQueue.isEmpty()){
+        if (metricQueue.isEmpty()) {
             return;
         }
         log.info("Metric queue size: " + metricQueue.size() + ", active writers: " + activeWriters.get());
