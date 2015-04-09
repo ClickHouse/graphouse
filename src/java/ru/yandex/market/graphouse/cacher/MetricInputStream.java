@@ -41,9 +41,9 @@ public class MetricInputStream extends InputStream {
         if (!fillBuffer()) {
             return -1;
         }
-        int remaining = buffer.remaining();
-        buffer.get(b, off, len);
-        return remaining - buffer.remaining();
+        int read = Math.min(buffer.remaining(), len);
+        buffer.get(b, off, read);
+        return read;
     }
 
     /**
