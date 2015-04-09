@@ -179,13 +179,7 @@ public class MetricTree {
 
         public Dir(Dir parent, String name) {
             this.parent = parent;
-            this.name = name;
-        }
-
-        public Dir(Dir parent, String name, boolean ban) {
-            this.parent = parent;
-            this.name = name;
-            this.ban = ban;
+            this.name = name.intern();
         }
 
         private Dir getOrCreateDir(String name) {
@@ -238,7 +232,7 @@ public class MetricTree {
 
         public MetricName(Dir parent, String name) {
             this.parent = parent;
-            this.name = name;
+            this.name = name.intern();
         }
 
         private volatile boolean ban = false;
