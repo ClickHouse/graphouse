@@ -31,13 +31,7 @@ public class MetricInputStream extends InputStream {
 
     @Override
     public int read() throws IOException {
-        if (!fillBuffer()) {
-            return -1;
-        }
-        if (rowPosition >= buffer.length()) {
-            readRow();
-        }
-        if (rowPosition >= buffer.length()) {
+        if (!ensureBuffer()) {
             return -1;
         }
         return buffer.byteAt(rowPosition++);
@@ -45,7 +39,7 @@ public class MetricInputStream extends InputStream {
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-        if (!fillBuffer()) {
+        if (!ensureBuffer()) {
             return -1;
         }
         int read = Math.min(len, buffer.length() - rowPosition);
@@ -57,11 +51,11 @@ public class MetricInputStream extends InputStream {
     /**
      * @return false если данные закончились
      */
-    private boolean fillBuffer() {
+    private boolean ensureBuffer() {
         if (rowPosition >= buffer.length()) {
             readRow();
         }
-        return rowPosition >= buffer.length();
+        return rowPosition < buffer.length();
     }
 
     private void readRow() {

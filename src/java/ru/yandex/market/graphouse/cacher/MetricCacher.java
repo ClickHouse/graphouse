@@ -22,10 +22,10 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     private static final Logger log = LogManager.getLogger();
 
-    private int cacheSize = 2_000_000;
-    private int batchSize = 200_000;
-    private int writersCount = 10;
-    private int flushIntervalSeconds = 5;
+    private int cacheSize = 1_000_000;
+    private int batchSize = 1_000_000;
+    private int writersCount = 5;
+    private int flushIntervalSeconds = 1;
 
     private BlockingQueue<Metric> metricQueue;
     private AtomicInteger activeWriters = new AtomicInteger(0);
@@ -43,7 +43,7 @@ public class MetricCacher implements Runnable, InitializingBean {
             @Override
             public void run() {
                 log.info("Shutting down metric cacher. Saving all cached metrics...");
-                while (!metricQueue.isEmpty()){
+                while (!metricQueue.isEmpty()) {
                     log.info(metricQueue.size() + " metrics remaining");
                     createBatches();
                     try {
@@ -52,7 +52,7 @@ public class MetricCacher implements Runnable, InitializingBean {
                     }
                 }
                 executorService.shutdown();
-                while (!executorService.isTerminated()){
+                while (!executorService.isTerminated()) {
                     log.info("Awaiting save completion");
                     try {
                         executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
