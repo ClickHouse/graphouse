@@ -89,7 +89,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             int count = 0;
             BulkUpdater bulkUpdater = new BulkUpdater(
                 graphouseJdbcTemplate,
-                "INSERT IGNORE INTO metrics (name) values (?)",
+                "INSERT IGNORE INTO metric (name) values (?)",
                 100000
             );
             String metric;
