@@ -31,7 +31,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private JdbcTemplate graphouseJdbcTemplate;
     private JdbcTemplate sqliteJdbcTemplate;
 
-    private String sqliteDbFileName = "/var/lib/yandex/graphouse/logshatter.db";
+    private String sqliteDbFileName = "/var/lib/yandex/graphouse/graphouse.db";
 
 
     private final MetricTree metricTree = new MetricTree();
@@ -138,7 +138,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private void loadData() {
         lastUpdatedTimestampSeconds = sqliteJdbcTemplate.queryForObject(
-            "select IFNULL(max(value), -1) from params where name = 'updated'",
+            "select IFNULL(max(value), 0) from params where name = 'updated'",
             Integer.class
         );
 
@@ -153,7 +153,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             new RowCallbackHandler() {
                 @Override
                 public void processRow(ResultSet rs) throws SQLException {
-                    add(rs.getString("name"));
+                    metricTree.add(rs.getString("name"));
                     metricCount.incrementAndGet();
                 }
             }
@@ -171,11 +171,10 @@ public class MetricSearch implements InitializingBean, Runnable {
 
         saveNewMetrics();
         sqliteJdbcTemplate.update(
-            "INSERT OR REPLACE INTO params (name, value), ('updated', ?)",
+            "INSERT OR REPLACE INTO params (name, value) VALUES ('updated', ?)",
             lastUpdatedTimestampSeconds
         );
-
-
+        lastUpdatedTimestampSeconds = endTimeSeconds;
     }
 
     private void loadNamesFromClickHouse(int startTimeSeconds, int endTimeSeconds) {
@@ -183,7 +182,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         final AtomicInteger count = new AtomicInteger();
         clickhouseTemplate.query(
             "select distinct Path from graphite " +
-                "where Timestamp > " + startTimeSeconds + " and Timestamp < " + endTimeSeconds,
+                "where Timestamp >= " + startTimeSeconds + " and Timestamp < " + endTimeSeconds,
             new HttpRowCallbackHandler() {
                 @Override
                 public void processRow(HttpResultRow rs) throws SQLException {
@@ -193,7 +192,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 }
             }
         );
-        log.info("Found " + count.get() + " metric names");
+        log.info("Found " + count.get() + " new metric names");
     }
 
     public boolean add(String metric) {
@@ -206,7 +205,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void ban(String metric) {
         graphouseJdbcTemplate.update(
-            "INSERT IGNORE INTO ban (name), values(?)",
+            "INSERT IGNORE INTO ban (name), VALUES (?)",
             metric
         );
         metricTree.ban(metric);
