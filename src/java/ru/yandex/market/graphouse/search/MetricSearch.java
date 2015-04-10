@@ -14,6 +14,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -113,7 +114,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 log.error("Failed to update metric search", e);
             }
             try {
-                Thread.sleep(saveIntervalSeconds);
+                Thread.sleep(TimeUnit.SECONDS.toMillis(saveIntervalSeconds));
             } catch (InterruptedException ignored) {
             }
         }
