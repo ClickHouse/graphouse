@@ -63,7 +63,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         final AtomicInteger banCount = new AtomicInteger();
 
         graphouseJdbcTemplate.query(
-            "SELECT name FROM metric WHERE updated >= ?",
+            "SELECT name, ban FROM metric WHERE updated >= ?",
             new RowCallbackHandler() {
                 @Override
                 public void processRow(ResultSet rs) throws SQLException {
