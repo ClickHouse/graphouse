@@ -80,7 +80,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             },
             startTimestampSeconds
         );
-        log.info("Loaded " + metricCount.get() + "metrics and " + banCount.get() + " bans");
+        log.info("Loaded " + metricCount.get() + " metrics and " + banCount.get() + " bans");
     }
 
     private void saveNewMetrics() {
