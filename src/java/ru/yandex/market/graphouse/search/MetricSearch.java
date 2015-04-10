@@ -1,6 +1,5 @@
 package ru.yandex.market.graphouse.search;
 
-import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
@@ -9,8 +8,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import ru.yandex.common.util.db.BulkUpdater;
 import ru.yandex.market.clickhouse.ClickhouseTemplate;
-import ru.yandex.market.clickhouse.HttpResultRow;
-import ru.yandex.market.clickhouse.HttpRowCallbackHandler;
 
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -29,10 +26,6 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private ClickhouseTemplate clickhouseTemplate;
     private JdbcTemplate graphouseJdbcTemplate;
-    private JdbcTemplate sqliteJdbcTemplate;
-
-    private String sqliteDbFileName = "/var/lib/yandex/graphouse/graphouse.db";
-
 
     private final MetricTree metricTree = new MetricTree();
     private final Queue<String> newMetricQueue = new ConcurrentLinkedQueue<>();
@@ -47,65 +40,56 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        initDatabases();
+        initDatabase();
         new Thread(this, "MetricSearch thread").start();
     }
 
-    private void initDatabases() {
-        BasicDataSource dataSource = new BasicDataSource();
-        dataSource.setDriverClassName("org.sqlite.JDBC");
-        dataSource.setUrl("jdbc:sqlite:" + sqliteDbFileName);
-        sqliteJdbcTemplate = new JdbcTemplate(dataSource);
-
-        sqliteJdbcTemplate.update(
-            "CREATE TABLE IF NOT EXISTS metrics (" +
-                "name TEXT NOT NULL, " +
-                "PRIMARY KEY (name))"
-        );
-
-
-        sqliteJdbcTemplate.update(
-            "CREATE TABLE IF NOT EXISTS params (" +
-                "name TEXT NOT NULL, " +
-                "value INTEGER NOT NULL, " +
-                "PRIMARY KEY (name))"
-        );
-
+    private void initDatabase() {
         graphouseJdbcTemplate.update(
-            "CREATE TABLE IF NOT EXISTS ban (" +
-                "  `name` VARCHAR(255) NOT NULL, " +
-                "  `created` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+            "CREATE TABLE IF NOT EXISTS metric (" +
+                "  `name` VARCHAR(200) NOT NULL, " +
+                "  `ban` BIT NOT NULL DEFAULT 0, " +
+                "  `updated` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
                 "  PRIMARY KEY (`name`), " +
-                "  INDEX (`created`)" +
+                "  INDEX (`updated`)" +
                 ") "
         );
     }
 
-    private int loadBans(int startTimestampSeconds) {
-        final AtomicInteger count = new AtomicInteger();
+    private void loadMetrics(int startTimestampSeconds) {
+        log.info("Loading metric names from db");
+        final AtomicInteger metricCount = new AtomicInteger();
+        final AtomicInteger banCount = new AtomicInteger();
+
         graphouseJdbcTemplate.query(
-            "select name from ban where created > ?",
+            "SELECT name FROM metric WHERE updated >= ?",
             new RowCallbackHandler() {
                 @Override
                 public void processRow(ResultSet rs) throws SQLException {
                     String metric = rs.getString("name");
-                    metricTree.ban(metric);
-                    count.incrementAndGet();
+                    boolean ban = rs.getBoolean("ban");
+                    if (ban) {
+                        metricTree.ban(metric);
+                        banCount.incrementAndGet();
+                    } else {
+                        metricTree.add(metric);
+                        metricCount.incrementAndGet();
+                    }
                 }
             },
             startTimestampSeconds
         );
-        return count.get();
+        log.info("Loaded " + metricCount.get() + " and " + banCount.get() + " bans");
     }
 
     private void saveNewMetrics() {
         if (!newMetricQueue.isEmpty()) {
-            log.info("Saving new metric names to sqlite");
+            log.info("Saving new metric names to db");
             int count = 0;
             BulkUpdater bulkUpdater = new BulkUpdater(
-                sqliteJdbcTemplate,
-                "INSERT OR IGNORE INTO metrics (name) values (?)",
-                1000
+                graphouseJdbcTemplate,
+                "INSERT IGNORE INTO metrics (name) values (?)",
+                100000
             );
             String metric;
             while ((metric = newMetricQueue.poll()) != null) {
@@ -121,10 +105,10 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     @Override
     public void run() {
-        loadData();
         while (!Thread.interrupted()) {
             try {
                 update();
+                saveNewMetrics();
             } catch (Exception e) {
                 log.error("Failed to update metric search", e);
             }
@@ -132,67 +116,13 @@ public class MetricSearch implements InitializingBean, Runnable {
                 Thread.sleep(saveIntervalSeconds);
             } catch (InterruptedException ignored) {
             }
-
         }
     }
 
-    private void loadData() {
-        lastUpdatedTimestampSeconds = sqliteJdbcTemplate.queryForObject(
-            "select IFNULL(max(value), 0) from params where name = 'updated'",
-            Integer.class
-        );
-
-        log.info("Loading metric search data");
-        int count = loadBans(0);
-        log.info("Loaded " + count + " baned metrics");
-
-        log.info("Loading metric names from sqlite");
-        final AtomicInteger metricCount = new AtomicInteger();
-        sqliteJdbcTemplate.query(
-            "select name from metrics",
-            new RowCallbackHandler() {
-                @Override
-                public void processRow(ResultSet rs) throws SQLException {
-                    metricTree.add(rs.getString("name"));
-                    metricCount.incrementAndGet();
-                }
-            }
-        );
-        log.info("Loaded " + metricCount.get() + " metric name from sqlite");
-    }
-
     private void update() {
-        int startTimeSeconds = lastUpdatedTimestampSeconds;
-        int endTimeSeconds = (int) (System.currentTimeMillis() / 1000) - updateDelaySeconds;
-
-        log.info("Loading new bans");
-        loadBans(startTimeSeconds);
-        loadNamesFromClickHouse(startTimeSeconds, endTimeSeconds);
-
-        saveNewMetrics();
-        sqliteJdbcTemplate.update(
-            "INSERT OR REPLACE INTO params (name, value) VALUES ('updated', ?)",
-            lastUpdatedTimestampSeconds
-        );
-        lastUpdatedTimestampSeconds = endTimeSeconds;
-    }
-
-    private void loadNamesFromClickHouse(int startTimeSeconds, int endTimeSeconds) {
-        log.info("Fetching new metric names from Clickhouse");
-        final AtomicInteger count = new AtomicInteger();
-        clickhouseTemplate.query(
-            "select distinct Path from graphite " +
-                "where Timestamp >= " + startTimeSeconds + " and Timestamp < " + endTimeSeconds,
-            new HttpRowCallbackHandler() {
-                @Override
-                public void processRow(HttpResultRow rs) throws SQLException {
-                    if (add(rs.getString("Path"))) {
-                        count.incrementAndGet();
-                    }
-                }
-            }
-        );
-        log.info("Found " + count.get() + " new metric names");
+        int timeSeconds = (int) (System.currentTimeMillis() / 1000) - updateDelaySeconds;
+        loadMetrics(lastUpdatedTimestampSeconds);
+        lastUpdatedTimestampSeconds = timeSeconds;
     }
 
     public boolean add(String metric) {
@@ -205,7 +135,8 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void ban(String metric) {
         graphouseJdbcTemplate.update(
-            "INSERT IGNORE INTO ban (name), VALUES (?)",
+            "INSERT INTO metric (name, ban) VALUES (?, 1) " +
+                "ON DUPLICATE KEY UPDATE ban = 1, updated = CURRENT_TIMESTAMP",
             metric
         );
         metricTree.ban(metric);
@@ -234,7 +165,4 @@ public class MetricSearch implements InitializingBean, Runnable {
         this.updateDelaySeconds = updateDelaySeconds;
     }
 
-    public void setSqliteDbFileName(String sqliteDbFileName) {
-        this.sqliteDbFileName = sqliteDbFileName;
-    }
 }
