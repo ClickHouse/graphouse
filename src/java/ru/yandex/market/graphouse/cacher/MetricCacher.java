@@ -27,6 +27,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private int writersCount = 5;
     private int flushIntervalSeconds = 1;
 
+    private final Semaphore semaphore = new Semaphore(0, true);
     private BlockingQueue<Metric> metricQueue;
     private AtomicInteger activeWriters = new AtomicInteger(0);
 
@@ -37,6 +38,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         metricQueue = new ArrayBlockingQueue<>(cacheSize);
+        semaphore.release(cacheSize);
         executorService = Executors.newFixedThreadPool(writersCount);
         new Thread(this, "Metric cacher thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
@@ -66,6 +68,7 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     public void submitMetric(Metric metric) {
         try {
+            semaphore.acquire();
             metricQueue.put(metric);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
@@ -87,7 +90,8 @@ public class MetricCacher implements Runnable, InitializingBean {
         if (metricQueue.isEmpty()) {
             return;
         }
-        log.info("Metric queue size: " + metricQueue.size() + ", active writers: " + activeWriters.get());
+        int queueSize = cacheSize - semaphore.availablePermits();
+        log.info("Metric queue size: " + queueSize + ", active writers: " + activeWriters.get());
         //TODO мониторинг, если очередь слишком большая
         while (activeWriters.get() < writersCount) {
             List<Metric> metrics = createBatch();
@@ -131,6 +135,7 @@ public class MetricCacher implements Runnable, InitializingBean {
                     saveMetrics();
                     long processed = System.currentTimeMillis() - start;
                     log.info("Saved " + metrics.size() + " metrics in " + processed + "ms");
+                    semaphore.release(metrics.size());
                     ok = true;
                 } catch (Exception e) {
                     log.error("Failed to save metrics. Waiting 1 second before retry", e);
