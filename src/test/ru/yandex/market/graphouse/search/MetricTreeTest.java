@@ -29,7 +29,6 @@ public class MetricTreeTest {
 
     }
 
-
     private void search(String pattern, String... expected) throws IOException {
         Arrays.sort(expected);
         StringBuilder result = new StringBuilder();
@@ -37,24 +36,5 @@ public class MetricTreeTest {
         String[] actual = result.toString().split("\\n");
         Arrays.sort(actual);
         assertArrayEquals(expected, actual);
-    }
-
-    private static class StringBuilderResultAppender implements SearchResultAppender {
-        private StringBuilder builder = new StringBuilder();
-
-        @Override
-        public void append(String string) {
-            builder.append(string);
-        }
-
-        @Override
-        public void append(char c) {
-            builder.append(c);
-        }
-
-        @Override
-        public String toString() {
-            return builder.toString();
-        }
     }
 }
