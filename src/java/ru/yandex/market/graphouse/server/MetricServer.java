@@ -78,16 +78,17 @@ public class MetricServer implements InitializingBean {
 
         private void read() throws IOException {
             Date currentDate = new Date();
-            Socket socket = serverSocket.accept();
-            socket.setSoTimeout(socketTimeoutMillis);
-            //TODO написать побыстрее
-            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                Metric metric = createMetric(line, currentDate);
-                if (metric != null) {
-                    metricCacher.submitMetric(metric);
-                    metricSearch.add(metric.getName());
+            try (Socket socket = serverSocket.accept()) {
+                socket.setSoTimeout(socketTimeoutMillis);
+                //TODO написать побыстрее
+                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    Metric metric = createMetric(line, currentDate);
+                    if (metric != null) {
+                        metricCacher.submitMetric(metric);
+                        metricSearch.add(metric.getName());
+                    }
                 }
             }
         }
