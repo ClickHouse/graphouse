@@ -27,7 +27,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private int writersCount = 5;
     private int flushIntervalSeconds = 1;
 
-    private final Semaphore semaphore = new Semaphore(0, true);
+    private final Semaphore semaphore = new Semaphore(0, false);
     private BlockingQueue<Metric> metricQueue;
     private AtomicInteger activeWriters = new AtomicInteger(0);
 
