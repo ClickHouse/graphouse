@@ -12,6 +12,8 @@ configure)
 	mkdir -p $LIBDIR
 	mkdir -p $CONFIGDIR
 
+	chmod +x /etc/yandex/$DAEMON/ulimit.conf
+
 	if ! chown $DAEMON:nogroup -R $LOGDIR $RUNDIR 2>/dev/null
 	then
 		useradd $DAEMON -g nogroup
