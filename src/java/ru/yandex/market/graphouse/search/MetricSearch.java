@@ -61,8 +61,9 @@ public class MetricSearch implements InitializingBean, Runnable {
         final AtomicInteger metricCount = new AtomicInteger();
         final AtomicInteger banCount = new AtomicInteger();
 
+        //Сначала беред забаненные, что бы не добавлять в дерево лишние ветки.
         graphouseJdbcTemplate.query(
-            "SELECT name, ban FROM metric WHERE updated >= ?",
+            "SELECT name, ban FROM metric WHERE updated >= ? ORDER BY ban DESC",
             new RowCallbackHandler() {
                 @Override
                 public void processRow(ResultSet rs) throws SQLException {
