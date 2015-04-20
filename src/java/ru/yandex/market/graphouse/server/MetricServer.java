@@ -5,10 +5,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
-import ru.yandex.market.graphouse.cacher.MetricCacher;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.MetricValidator;
+import ru.yandex.market.graphouse.cacher.MetricCacher;
 import ru.yandex.market.graphouse.search.MetricSearch;
+import ru.yandex.market.graphouse.search.MetricStatus;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -18,7 +19,6 @@ import java.net.Socket;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -87,14 +87,13 @@ public class MetricServer implements InitializingBean {
                     Metric metric = createMetric(line, currentDate);
                     if (metric != null) {
                         metricCacher.submitMetric(metric);
-                        metricSearch.add(metric.getName());
                     }
                 }
             }
         }
     }
 
-    private static Metric createMetric(String line, Date currentDate) {
+    private Metric createMetric(String line, Date currentDate) {
         String[] splits = line.split(" ");
         if (splits.length != 3) {
             return null;
@@ -109,11 +108,15 @@ public class MetricServer implements InitializingBean {
             if (time <= 0) {
                 return null;
             }
-            return new Metric(name, time, value, currentDate);
+            MetricStatus status = metricSearch.add(name);
+            if (status == MetricStatus.NEW || status == MetricStatus.EXISTING) {
+                return new Metric(name, time, value, currentDate);
+            } else {
+                return null;
+            }
         } catch (NumberFormatException e) {
             return null;
         }
-
     }
 
     @Required

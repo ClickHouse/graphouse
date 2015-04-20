@@ -25,7 +25,6 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private static final Logger log = LogManager.getLogger();
 
-    private ClickhouseTemplate clickhouseTemplate;
     private JdbcTemplate graphouseJdbcTemplate;
 
     private final MetricTree metricTree = new MetricTree();
@@ -126,12 +125,13 @@ public class MetricSearch implements InitializingBean, Runnable {
         lastUpdatedTimestampSeconds = timeSeconds;
     }
 
-    public boolean add(String metric) {
-        if (metricTree.add(metric)) {
+
+    public MetricStatus add(String metric) {
+        MetricStatus status = metricTree.add(metric);
+        if (status == MetricStatus.NEW) {
             newMetricQueue.add(metric);
-            return true;
         }
-        return false;
+        return status;
     }
 
     public void ban(String metric) {
@@ -145,12 +145,6 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void search(String query, Appendable result) throws IOException {
         metricTree.search(query, result);
-    }
-
-
-    @Required
-    public void setClickhouseTemplate(ClickhouseTemplate clickhouseTemplate) {
-        this.clickhouseTemplate = clickhouseTemplate;
     }
 
     @Required

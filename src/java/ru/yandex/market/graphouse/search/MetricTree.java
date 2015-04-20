@@ -118,7 +118,7 @@ public class MetricTree {
      * @param metric
      * @return true - если новая метрика была добавлена
      */
-    public boolean add(String metric) {
+    public MetricStatus add(String metric) {
         return modify(metric, false);
     }
 
@@ -127,20 +127,20 @@ public class MetricTree {
         modify(metric, true);
     }
 
-    private boolean modify(String metric, boolean ban) {
+    private MetricStatus modify(String metric, boolean ban) {
         if (containsExpressions(metric)) {
-            return false;
+            return MetricStatus.WRONG;
         }
         boolean isDir = metric.charAt(metric.length() - 1) == '.';
         if (isDir && !ban) {
-            return false;
+            return MetricStatus.WRONG;
         }
 
         String[] levels = metric.split("\\.");
         Dir dir = root;
         for (int i = 0; i < levels.length; i++) {
             if (dir.ban) {
-                return false;
+                return MetricStatus.BAN;
             }
             String level = levels[i];
             boolean isLast = (i == levels.length - 1);
@@ -149,7 +149,7 @@ public class MetricTree {
             } else {
                 if (ban) {
                     ban(dir, level, isDir);
-                    return true;
+                    return MetricStatus.BAN;
                 } else {
                     return dir.createMetric(level);
                 }
@@ -192,12 +192,16 @@ public class MetricTree {
             return dir == null ? newDir : dir;
         }
 
-        private boolean createMetric(String name) {
+        private MetricStatus createMetric(String name) {
             if (metrics.containsKey(name)) {
-                return false;
+                return MetricStatus.EXISTING;
             }
             MetricName newMetricName = new MetricName(this, name);
-            return metrics.putIfAbsent(name, newMetricName) == null;
+            if (metrics.putIfAbsent(name, newMetricName) == null) {
+                return MetricStatus.NEW;
+            } else {
+                return MetricStatus.EXISTING;
+            }
         }
 
         private MetricName getOrCreateMetric(String name) {
