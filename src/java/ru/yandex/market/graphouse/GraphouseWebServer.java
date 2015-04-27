@@ -27,6 +27,7 @@ public class GraphouseWebServer implements InitializingBean {
     private int threadCount = 20;
 
     private MetricSearchServlet metricSearchServlet;
+    private MonitoringServlet monitoringServlet;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -43,7 +44,9 @@ public class GraphouseWebServer implements InitializingBean {
         ServletHolder metricSearchServletHolder = new ServletHolder(metricSearchServlet);
         context.addServlet(metricSearchServletHolder, "/ban/*");
         context.addServlet(metricSearchServletHolder, "/search/*");
-        //TODO add ping!!
+        ServletHolder monitoringServletHolder = new ServletHolder(monitoringServlet);
+        context.addServlet(monitoringServletHolder, "/ping");
+        context.addServlet(monitoringServletHolder, "/monitoring");
         HandlerCollection handlers = new HandlerCollection();
         handlers.setHandlers(new Handler[]{context, new DefaultHandler()});
         server.setHandler(handlers);
@@ -54,6 +57,11 @@ public class GraphouseWebServer implements InitializingBean {
     @Required
     public void setMetricSearchServlet(MetricSearchServlet metricSearchServlet) {
         this.metricSearchServlet = metricSearchServlet;
+    }
+
+    @Required
+    public void setMonitoringServlet(MonitoringServlet monitoringServlet) {
+        this.monitoringServlet = monitoringServlet;
     }
 
     public void setMetricSearchPort(int metricSearchPort) {
