@@ -60,8 +60,6 @@ public class MetricSearchServlet extends HttpServlet {
             return;
         }
         metricSearch.search(query, writer);
-//        String answer = metricSearch.search(query);
-//        resp.getOutputStream().print(answer);
     }
 
     @Resource

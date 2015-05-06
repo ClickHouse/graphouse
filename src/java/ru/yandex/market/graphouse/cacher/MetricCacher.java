@@ -6,6 +6,8 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
 import ru.yandex.market.clickhouse.ClickhouseTemplate;
 import ru.yandex.market.graphouse.Metric;
+import ru.yandex.market.monitoring.ComplicatedMonitoring;
+import ru.yandex.market.monitoring.MonitoringUnit;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -22,16 +24,20 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     private static final Logger log = LogManager.getLogger();
 
+    private ClickhouseTemplate clickhouseTemplate;
+    private ComplicatedMonitoring monitoring;
+
+
     private int cacheSize = 1_000_000;
     private int batchSize = 1_000_000;
     private int writersCount = 5;
     private int flushIntervalSeconds = 1;
 
+    private MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue");
     private final Semaphore semaphore = new Semaphore(0, false);
     private BlockingQueue<Metric> metricQueue;
     private AtomicInteger activeWriters = new AtomicInteger(0);
 
-    private ClickhouseTemplate clickhouseTemplate;
 
     private ExecutorService executorService;
 
@@ -40,6 +46,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         metricQueue = new ArrayBlockingQueue<>(cacheSize);
         semaphore.release(cacheSize);
         executorService = Executors.newFixedThreadPool(writersCount);
+        monitoring.addUnit(metricCacherQueryUnit);
         new Thread(this, "Metric cacher thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
@@ -88,11 +95,16 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     private void createBatches() {
         if (metricQueue.isEmpty()) {
+            metricCacherQueryUnit.ok();
             return;
         }
         int queueSize = cacheSize - semaphore.availablePermits();
-        log.info("Metric queue size: " + queueSize + ", active writers: " + activeWriters.get());
-        //TODO мониторинг, если очередь слишком большая
+        double queueOccupancyPercent = queueSize * 100.0 / cacheSize;
+        log.info(
+            "Metric queue size: " + queueSize + "(" + queueOccupancyPercent + "%)" +
+                ", active writers: " + activeWriters.get()
+        );
+        queueSizeMonitoring(queueOccupancyPercent);
         while (activeWriters.get() < writersCount) {
             List<Metric> metrics = createBatch();
             if (metrics.isEmpty()) {
@@ -103,6 +115,16 @@ public class MetricCacher implements Runnable, InitializingBean {
             if (metrics.size() < batchSize) {
                 return; //Не набрали полный батч, значит больше и не надо
             }
+        }
+    }
+
+    private void queueSizeMonitoring(double queueOccupancyPercent) {
+        if (queueOccupancyPercent >= 95) {
+            metricCacherQueryUnit.critical("Metric queue size >= 95%");
+        } else if (queueOccupancyPercent >= 80) {
+            metricCacherQueryUnit.warning("Metric queue size >= 80%");
+        } else {
+            metricCacherQueryUnit.ok();
         }
     }
 
@@ -139,6 +161,9 @@ public class MetricCacher implements Runnable, InitializingBean {
                     ok = true;
                 } catch (Exception e) {
                     log.error("Failed to save metrics. Waiting 1 second before retry", e);
+                    monitoring.addTemporaryCritical(
+                        "MetricCacherClickhouseOutput", e.getMessage(), 1, TimeUnit.MINUTES
+                    );
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException ignored) {
@@ -157,6 +182,11 @@ public class MetricCacher implements Runnable, InitializingBean {
     @Required
     public void setClickhouseTemplate(ClickhouseTemplate clickhouseTemplate) {
         this.clickhouseTemplate = clickhouseTemplate;
+    }
+
+    @Required
+    public void setMonitoring(ComplicatedMonitoring monitoring) {
+        this.monitoring = monitoring;
     }
 
     public void setCacheSize(int cacheSize) {

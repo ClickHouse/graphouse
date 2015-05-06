@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import ru.yandex.common.util.db.BulkUpdater;
 import ru.yandex.market.clickhouse.ClickhouseTemplate;
+import ru.yandex.market.monitoring.ComplicatedMonitoring;
+import ru.yandex.market.monitoring.MonitoringUnit;
 
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -26,7 +28,9 @@ public class MetricSearch implements InitializingBean, Runnable {
     private static final Logger log = LogManager.getLogger();
 
     private JdbcTemplate graphouseJdbcTemplate;
+    private ComplicatedMonitoring monitoring;
 
+    private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch");
     private final MetricTree metricTree = new MetricTree();
     private final Queue<String> newMetricQueue = new ConcurrentLinkedQueue<>();
 
@@ -41,6 +45,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Override
     public void afterPropertiesSet() throws Exception {
         initDatabase();
+        monitoring.addUnit(metricSearchUnit);
         new Thread(this, "MetricSearch thread").start();
     }
 
@@ -110,8 +115,10 @@ public class MetricSearch implements InitializingBean, Runnable {
             try {
                 update();
                 saveNewMetrics();
+                metricSearchUnit.ok();
             } catch (Exception e) {
                 log.error("Failed to update metric search", e);
+                metricSearchUnit.critical("Failed to update metric search: " + e.getMessage(), e);
             }
             try {
                 Thread.sleep(TimeUnit.SECONDS.toMillis(saveIntervalSeconds));
@@ -151,6 +158,11 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Required
     public void setGraphouseJdbcTemplate(JdbcTemplate graphouseJdbcTemplate) {
         this.graphouseJdbcTemplate = graphouseJdbcTemplate;
+    }
+
+    @Required
+    public void setMonitoring(ComplicatedMonitoring monitoring) {
+        this.monitoring = monitoring;
     }
 
     public void setSaveIntervalSeconds(int saveIntervalSeconds) {

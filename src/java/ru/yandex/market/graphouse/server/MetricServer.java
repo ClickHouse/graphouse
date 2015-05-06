@@ -80,7 +80,6 @@ public class MetricServer implements InitializingBean {
             Date currentDate = new Date();
             try (Socket socket = serverSocket.accept()) {
                 socket.setSoTimeout(socketTimeoutMillis);
-                //TODO написать побыстрее
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String line;
                 while ((line = reader.readLine()) != null) {
