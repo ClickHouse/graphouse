@@ -22,10 +22,11 @@ public class MonitoringServlet extends HttpServlet {
             case "/ping":
                 ping(resp);
                 break;
-            case "/ban":
+            case "/monitoring":
                 monitoring(resp);
                 break;
             default:
+                resp.getWriter().print("Bad request");
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 break;
         }
