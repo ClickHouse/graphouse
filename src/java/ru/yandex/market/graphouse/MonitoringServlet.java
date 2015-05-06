@@ -18,6 +18,25 @@ public class MonitoringServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        switch (req.getRequestURI()) {
+            case "/ping":
+                ping(resp);
+                break;
+            case "/ban":
+                monitoring(resp);
+                break;
+            default:
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                break;
+        }
+    }
+
+    private void ping(HttpServletResponse resp) throws IOException {
+        resp.setStatus(HttpServletResponse.SC_OK);
+        resp.getWriter().print("0;OK");
+    }
+
+    private void monitoring(HttpServletResponse resp) throws IOException {
         ComplicatedMonitoring.Result result = monitoring.getResult();
         switch (result.getStatus()) {
             case OK:
