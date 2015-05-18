@@ -75,13 +75,12 @@ public class MetricServer implements InitializingBean {
         }
 
         private void read() throws IOException {
-            Date currentDate = new Date();
             try (Socket socket = serverSocket.accept()) {
                 socket.setSoTimeout(socketTimeoutMillis);
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    Metric metric = metricFactory.createMetric(line, currentDate);
+                    Metric metric = metricFactory.createMetric(line);
                     if (metric != null) {
                         metricCacher.submitMetric(metric);
                     }

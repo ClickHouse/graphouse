@@ -31,7 +31,7 @@ public class MetricFactory {
     private String hostMetricDir = "HOST";
     private List<String> hostPostfixes = Arrays.asList("yandex_net", "yandex_ru");
 
-    public Metric createMetric(String line, Date currentDate) {
+    public Metric createMetric(String line) {
 
         String[] splits = line.split(" ");
         if (splits.length != 3) {
@@ -47,10 +47,11 @@ public class MetricFactory {
             if (time <= 0) {
                 return null;
             }
+            Date date = new Date(time * 1000L);
             name = processName(name);
             MetricStatus status = metricSearch.add(name);
             if (status == MetricStatus.NEW || status == MetricStatus.EXISTING) {
-                return new Metric(name, time, value, currentDate);
+                return new Metric(name, time, value, date);
             } else {
                 return null;
             }
