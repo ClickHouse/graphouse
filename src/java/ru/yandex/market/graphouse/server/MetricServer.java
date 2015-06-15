@@ -66,13 +66,14 @@ public class MetricServer implements InitializingBean {
 
         @Override
         public void run() {
-            while (!Thread.interrupted()) {
+            while (!Thread.interrupted() && !serverSocket.isClosed()) {
                 try {
                     read();
                 } catch (Exception e) {
                     log.warn("Failed to read data", e);
                 }
             }
+            log.info("MetricServerWorker stoped");
         }
 
         private void read() throws IOException {
