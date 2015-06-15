@@ -41,6 +41,7 @@ public class AutoHideService implements InitializingBean, Runnable {
             return;
         }
         scheduler.scheduleAtFixedRate(this, runDelayMinutes, TimeUnit.DAYS.toMinutes(1), TimeUnit.MINUTES);
+        log.info("Autohide scheduled");
     }
 
     @Override
