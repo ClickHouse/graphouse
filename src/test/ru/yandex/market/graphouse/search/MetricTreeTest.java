@@ -23,7 +23,7 @@ public class MetricTreeTest {
         search("*", "five_sec.");
         search("five_sec.*", "five_sec.int_8742.", "five_sec.int_8743.");
 
-        tree.ban("five_sec.int_8743.");
+        tree.add("five_sec.int_8743.", MetricStatus.BAN);
         search("five_sec.*", "five_sec.int_8742.");
         search("five_sec.*", "five_sec.int_8742.");
 

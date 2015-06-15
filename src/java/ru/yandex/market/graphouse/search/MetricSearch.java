@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Required;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import ru.yandex.common.util.db.BulkUpdater;
-import ru.yandex.market.clickhouse.ClickhouseTemplate;
 import ru.yandex.market.monitoring.ComplicatedMonitoring;
 import ru.yandex.market.monitoring.MonitoringUnit;
 
@@ -53,7 +52,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         graphouseJdbcTemplate.update(
             "CREATE TABLE IF NOT EXISTS metric (" +
                 "  `name` VARCHAR(200) NOT NULL, " +
-                "  `ban` BIT NOT NULL DEFAULT 0, " +
+                "  `status` TINYINT NOT NULL DEFAULT 0, " +
                 "  `updated` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
                 "  PRIMARY KEY (`name`), " +
                 "  INDEX (`updated`)" +
@@ -64,28 +63,22 @@ public class MetricSearch implements InitializingBean, Runnable {
     private void loadMetrics(int startTimestampSeconds) {
         log.info("Loading metric names from db");
         final AtomicInteger metricCount = new AtomicInteger();
-        final AtomicInteger banCount = new AtomicInteger();
 
-        //Сначала беред забаненные, что бы не добавлять в дерево лишние ветки.
         graphouseJdbcTemplate.query(
-            "SELECT name, ban FROM metric WHERE updated >= ? ORDER BY ban DESC",
+            "SELECT name, status FROM metric WHERE updated >= ? ORDER BY status DESC",
             new RowCallbackHandler() {
                 @Override
                 public void processRow(ResultSet rs) throws SQLException {
                     String metric = rs.getString("name");
-                    boolean ban = rs.getBoolean("ban");
-                    if (ban) {
-                        metricTree.ban(metric);
-                        banCount.incrementAndGet();
-                    } else {
-                        metricTree.add(metric);
-                        metricCount.incrementAndGet();
-                    }
+                    MetricStatus status = MetricStatus.forId(rs.getInt("status"));
+                    metricTree.add(metric, status);
+                    metricCount.incrementAndGet();
+
                 }
             },
             startTimestampSeconds
         );
-        log.info("Loaded " + metricCount.get() + " metrics and " + banCount.get() + " bans");
+        log.info("Loaded " + metricCount.get() + " metrics");
     }
 
     private void saveNewMetrics() {
@@ -113,7 +106,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     public void run() {
         while (!Thread.interrupted()) {
             try {
-                update();
+                loadNewMetrics();
                 saveNewMetrics();
                 metricSearchUnit.ok();
             } catch (Exception e) {
@@ -127,28 +120,66 @@ public class MetricSearch implements InitializingBean, Runnable {
         }
     }
 
-    private void update() {
+    public void loadNewMetrics() {
         int timeSeconds = (int) (System.currentTimeMillis() / 1000) - updateDelaySeconds;
         loadMetrics(lastUpdatedTimestampSeconds);
         lastUpdatedTimestampSeconds = timeSeconds;
     }
 
-
-    public MetricStatus add(String metric) {
-        MetricStatus status = metricTree.add(metric);
-        if (status == MetricStatus.NEW) {
+    public QueryStatus add(String metric) {
+        QueryStatus status = metricTree.add(metric);
+        if (status == QueryStatus.NEW) {
             newMetricQueue.add(metric);
         }
         return status;
     }
 
-    public void ban(String metric) {
+    public int multiModify(String query, final MetricStatus status, final Appendable result) throws IOException {
+        final StringBuilder metricBuilder = new StringBuilder();
+        final AtomicInteger count = new AtomicInteger();
+
+        metricTree.search(query, new Appendable() {
+            @Override
+            public Appendable append(CharSequence csq) {
+                metricBuilder.append(csq);
+                return this;
+            }
+
+            @Override
+            public Appendable append(CharSequence csq, int start, int end) {
+                metricBuilder.append(csq, start, end);
+                return this;
+            }
+
+            @Override
+            public Appendable append(char c) throws IOException{
+                if (c == '\n') {
+                    modify(metricBuilder.toString(), status);
+                    if (result != null){
+                        result.append(metricBuilder).append('\n');
+                    }
+                    metricBuilder.setLength(0);
+                    count.incrementAndGet();
+                } else {
+                    metricBuilder.append(c);
+                }
+                return this;
+            }
+        });
+        return count.get();
+    }
+
+    public void modify(String metric, MetricStatus status) {
+        if (status.equals(MetricStatus.SIMPLE)) {
+            throw new IllegalStateException();
+        }
         graphouseJdbcTemplate.update(
-            "INSERT INTO metric (name, ban) VALUES (?, 1) " +
-                "ON DUPLICATE KEY UPDATE ban = 1, updated = CURRENT_TIMESTAMP",
+            "INSERT INTO metric (name, status) VALUES (?, ?) " +
+                "ON DUPLICATE KEY UPDATE status = ?, updated = CURRENT_TIMESTAMP",
             metric
         );
-        metricTree.ban(metric);
+        metricTree.add(metric, status);
+        log.info("Updated metric '" + metric + "', status: " + status.name());
     }
 
     public void search(String query, Appendable result) throws IOException {

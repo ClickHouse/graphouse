@@ -23,15 +23,4 @@ public class MetricFactoryTest {
         assertEquals(expected, factory.processName(metric));
     }
 
-    @Test
-    public void testValidate() throws Exception {
-        assertFalse(MetricFactory.validate("gdsgsgs"));
-        assertFalse(MetricFactory.validate("one_min.fdsfdsfs..fdsfsfsd"));
-        assertFalse(MetricFactory.validate("one_min.fdsfdsfs.fdsfsfsd."));
-        assertFalse(MetricFactory.validate(".one_min.fdsfdsfs.fdsfsfsd"));
-        assertFalse(MetricFactory.validate("one_min..x"));
-        assertFalse(MetricFactory.validate("one_min.x.x.d.d.d.d.d.d.x.x.x.x.d"));
-        assertFalse(MetricFactory.validate("ten_min.fdsfdsfs.fdsfsfsd"));
-        assertTrue(MetricFactory.validate("one_min.fdsfdsfs.fdsfsfsd"));
-    }
 }

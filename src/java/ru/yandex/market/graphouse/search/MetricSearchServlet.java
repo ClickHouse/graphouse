@@ -29,27 +29,67 @@ public class MetricSearchServlet extends HttpServlet {
                 search(req, resp);
                 break;
             case "/ban":
-                ban(req, resp);
+                modify(req, resp, MetricStatus.BAN);
+                break;
+            case "/multiBan":
+                multiModify(req, resp, MetricStatus.BAN);
+                break;
+            case "/approve":
+                modify(req, resp, MetricStatus.APPROVED);
+                break;
+            case "/multiApprove":
+                multiModify(req, resp, MetricStatus.APPROVED);
+                break;
+            case "/hide":
+                modify(req, resp, MetricStatus.HIDDEN);
+                break;
+            case "/multiHide":
+                multiModify(req, resp, MetricStatus.HIDDEN);
                 break;
             default:
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                resp.getOutputStream().println("Usage:");
-                resp.getOutputStream().println("/search?query=<searchquery>");
-                resp.getOutputStream().println("/ban?name=<metricname>");
+                badRequest(resp);
                 break;
         }
     }
 
-    private void ban(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    private void badRequest(HttpServletResponse resp) throws IOException {
+        resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        resp.getOutputStream().println("Usage:");
+        resp.getOutputStream().println("/search?query=<pattern>");
+        resp.getOutputStream().println("/ban?name=<metric>");
+        resp.getOutputStream().println("/multiBan?query=<pattern>");
+        resp.getOutputStream().println("/approve?name=<metric>");
+        resp.getOutputStream().println("/multiApprove?query=<pattern>");
+        resp.getOutputStream().println("/hide?name=<metric>");
+        resp.getOutputStream().println("/multiHide?query=<pattern>");
+    }
+
+    private void modify(HttpServletRequest req, HttpServletResponse resp, MetricStatus status) throws IOException {
         String metric = req.getParameter("name");
         if (metric == null || metric.isEmpty()) {
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            resp.getOutputStream().println("Usage: /ban?name=<metricname>");
+            badRequest(resp);
             return;
         }
-        metricSearch.ban(metric);
-        resp.getOutputStream().println("Baned: " + metric);
+        metricSearch.modify(metric, status);
+        resp.getOutputStream().println("Updated to status " + status + ": " + metric);
+
     }
+
+    private void multiModify(HttpServletRequest req, HttpServletResponse resp, MetricStatus status) throws IOException {
+        String query = req.getParameter("query");
+        if (query == null || query.isEmpty()) {
+            badRequest(resp);
+            return;
+        }
+
+        final PrintWriter writer = resp.getWriter();
+        writer.println("Status changed to " + status.name() + ":");
+        writer.println();
+        int count = metricSearch.multiModify(query, status, writer);
+        writer.println();
+        writer.println("Total count: " + count);
+    }
+
 
     private void search(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String query = req.getParameter("query");

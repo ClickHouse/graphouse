@@ -42,8 +42,13 @@ public class GraphouseWebServer implements InitializingBean {
         ServletContextHandler context = new ServletContextHandler();
         context.setContextPath("/");
         ServletHolder metricSearchServletHolder = new ServletHolder(metricSearchServlet);
-        context.addServlet(metricSearchServletHolder, "/ban/*");
         context.addServlet(metricSearchServletHolder, "/search/*");
+        context.addServlet(metricSearchServletHolder, "/ban/*");
+        context.addServlet(metricSearchServletHolder, "/multiBan/*");
+        context.addServlet(metricSearchServletHolder, "/approve/*");
+        context.addServlet(metricSearchServletHolder, "/multiApprove/*");
+        context.addServlet(metricSearchServletHolder, "/hide/*");
+        context.addServlet(metricSearchServletHolder, "/multiHide/*");
         ServletHolder monitoringServletHolder = new ServletHolder(monitoringServlet);
         context.addServlet(monitoringServletHolder, "/ping");
         context.addServlet(monitoringServletHolder, "/monitoring");
