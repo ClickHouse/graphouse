@@ -28,7 +28,7 @@ public class AutoHideService implements InitializingBean, Runnable {
     private MetricSearch metricSearch;
     private boolean enabled = true;
 
-    private int maxValuesCount = 500;
+    private int maxValuesCount = 200;
     private int missingDays = 7;
     private int runDelayMinutes = 10;
 
