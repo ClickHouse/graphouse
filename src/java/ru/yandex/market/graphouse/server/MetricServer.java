@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -75,7 +76,8 @@ public class MetricServer implements InitializingBean {
         }
 
         private void read() throws IOException {
-            try (Socket socket = serverSocket.accept()) {
+            Socket socket = serverSocket.accept();
+            try {
                 socket.setSoTimeout(socketTimeoutMillis);
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String line;
@@ -85,6 +87,10 @@ public class MetricServer implements InitializingBean {
                         metricCacher.submitMetric(metric);
                     }
                 }
+            } catch (SocketTimeoutException e) {
+                log.warn("Socket timeout from " + socket.getRemoteSocketAddress().toString());
+            } finally {
+                socket.close();
             }
         }
     }
