@@ -19,7 +19,7 @@ import ru.yandex.market.graphouse.search.MetricSearchServlet;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
  * @date 08/04/15
  */
-public class GraphouseWebServer implements InitializingBean {
+public class GraphouseWebServer implements InitializingBean{
 
     private static final Logger log = LogManager.getLogger();
 
@@ -56,7 +56,6 @@ public class GraphouseWebServer implements InitializingBean {
         handlers.setHandlers(new Handler[]{context, new DefaultHandler()});
         server.setHandler(handlers);
         server.start();
-        server.join();
     }
 
     @Required
