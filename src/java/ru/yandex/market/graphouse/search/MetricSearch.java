@@ -176,7 +176,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         graphouseJdbcTemplate.update(
             "INSERT INTO metric (name, status) VALUES (?, ?) " +
                 "ON DUPLICATE KEY UPDATE status = ?, updated = CURRENT_TIMESTAMP",
-            metric
+            metric, status.getId(), status.getId()
         );
         metricTree.add(metric, status);
         log.info("Updated metric '" + metric + "', status: " + status.name());
