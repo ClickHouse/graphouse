@@ -30,7 +30,7 @@ public class MetricServer implements InitializingBean {
     private MetricFactory metricFactory;
 
     private int port = 2024;
-    private int socketTimeoutMillis = 5000;
+    private int socketTimeoutMillis = 50_000;
     private int threadCount = 20;
 
     private ServerSocket serverSocket;

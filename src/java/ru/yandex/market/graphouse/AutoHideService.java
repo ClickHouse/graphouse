@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AutoHideService implements InitializingBean, Runnable {
 
     private static final Logger log = LogManager.getLogger();
-    private static final int BATCH_SIZE = 5_000;
+    private static final int BATCH_SIZE = 50_000;
 
     private ClickhouseTemplate clickhouseTemplate;
     private MetricSearch metricSearch;
