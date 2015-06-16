@@ -203,7 +203,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         if (metrics.size() == 1) {
             log.info("Updated metric '" + metrics.get(0) + "', status: " + status.name());
         } else {
-            log.info("Updated " + metrics.size() + "metrics, status: " + status.name());
+            log.info("Updated " + metrics.size() + " metrics, status: " + status.name());
         }
     }
 
