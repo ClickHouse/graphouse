@@ -7,12 +7,15 @@ import org.springframework.beans.factory.annotation.Required;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import ru.yandex.common.util.db.BulkUpdater;
+import ru.yandex.market.graphite.MetricValidator;
 import ru.yandex.market.monitoring.ComplicatedMonitoring;
 import ru.yandex.market.monitoring.MonitoringUnit;
 
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MetricSearch implements InitializingBean, Runnable {
 
     private static final Logger log = LogManager.getLogger();
+
+    private static final int BATCH_SIZE = 50_000;
 
     private JdbcTemplate graphouseJdbcTemplate;
     private ComplicatedMonitoring monitoring;
@@ -88,7 +93,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             BulkUpdater bulkUpdater = new BulkUpdater(
                 graphouseJdbcTemplate,
                 "INSERT IGNORE INTO metric (name) values (?)",
-                100000
+                BATCH_SIZE
             );
             String metric;
             while ((metric = newMetricQueue.poll()) != null) {
@@ -152,10 +157,10 @@ public class MetricSearch implements InitializingBean, Runnable {
             }
 
             @Override
-            public Appendable append(char c) throws IOException{
+            public Appendable append(char c) throws IOException {
                 if (c == '\n') {
                     modify(metricBuilder.toString(), status);
-                    if (result != null){
+                    if (result != null) {
                         result.append(metricBuilder).append('\n');
                     }
                     metricBuilder.setLength(0);
@@ -170,16 +175,37 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public void modify(String metric, MetricStatus status) {
+        modify(Collections.singletonList(metric), status);
+    }
+
+    public void modify(List<String> metrics, MetricStatus status) {
+        if (metrics == null || metrics.isEmpty()) {
+            return;
+        }
         if (status.equals(MetricStatus.SIMPLE)) {
             throw new IllegalStateException();
         }
-        graphouseJdbcTemplate.update(
+        BulkUpdater bulkUpdater = new BulkUpdater(
+            graphouseJdbcTemplate,
             "INSERT INTO metric (name, status) VALUES (?, ?) " +
                 "ON DUPLICATE KEY UPDATE status = ?, updated = CURRENT_TIMESTAMP",
-            metric, status.getId(), status.getId()
+            BATCH_SIZE
         );
-        metricTree.add(metric, status);
-        log.info("Updated metric '" + metric + "', status: " + status.name());
+        for (String metric : metrics) {
+            if (!MetricValidator.validate(metric)) {
+                log.warn("Whrong metric to modify: " + metric);
+                continue;
+            }
+            bulkUpdater.submit(metric, status.getId(), status.getId());
+            metricTree.add(metric, status);
+
+        }
+        bulkUpdater.done();
+        if (metrics.size() == 1) {
+            log.info("Updated metric '" + metrics.get(0) + "', status: " + status.name());
+        } else {
+            log.info("Updated " + metrics.size() + "metrics, status: " + status.name());
+        }
     }
 
     public void search(String query, Appendable result) throws IOException {

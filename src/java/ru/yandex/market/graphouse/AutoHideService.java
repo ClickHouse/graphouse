@@ -11,6 +11,8 @@ import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricStatus;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -23,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AutoHideService implements InitializingBean, Runnable {
 
     private static final Logger log = LogManager.getLogger();
+    private static final int BATCH_SIZE = 50_000;
 
     private ClickhouseTemplate clickhouseTemplate;
     private MetricSearch metricSearch;
@@ -52,7 +55,7 @@ public class AutoHideService implements InitializingBean, Runnable {
     private void hide() {
         log.info("Running autohide.");
         final AtomicInteger count = new AtomicInteger();
-
+        final List<String> metrics = new ArrayList<>(BATCH_SIZE);
         try {
             clickhouseTemplate.query(
                 "select Path, count() as cnt, max(Timestamp) as ts from graphite group by Path " +
@@ -61,16 +64,18 @@ public class AutoHideService implements InitializingBean, Runnable {
                     @Override
                     public void processRow(HttpResultRow rs) throws SQLException {
                         String metric = rs.getString(1);
-                        metricSearch.modify(metric, MetricStatus.AUTO_HIDDEN);
+                        metrics.add(metric);
                         count.incrementAndGet();
-                        if (count.get() % 100_000 == 0) {
+                        if (metrics.size() >= BATCH_SIZE) {
+                            metricSearch.modify(metrics, MetricStatus.AUTO_HIDDEN);
+                            metrics.clear();
                             log.info(count.get() + " metrics hidden");
                         }
                     }
                 }
             );
+            metricSearch.modify(metrics, MetricStatus.AUTO_HIDDEN);
             log.info("Autohide completed. Total" + count.get() + " metrics hidden");
-
         } catch (Exception e) {
             log.error("Failed to run autohide.", e);
         }
