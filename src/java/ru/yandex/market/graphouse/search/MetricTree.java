@@ -140,19 +140,24 @@ public class MetricTree {
             String level = levels[i];
             if (!isLast) {
                 dir = dir.getOrCreateDir(level);
-                checkParentDirVisibility(dir, status);
             } else {
+                QueryStatus queryStatus;
                 if (status.equals(MetricStatus.SIMPLE)) {
-                    return dir.createMetric(level);
+                    queryStatus = dir.createMetric(level);
                 } else {
-                    return modify(dir, level, isDir, status);
+                    queryStatus = modify(dir, level, isDir, status);
                 }
+                updatePathVisibility(dir);
+                return queryStatus;
             }
         }
         throw new IllegalStateException();
     }
 
     private QueryStatus modify(Dir parent, String name, boolean isDir, MetricStatus status) {
+        if (parent.isRoot()){
+            return QueryStatus.WRONG; //Не даем править второй уровень.
+        }
         if (isDir) {
             Dir dir = parent.getOrCreateDir(name);
             dir.status = selectStatus(dir.status, status);
@@ -163,13 +168,27 @@ public class MetricTree {
         return QueryStatus.UPDATED;
     }
 
-    private void checkParentDirVisibility(Dir dir, MetricStatus status) {
-        if (!status.visible()) {
+    private void updatePathVisibility(Dir dir) {
+        if (dir.isRoot()) {
             return;
         }
-        if (dir.status.equals(MetricStatus.HIDDEN) || dir.status.equals(MetricStatus.AUTO_HIDDEN)) {
-            dir.status = MetricStatus.SIMPLE;
+        MetricStatus newStatus = hasVisibleChildren(dir) ? MetricStatus.SIMPLE : MetricStatus.AUTO_HIDDEN;
+        dir.status = selectStatus(dir.status, newStatus);
+        updatePathVisibility(dir.parent);
+    }
+
+    private boolean hasVisibleChildren(Dir dir) {
+        for (Dir child : dir.dirs.values()) {
+            if (child.status.visible()) {
+                return true;
+            }
         }
+        for (MetricName child : dir.metrics.values()) {
+            if (child.status.visible()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private MetricStatus selectStatus(MetricStatus oldStatus, MetricStatus newStatus) {
