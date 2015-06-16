@@ -75,7 +75,7 @@ public class AutoHideService implements InitializingBean, Runnable {
                 }
             );
             metricSearch.modify(metrics, MetricStatus.AUTO_HIDDEN);
-            log.info("Autohide completed. Total" + count.get() + " metrics hidden");
+            log.info("Autohide completed. " + count.get() + " metrics hidden");
         } catch (Exception e) {
             log.error("Failed to run autohide.", e);
         }
