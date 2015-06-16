@@ -29,7 +29,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private static final Logger log = LogManager.getLogger();
 
-    private static final int BATCH_SIZE = 50_000;
+    private static final int BATCH_SIZE = 5_000;
 
     private JdbcTemplate graphouseJdbcTemplate;
     private ComplicatedMonitoring monitoring;
