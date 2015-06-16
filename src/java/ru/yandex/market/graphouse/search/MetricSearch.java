@@ -70,7 +70,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         final AtomicInteger metricCount = new AtomicInteger();
 
         graphouseJdbcTemplate.query(
-            "SELECT name, status FROM metric WHERE updated >= ? ORDER BY status DESC",
+            "SELECT name, status FROM metric WHERE updated >= ?",
             new RowCallbackHandler() {
                 @Override
                 public void processRow(ResultSet rs) throws SQLException {
@@ -78,7 +78,6 @@ public class MetricSearch implements InitializingBean, Runnable {
                     MetricStatus status = MetricStatus.forId(rs.getInt("status"));
                     metricTree.add(metric, status);
                     metricCount.incrementAndGet();
-
                 }
             },
             startTimestampSeconds

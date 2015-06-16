@@ -147,7 +147,9 @@ public class MetricTree {
                 } else {
                     queryStatus = modify(dir, level, isDir, status);
                 }
-                updatePathVisibility(dir);
+                if (status.visible() != dir.status.visible()){
+                    updatePathVisibility(dir);
+                }
                 return queryStatus;
             }
         }
@@ -155,7 +157,7 @@ public class MetricTree {
     }
 
     private QueryStatus modify(Dir parent, String name, boolean isDir, MetricStatus status) {
-        if (parent.isRoot()){
+        if (parent.isRoot()) {
             return QueryStatus.WRONG; //Не даем править второй уровень.
         }
         if (isDir) {
@@ -172,9 +174,14 @@ public class MetricTree {
         if (dir.isRoot()) {
             return;
         }
-        MetricStatus newStatus = hasVisibleChildren(dir) ? MetricStatus.SIMPLE : MetricStatus.AUTO_HIDDEN;
-        dir.status = selectStatus(dir.status, newStatus);
-        updatePathVisibility(dir.parent);
+        MetricStatus newStatus = selectStatus(
+            dir.status,
+            hasVisibleChildren(dir) ? MetricStatus.SIMPLE : MetricStatus.AUTO_HIDDEN
+        );
+        if (dir.status != newStatus) {
+            dir.status = newStatus;
+            updatePathVisibility(dir);
+        }
     }
 
     private boolean hasVisibleChildren(Dir dir) {
@@ -288,6 +295,4 @@ public class MetricTree {
             return parent.toString() + "." + name;
         }
     }
-
-
 }
