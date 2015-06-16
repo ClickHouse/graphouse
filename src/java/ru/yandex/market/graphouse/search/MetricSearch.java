@@ -193,7 +193,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         );
         for (String metric : metrics) {
             if (!MetricValidator.validate(metric)) {
-                log.warn("Whrong metric to modify: " + metric);
+                log.warn("Wrong metric to modify: " + metric);
                 continue;
             }
             bulkUpdater.submit(metric, status.getId(), status.getId());
