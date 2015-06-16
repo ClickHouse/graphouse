@@ -80,6 +80,7 @@ public class MetricServer implements InitializingBean {
             Socket socket = serverSocket.accept();
             try {
                 socket.setSoTimeout(socketTimeoutMillis);
+                socket.setKeepAlive(false);
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String line;
                 while ((line = reader.readLine()) != null) {
