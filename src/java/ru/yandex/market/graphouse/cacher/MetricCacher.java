@@ -30,8 +30,8 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     private int cacheSize = 1_000_000;
     private int batchSize = 1_000_000;
-    private int writersCount = 5;
-    private int flushIntervalSeconds = 1;
+    private int writersCount = 2;
+    private int flushIntervalSeconds = 5;
 
     private MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue");
     private final Semaphore semaphore = new Semaphore(0, false);
