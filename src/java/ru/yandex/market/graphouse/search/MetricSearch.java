@@ -76,6 +76,10 @@ public class MetricSearch implements InitializingBean, Runnable {
                 public void processRow(ResultSet rs) throws SQLException {
                     String metric = rs.getString("name");
                     MetricStatus status = MetricStatus.forId(rs.getInt("status"));
+                    if (!MetricValidator.validate(metric)) {
+                        log.warn("Invalid metric in db: " + metric);
+                        return;
+                    }
                     metricTree.add(metric, status);
                     metricCount.incrementAndGet();
                 }
