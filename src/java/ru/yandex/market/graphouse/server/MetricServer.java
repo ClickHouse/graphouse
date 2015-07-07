@@ -73,7 +73,7 @@ public class MetricServer implements InitializingBean {
                     log.warn("Failed to read data", e);
                 }
             }
-            log.info("MetricServerWorker stoped");
+            log.info("MetricServerWorker stopped");
         }
 
         private void read() throws IOException {
