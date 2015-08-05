@@ -1,5 +1,7 @@
 package ru.yandex.market.graphouse.search;
 
+import com.google.common.base.CharMatcher;
+
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,7 +61,7 @@ public class MetricTree {
         }
     }
 
-    private Pattern createPattern(String globPattern) {
+    public static Pattern createPattern(String globPattern) {
         globPattern = globPattern.replace("*", "[-_0-9a-zA-Z]*");
         globPattern = globPattern.replace("?", "[-_0-9a-zA-Z]");
         return Pattern.compile(globPattern);
@@ -212,7 +214,7 @@ public class MetricTree {
     }
 
     private boolean containsExpressions(String metric) {
-        return metric.contains("*") || metric.contains("?");
+        return CharMatcher.anyOf("*?[]{}").matchesAnyOf(metric);
     }
 
     private static class Dir {
