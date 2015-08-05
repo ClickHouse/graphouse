@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -49,6 +50,9 @@ public class MetricTree {
             }
         } else {
             Pattern pattern = createPattern(level);
+            if (pattern == null) {
+                return;
+            }
             if (isLast) {
                 appendPatternResult(parentDir, pattern, result);
             } else {
@@ -64,7 +68,11 @@ public class MetricTree {
     public static Pattern createPattern(String globPattern) {
         globPattern = globPattern.replace("*", "[-_0-9a-zA-Z]*");
         globPattern = globPattern.replace("?", "[-_0-9a-zA-Z]");
-        return Pattern.compile(globPattern);
+        try {
+            return Pattern.compile(globPattern);
+        } catch (PatternSyntaxException e) {
+            return null;
+        }
     }
 
     private void appendSimpleResult(Dir parentDir, String name, Appendable result) throws IOException {
@@ -149,7 +157,7 @@ public class MetricTree {
                 } else {
                     queryStatus = modify(dir, level, isDir, status);
                 }
-                if (status.visible() != dir.status.visible()){
+                if (status.visible() != dir.status.visible()) {
                     updatePathVisibility(dir);
                 }
                 return queryStatus;
@@ -213,7 +221,7 @@ public class MetricTree {
         return oldStatus;
     }
 
-    private boolean containsExpressions(String metric) {
+    public static boolean containsExpressions(String metric) {
         return CharMatcher.anyOf("*?[]{}").matchesAnyOf(metric);
     }
 

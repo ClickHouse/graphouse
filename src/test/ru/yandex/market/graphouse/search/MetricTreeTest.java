@@ -4,12 +4,28 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 import static org.junit.Assert.*;
 
 public class MetricTreeTest {
 
     private MetricTree tree = new MetricTree();
+
+    @Test
+    public void testGlob(){
+        Pattern pattern = MetricTree.createPattern("msh0[1-6]d_market_yandex_net");
+        assertTrue(pattern.matcher("msh01d_market_yandex_net").matches());
+
+        Pattern pattern2 = MetricTree.createPattern("one_min.market-front.timings-static.0_9[");
+
+
+    }
+
+    @Test
+    public void testContainsExpression() throws Exception {
+        assertTrue(MetricTree.containsExpressions("msh0[1-6]d_market_yandex_net"));
+    }
 
     @Test
     public void testSearch() throws Exception {
@@ -37,4 +53,6 @@ public class MetricTreeTest {
         Arrays.sort(actual);
         assertArrayEquals(expected, actual);
     }
+
+
 }
