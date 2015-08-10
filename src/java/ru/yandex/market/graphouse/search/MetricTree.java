@@ -151,12 +151,7 @@ public class MetricTree {
             if (!isLast) {
                 dir = dir.getOrCreateDir(level);
             } else {
-                QueryStatus queryStatus;
-                if (status.equals(MetricStatus.SIMPLE)) {
-                    queryStatus = dir.createMetric(level);
-                } else {
-                    queryStatus = modify(dir, level, isDir, status);
-                }
+                QueryStatus queryStatus = modify(dir, level, isDir, status);
                 if (status.visible() != dir.status.visible()) {
                     updatePathVisibility(dir);
                 }
