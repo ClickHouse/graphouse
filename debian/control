@@ -7,6 +7,6 @@ Standards-Version: 3.9.4
 
 Package: yandex-graphouse
 Architecture: all
-Depends: yandex-jdk7 (>=7.17), yandex-environment, yandex-market-datasources
+Depends: yandex-jdk8, yandex-environment
 Description: Build graphics for logs
 
