@@ -22,7 +22,7 @@ public class MetricFactory {
     private String hostMetricDir = "HOST";
     private List<String> hostPostfixes = Arrays.asList("yandex_net", "yandex_ru");
 
-    public Metric createMetric(String line) {
+    public Metric createMetric(String line, int updated) {
 
         String[] splits = line.split(" ");
         if (splits.length != 3) {
@@ -42,7 +42,7 @@ public class MetricFactory {
             name = processName(name);
             QueryStatus status = metricSearch.add(name);
             if (status == QueryStatus.NEW || status == QueryStatus.UPDATED) {
-                return new Metric(name, time, value, date);
+                return new Metric(name, date, value, updated);
             } else {
                 return null;
             }

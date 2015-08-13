@@ -72,11 +72,11 @@ public class MetricInputStream extends InputStream {
         buffer.append('\t');
         appendBytes(Double.toString(metric.getValue()).getBytes());
         buffer.append('\t');
-        append(metric.getTime());
+        append(getTimestampSeconds(metric.getTime()));
         buffer.append('\t');
-        appendBytes(dateFormat.format(metric.getUpdated()).getBytes());
+        appendBytes(dateFormat.format(metric.getTime()).getBytes());
         buffer.append('\t');
-        append(getTimestampSeconds(metric.getUpdated()));
+        append(metric.getUpdated());
         buffer.append('\n');
         rowNum++;
     }

@@ -8,11 +8,11 @@ import java.util.Date;
  */
 public class Metric {
     private final String name;
-    private final int time;
+    private final Date time;
     private final double value;
-    private final Date updated;
+    private final int updated;
 
-    public Metric(String name, int time, double value, Date updated) {
+    public Metric(String name, Date time, double value, int updated) {
         this.name = name;
         this.time = time;
         this.value = value;
@@ -23,7 +23,7 @@ public class Metric {
         return name;
     }
 
-    public int getTime() {
+    public Date getTime() {
         return time;
     }
 
@@ -31,7 +31,7 @@ public class Metric {
         return value;
     }
 
-    public Date getUpdated() {
+    public int getUpdated() {
         return updated;
     }
 }

@@ -77,6 +77,7 @@ public class MetricServer implements InitializingBean {
         }
 
         private void read() throws IOException {
+            int updated = (int) (System.currentTimeMillis() / 1000);
             Socket socket = serverSocket.accept();
             try {
                 socket.setSoTimeout(socketTimeoutMillis);
@@ -84,7 +85,7 @@ public class MetricServer implements InitializingBean {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    Metric metric = metricFactory.createMetric(line);
+                    Metric metric = metricFactory.createMetric(line, updated);
                     if (metric != null) {
                         metricCacher.submitMetric(metric);
                     }
