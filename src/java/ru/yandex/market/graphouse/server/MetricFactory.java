@@ -17,6 +17,7 @@ import java.util.List;
 public class MetricFactory {
 
     private MetricSearch metricSearch;
+    private MetricValidator metricValidator;
 
     private boolean redirectHostMetrics = true;
     private String hostMetricDir = "HOST";
@@ -29,7 +30,7 @@ public class MetricFactory {
             return null;
         }
         String name = splits[0];
-        if (!MetricValidator.validate(name)) {
+        if (!metricValidator.validate(name)) {
             return null;
         }
         try {
@@ -65,6 +66,10 @@ public class MetricFactory {
     }
 
 
+    @Required
+    public void setMetricValidator(MetricValidator metricValidator) {
+        this.metricValidator = metricValidator;
+    }
 
     @Required
     public void setMetricSearch(MetricSearch metricSearch) {
