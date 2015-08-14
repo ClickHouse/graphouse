@@ -33,6 +33,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private JdbcTemplate graphouseJdbcTemplate;
     private ComplicatedMonitoring monitoring;
+    private MetricValidator metricValidator;
 
     private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch");
     private final MetricTree metricTree = new MetricTree();
@@ -56,11 +57,11 @@ public class MetricSearch implements InitializingBean, Runnable {
     private void initDatabase() {
         graphouseJdbcTemplate.update(
             "CREATE TABLE IF NOT EXISTS metric (" +
-                "  `name` VARCHAR(200) NOT NULL, " +
+                "  `NAME` VARCHAR(200) NOT NULL, " +
                 "  `status` TINYINT NOT NULL DEFAULT 0, " +
-                "  `updated` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
-                "  PRIMARY KEY (`name`), " +
-                "  INDEX (`updated`)" +
+                "  `UPDATED` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                "  PRIMARY KEY (`NAME`), " +
+                "  INDEX (`UPDATED`)" +
                 ") "
         );
     }
@@ -76,7 +77,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 public void processRow(ResultSet rs) throws SQLException {
                     String metric = rs.getString("name");
                     MetricStatus status = MetricStatus.forId(rs.getInt("status"));
-                    if (!MetricValidator.validate(metric)) {
+                    if (!metricValidator.validate(metric)) {
                         log.warn("Invalid metric in db: " + metric);
                         return;
                     }
@@ -195,7 +196,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             BATCH_SIZE
         );
         for (String metric : metrics) {
-            if (!MetricValidator.validate(metric)) {
+            if (!metricValidator.validate(metric)) {
                 log.warn("Wrong metric to modify: " + metric);
                 continue;
             }
@@ -223,6 +224,11 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Required
     public void setMonitoring(ComplicatedMonitoring monitoring) {
         this.monitoring = monitoring;
+    }
+
+    @Required
+    public void setMetricValidator(MetricValidator metricValidator) {
+        this.metricValidator = metricValidator;
     }
 
     public void setSaveIntervalSeconds(int saveIntervalSeconds) {
