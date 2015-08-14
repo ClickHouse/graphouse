@@ -77,7 +77,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 public void processRow(ResultSet rs) throws SQLException {
                     String metric = rs.getString("name");
                     MetricStatus status = MetricStatus.forId(rs.getInt("status"));
-                    if (!metricValidator.validate(metric)) {
+                    if (!metricValidator.validate(metric, true)) {
                         log.warn("Invalid metric in db: " + metric);
                         return;
                     }
@@ -196,7 +196,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             BATCH_SIZE
         );
         for (String metric : metrics) {
-            if (!metricValidator.validate(metric)) {
+            if (!metricValidator.validate(metric, true)) {
                 log.warn("Wrong metric to modify: " + metric);
                 continue;
             }
