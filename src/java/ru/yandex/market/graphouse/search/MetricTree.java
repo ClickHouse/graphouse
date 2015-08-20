@@ -167,12 +167,15 @@ public class MetricTree {
         }
         if (isDir) {
             Dir dir = parent.getOrCreateDir(name);
-            dir.status = selectStatus(dir.status, status);
+            MetricStatus oldStatus = dir.status;
+            dir.status = selectStatus(oldStatus, status);
+            return (oldStatus == dir.status) ? QueryStatus.UNMODIFIED : QueryStatus.UPDATED;
         } else {
-            MetricName metric = parent.getOrCreateMetric(name);
+            QueryStatus queryStatus = parent.createMetric(name);
+            MetricName metric = parent.get(name);
             metric.status = selectStatus(metric.status, status);
+            return queryStatus;
         }
-        return QueryStatus.UPDATED;
     }
 
     private void updatePathVisibility(Dir dir) {
@@ -242,25 +245,29 @@ public class MetricTree {
             return dir == null ? newDir : dir;
         }
 
-        private QueryStatus createMetric(String name) {
-            if (metrics.containsKey(name)) {
+        private QueryStatus createMetric(String metric) {
+            if (metrics.containsKey(metric)) {
                 return QueryStatus.UPDATED;
             }
-            MetricName newMetricName = new MetricName(this, name);
-            if (metrics.putIfAbsent(name, newMetricName) == null) {
+            MetricName newMetricName = new MetricName(this, metric);
+            if (metrics.putIfAbsent(metric, newMetricName) == null) {
                 return QueryStatus.NEW;
             } else {
                 return QueryStatus.UPDATED;
             }
         }
 
-        private MetricName getOrCreateMetric(String name) {
-            MetricName metricName = metrics.get(name);
+        private QueryStatus createIfNotExists(String metric) {
+            MetricName metricName = metrics.get(metric);
             if (metricName != null) {
-                return metricName;
+                return QueryStatus.UPDATED;
             }
-            createMetric(name);
-            return metrics.get(name);
+            createMetric(metric);
+            return QueryStatus.NEW;
+        }
+
+        private MetricName get(String metric) {
+            return metrics.get(metric);
         }
 
         private boolean isRoot() {
@@ -288,12 +295,12 @@ public class MetricTree {
         private final Dir parent;
         private final String name;
 
+        private volatile MetricStatus status = MetricStatus.SIMPLE;
+
         public MetricName(Dir parent, String name) {
             this.parent = parent;
             this.name = name.intern();
         }
-
-        private volatile MetricStatus status = MetricStatus.SIMPLE;
 
         @Override
         public String toString() {

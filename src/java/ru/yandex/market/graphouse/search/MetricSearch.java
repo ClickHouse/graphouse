@@ -130,14 +130,14 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public void loadNewMetrics() {
-        int timeSeconds = (int) (System.currentTimeMillis() / 1000) - updateDelaySeconds;
+        int timeSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())) - updateDelaySeconds;
         loadMetrics(lastUpdatedTimestampSeconds);
         lastUpdatedTimestampSeconds = timeSeconds;
     }
 
     public QueryStatus add(String metric) {
         QueryStatus status = metricTree.add(metric);
-        if (status == QueryStatus.NEW) {
+        if (status == QueryStatus.NEW || status == QueryStatus.UPDATED) {
             newMetricQueue.add(metric);
         }
         return status;

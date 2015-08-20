@@ -7,6 +7,7 @@ package ru.yandex.market.graphouse.search;
 public enum QueryStatus {
     NEW,
     UPDATED,
+    UNMODIFIED,
     WRONG,
     BAN
 }
