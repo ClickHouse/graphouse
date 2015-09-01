@@ -52,6 +52,14 @@ public class MetricSearch implements InitializingBean, Runnable {
         initDatabase();
         monitoring.addUnit(metricSearchUnit);
         new Thread(this, "MetricSearch thread").start();
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            @Override
+            public void run() {
+                log.info("Shutting down Metric search");
+                saveNewMetrics();
+                log.info("Metric search stopped");
+            }
+        }));
     }
 
     private void initDatabase() {
