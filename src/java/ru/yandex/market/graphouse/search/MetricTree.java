@@ -22,7 +22,16 @@ public class MetricTree {
         search(root, levels, 0, result);
     }
 
-
+    /**
+     * Рекурсивный метод для получения списка метрик внутри дерева.
+     * @param parentDir внутри какой директории ищем
+     * @param levels узлы дерева, каждый может быть задан явно или паттерном, используя *?[]{}
+     *               Пример: five_min.abo-main.timings-method.*.0_95
+     *
+     * @param levelIndex индекс текущего узла
+     * @param result
+     * @throws IOException
+     */
     private void search(Dir parentDir, String[] levels, int levelIndex, Appendable result) throws IOException {
         if (!parentDir.status.visible()) {
             return;
@@ -134,6 +143,12 @@ public class MetricTree {
         return add(metric, MetricStatus.SIMPLE);
     }
 
+    /**
+     * Создает или изменяет статус метрики или целой директории.
+     * @param metric если заканчивается на '.' , то директория
+     * @param status
+     * @return
+     */
     private QueryStatus modify(String metric, MetricStatus status) {
         if (containsExpressions(metric)) {
             return QueryStatus.WRONG;
@@ -163,7 +178,7 @@ public class MetricTree {
 
     private QueryStatus modify(Dir parent, String name, boolean isDir, MetricStatus status) {
         if (parent.isRoot()) {
-            return QueryStatus.WRONG; //Не даем править второй уровень.
+            return QueryStatus.WRONG; // Не даем править второй уровень.
         }
         if (isDir) {
             Dir dir = parent.getOrCreateDir(name);
@@ -178,6 +193,11 @@ public class MetricTree {
         }
     }
 
+    /**
+     * Если все метрики в директории скрыты, то скрываем её {@link MetricStatus#AUTO_HIDDEN}
+     * Если для директории есть хоть одна открытая метрика, то открываем директорию {@link MetricStatus#SIMPLE}
+     * @param dir
+     */
     private void updatePathVisibility(Dir dir) {
         if (dir.isRoot()) {
             return;
@@ -206,6 +226,24 @@ public class MetricTree {
         return false;
     }
 
+    /**
+     * Возвращаем новый статус при изменении метрики, если:
+     * 1. ручное изменение
+     * * -> BAN, APPROVED, HIDDEN
+     * 2. прежний статус был выставлен автоматом
+     * SIMPLE, AUTO_HIDDEN -> *
+     * 3. восстановили скрытую метрику
+     * HIDDEN -> SIMPLE
+     *
+     * В противном случае статус не меняется:
+     * BAN -> SIMPLE, AUTO_HIDDEN
+     * APPROVED -> SIMPLE, AUTO_HIDDEN
+     * HIDDEN -> AUTO_HIDDEN
+     *
+     * @param oldStatus
+     * @param newStatus
+     * @return
+     */
     private MetricStatus selectStatus(MetricStatus oldStatus, MetricStatus newStatus) {
         if (oldStatus.equals(newStatus)) {
             return newStatus;

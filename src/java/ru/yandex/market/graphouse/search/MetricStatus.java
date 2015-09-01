@@ -7,11 +7,22 @@ import java.util.NoSuchElementException;
  * @date 08/06/15
  */
 public enum MetricStatus {
-
+    /**
+     * Статус по умолчанию при создании директории/метрики.
+     */
     SIMPLE(0),
+    /**
+     * Если метрика забанена, то
+     * - метрика перестаёт находиться в поиске (а следовательно и в графите)
+     * - значения метрики перестают приниматься и писаться в графит
+     * Если забанена директория, то в неё нельзя сохранить метрики.
+     */
     BAN(1),
     APPROVED(2),
     HIDDEN(3),
+    /**
+     * Метрика автоматически скрыта в {@link ru.yandex.market.graphouse.AutoHideService}
+     */
     AUTO_HIDDEN(4);
 
     private final int id;
@@ -24,6 +35,10 @@ public enum MetricStatus {
         return id;
     }
 
+    /**
+     * Если <code>false</code>, то в поиске не будет отдаваться данная метрика (ни одна метрика из данной директории)
+     * @return
+     */
     public boolean visible() {
         switch (this) {
             case SIMPLE:

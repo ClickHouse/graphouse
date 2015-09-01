@@ -23,6 +23,13 @@ public class MetricFactory {
     private String hostMetricDir = "HOST";
     private List<String> hostPostfixes = Arrays.asList("yandex_net", "yandex_ru");
 
+    /**
+     * Валидирует метрику и в случае успеха создаёт или обновляет текущую.
+     * @param line через пробел название метрики, значение, метка времени
+     * @param updated
+     * @return созданную или обновленную метрику,
+     * <code>null</code> если название метрики или значение не валидны
+     */
     public Metric createMetric(String line, int updated) {
 
         String[] splits = line.split(" ");

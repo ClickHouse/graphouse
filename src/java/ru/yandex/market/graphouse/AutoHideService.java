@@ -19,6 +19,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * Позволяет по таймеру выбирать "мусорные" метрики из кликхауса и автоматически их скрывать.
+ * Метрика считается "мусорной", если выполняются условия:
+ * - последние значение по ней было {@link #missingDays}
+ * - число точек менее {@link #maxValuesCount}
+ *
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
  * @date 11/06/15
  */
