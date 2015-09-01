@@ -208,7 +208,7 @@ public class MetricTree {
         );
         if (dir.status != newStatus) {
             dir.status = newStatus;
-            updatePathVisibility(dir);
+            updatePathVisibility(dir.parent);
         }
     }
 
