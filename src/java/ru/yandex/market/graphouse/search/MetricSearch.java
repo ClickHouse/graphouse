@@ -39,13 +39,13 @@ public class MetricSearch implements InitializingBean, Runnable {
     private final MetricTree metricTree = new MetricTree();
     private final Queue<String> newMetricQueue = new ConcurrentLinkedQueue<>();
 
-    private int lastUpdatedTimestampSeconds = 0;
+    private long lastUpdatedTimestampMillis = 0;
 
     private int saveIntervalSeconds = 300;
     /**
      * Задержка на запись, репликацию, синхронизацию
      */
-    private int updateDelaySeconds = 120;
+    private long updateDelayMillis = TimeUnit.SECONDS.toMillis(120);
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -74,7 +74,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         );
     }
 
-    private void loadMetrics(int startTimestampSeconds) {
+    private void loadMetrics(long startTimestampMillis) {
         log.info("Loading metric names from db");
         final AtomicInteger metricCount = new AtomicInteger();
 
@@ -93,7 +93,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                     metricCount.incrementAndGet();
                 }
             },
-            startTimestampSeconds
+            startTimestampMillis
         );
         log.info("Loaded " + metricCount.get() + " metrics");
     }
@@ -138,9 +138,9 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public void loadNewMetrics() {
-        int timeSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())) - updateDelaySeconds;
-        loadMetrics(lastUpdatedTimestampSeconds);
-        lastUpdatedTimestampSeconds = timeSeconds;
+        long updatedBefore = System.currentTimeMillis() - updateDelayMillis;
+        loadMetrics(lastUpdatedTimestampMillis);
+        lastUpdatedTimestampMillis = updatedBefore;
     }
 
     public QueryStatus add(String metric) {
@@ -244,8 +244,8 @@ public class MetricSearch implements InitializingBean, Runnable {
         this.saveIntervalSeconds = saveIntervalSeconds;
     }
 
-    public void setUpdateDelaySeconds(int updateDelaySeconds) {
-        this.updateDelaySeconds = updateDelaySeconds;
+    public void setUpdateDelayMillis(long updateDelayMillis) {
+        this.updateDelayMillis = updateDelayMillis;
     }
 
 }
