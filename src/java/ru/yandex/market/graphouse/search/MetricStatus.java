@@ -1,6 +1,6 @@
 package ru.yandex.market.graphouse.search;
 
-import java.util.NoSuchElementException;
+import java.util.*;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -12,16 +12,26 @@ public enum MetricStatus {
      */
     SIMPLE(0),
     /**
-     * Если метрика забанена, то
-     * - метрика перестаёт находиться в поиске (а следовательно и в графите)
-     * - значения метрики перестают приниматься и писаться в графит
-     * Если забанена директория, то в неё нельзя сохранить метрики.
+     * Если директория (метрика) забанена, то
+     * - директория и все метрики в ней (метрика) перестаёт находиться в поиске (а следовательно и в графите)
+     * - значения метрик в директории (метрики) перестают приниматься и писаться в графит
      */
     BAN(1),
     APPROVED(2),
+    /**
+     * Если директория(метрика) скрыта, то
+     * - директория и все метрики в ней (метрика) перестаёт находиться в поиске (а следовательно и в графите)
+     * - значения метрик продолжают приниматься
+     *
+     * Чтобы открыть деректорию(метрику), необходимо явно перевести в {@link #APPROVED}
+     */
     HIDDEN(3),
     /**
-     * Метрика автоматически скрыта в {@link ru.yandex.market.graphouse.AutoHideService}
+     * Директория автоматически скрывается, если все её дочерние директории и метрики не видимы {@link #visible}
+     * Как только появится новое значение для дочерней метрики, директория будет открыта {@link #SIMPLE}
+     *
+     * Метрика может быть автоматически скрыта в {@link ru.yandex.market.graphouse.AutoHideService}
+     * Аналогично, при появлении новых значений будет открыта {@link #SIMPLE}
      */
     AUTO_HIDDEN(4);
 
@@ -33,6 +43,13 @@ public enum MetricStatus {
 
     public int getId() {
         return id;
+    }
+
+    public static final Map<MetricStatus, List<MetricStatus>> RESTRICTED_GRAPH_EDGES = new HashMap<>();
+    static {
+        RESTRICTED_GRAPH_EDGES.put(MetricStatus.BAN, Arrays.asList(MetricStatus.HIDDEN, MetricStatus.AUTO_HIDDEN));
+        RESTRICTED_GRAPH_EDGES.put(MetricStatus.APPROVED, Arrays.asList(MetricStatus.SIMPLE));
+        RESTRICTED_GRAPH_EDGES.put(MetricStatus.HIDDEN, Arrays.asList(MetricStatus.SIMPLE, MetricStatus.AUTO_HIDDEN));
     }
 
     /**

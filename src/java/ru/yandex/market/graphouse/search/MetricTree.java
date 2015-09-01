@@ -3,6 +3,7 @@ package ru.yandex.market.graphouse.search;
 import com.google.common.base.CharMatcher;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -159,12 +160,15 @@ public class MetricTree {
         Dir dir = root;
         for (int i = 0; i < levels.length; i++) {
             boolean isLast = (i == levels.length - 1);
-            if (!isLast && dir.isBan()) {
+            if (dir.isBan()) {
                 return QueryStatus.BAN;
             }
             String level = levels[i];
             if (!isLast) {
                 dir = dir.getOrCreateDir(level);
+                if (dir.parent.status.visible() != dir.status.visible()) {
+                    updatePathVisibility(dir.parent);
+                }
             } else {
                 QueryStatus queryStatus = modify(dir, level, isDir, status);
                 if (status.visible() != dir.status.visible()) {
@@ -194,8 +198,9 @@ public class MetricTree {
     }
 
     /**
-     * Если все метрики в директории скрыты, то скрываем её {@link MetricStatus#AUTO_HIDDEN}
-     * Если для директории есть хоть одна открытая метрика, то открываем директорию {@link MetricStatus#SIMPLE}
+     * Если все метрики в директории скрыты, то пытаемся скрыть её {@link MetricStatus#AUTO_HIDDEN}
+     * Если для директории есть хоть одна открытая метрика, то пытаемся открыть её {@link MetricStatus#SIMPLE}
+     *
      * @param dir
      */
     private void updatePathVisibility(Dir dir) {
@@ -227,34 +232,15 @@ public class MetricTree {
     }
 
     /**
-     * Возвращаем новый статус при изменении метрики, если:
-     * 1. ручное изменение
-     * * -> BAN, APPROVED, HIDDEN
-     * 2. прежний статус был выставлен автоматом
-     * SIMPLE, AUTO_HIDDEN -> *
-     * 3. восстановили скрытую метрику
-     * HIDDEN -> SIMPLE
-     *
-     * В противном случае статус не меняется:
-     * BAN -> SIMPLE, AUTO_HIDDEN
-     * APPROVED -> SIMPLE, AUTO_HIDDEN
-     * HIDDEN -> AUTO_HIDDEN
+     * Возвращаем новый статус при изменении метрики, учитывая граф возможных переходов.
      *
      * @param oldStatus
      * @param newStatus
      * @return
      */
     private MetricStatus selectStatus(MetricStatus oldStatus, MetricStatus newStatus) {
-        if (oldStatus.equals(newStatus)) {
-            return newStatus;
-        }
-        if (newStatus.handmade() || !oldStatus.handmade()) {
-            return newStatus;
-        }
-        if (oldStatus.equals(MetricStatus.HIDDEN) && newStatus.equals(MetricStatus.SIMPLE)) {
-            return newStatus;
-        }
-        return oldStatus;
+        List<MetricStatus> restricted = MetricStatus.RESTRICTED_GRAPH_EDGES.get(oldStatus);
+        return restricted == null || !restricted.contains(newStatus) ? newStatus : oldStatus;
     }
 
     public static boolean containsExpressions(String metric) {
