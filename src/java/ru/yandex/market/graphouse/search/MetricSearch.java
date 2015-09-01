@@ -39,13 +39,13 @@ public class MetricSearch implements InitializingBean, Runnable {
     private final MetricTree metricTree = new MetricTree();
     private final Queue<String> newMetricQueue = new ConcurrentLinkedQueue<>();
 
-    private long lastUpdatedTimestampMillis = 0;
+    private int lastUpdatedTimestampSeconds = 0;
 
     private int saveIntervalSeconds = 300;
     /**
      * Задержка на запись, репликацию, синхронизацию
      */
-    private long updateDelayMillis = TimeUnit.SECONDS.toMillis(120);
+    private int updateDelaySeconds = 120;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -64,36 +64,36 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private void initDatabase() {
         graphouseJdbcTemplate.update(
-            "CREATE TABLE IF NOT EXISTS metric (" +
-                "  `NAME` VARCHAR(200) NOT NULL, " +
-                "  `status` TINYINT NOT NULL DEFAULT 0, " +
-                "  `UPDATED` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
-                "  PRIMARY KEY (`NAME`), " +
-                "  INDEX (`UPDATED`)" +
-                ") "
+                "CREATE TABLE IF NOT EXISTS metric (" +
+                        "  `NAME` VARCHAR(200) NOT NULL, " +
+                        "  `status` TINYINT NOT NULL DEFAULT 0, " +
+                        "  `UPDATED` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                        "  PRIMARY KEY (`NAME`), " +
+                        "  INDEX (`UPDATED`)" +
+                        ") "
         );
     }
 
-    private void loadMetrics(long startTimestampMillis) {
+    private void loadMetrics(int startTimestampSeconds) {
         log.info("Loading metric names from db");
         final AtomicInteger metricCount = new AtomicInteger();
 
         graphouseJdbcTemplate.query(
-            "SELECT name, status FROM metric WHERE updated >= ?",
-            new RowCallbackHandler() {
-                @Override
-                public void processRow(ResultSet rs) throws SQLException {
-                    String metric = rs.getString("name");
-                    MetricStatus status = MetricStatus.forId(rs.getInt("status"));
-                    if (!metricValidator.validate(metric, true)) {
-                        log.warn("Invalid metric in db: " + metric);
-                        return;
+                "SELECT name, status FROM metric WHERE updated >= FROM_UNIXTIME(?)",
+                new RowCallbackHandler() {
+                    @Override
+                    public void processRow(ResultSet rs) throws SQLException {
+                        String metric = rs.getString("name");
+                        MetricStatus status = MetricStatus.forId(rs.getInt("status"));
+                        if (!metricValidator.validate(metric, true)) {
+                            log.warn("Invalid metric in db: " + metric);
+                            return;
+                        }
+                        metricTree.add(metric, status);
+                        metricCount.incrementAndGet();
                     }
-                    metricTree.add(metric, status);
-                    metricCount.incrementAndGet();
-                }
-            },
-            startTimestampMillis
+                },
+                startTimestampSeconds
         );
         log.info("Loaded " + metricCount.get() + " metrics");
     }
@@ -103,9 +103,9 @@ public class MetricSearch implements InitializingBean, Runnable {
             log.info("Saving new metric names to db");
             int count = 0;
             BulkUpdater bulkUpdater = new BulkUpdater(
-                graphouseJdbcTemplate,
-                "INSERT IGNORE INTO metric (name) values (?)",
-                BATCH_SIZE
+                    graphouseJdbcTemplate,
+                    "INSERT IGNORE INTO metric (name) values (?)",
+                    BATCH_SIZE
             );
             String metric;
             while ((metric = newMetricQueue.poll()) != null) {
@@ -138,9 +138,9 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public void loadNewMetrics() {
-        long updatedBefore = System.currentTimeMillis() - updateDelayMillis;
-        loadMetrics(lastUpdatedTimestampMillis);
-        lastUpdatedTimestampMillis = updatedBefore;
+        int timeSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())) - updateDelaySeconds;
+        loadMetrics(lastUpdatedTimestampSeconds);
+        lastUpdatedTimestampSeconds = timeSeconds;
     }
 
     public QueryStatus add(String metric) {
@@ -199,10 +199,10 @@ public class MetricSearch implements InitializingBean, Runnable {
             throw new IllegalStateException();
         }
         BulkUpdater bulkUpdater = new BulkUpdater(
-            graphouseJdbcTemplate,
-            "INSERT INTO metric (name, status) VALUES (?, ?) " +
-                "ON DUPLICATE KEY UPDATE status = ?, updated = CURRENT_TIMESTAMP",
-            BATCH_SIZE
+                graphouseJdbcTemplate,
+                "INSERT INTO metric (name, status) VALUES (?, ?) " +
+                        "ON DUPLICATE KEY UPDATE status = ?, updated = CURRENT_TIMESTAMP",
+                BATCH_SIZE
         );
         for (String metric : metrics) {
             if (!metricValidator.validate(metric, true)) {
@@ -244,8 +244,8 @@ public class MetricSearch implements InitializingBean, Runnable {
         this.saveIntervalSeconds = saveIntervalSeconds;
     }
 
-    public void setUpdateDelayMillis(long updateDelayMillis) {
-        this.updateDelayMillis = updateDelayMillis;
+    public void setUpdateDelaySeconds(int updateDelaySeconds) {
+        this.updateDelaySeconds = updateDelaySeconds;
     }
 
 }
