@@ -16,6 +16,7 @@ import java.util.regex.PatternSyntaxException;
  */
 public class MetricTree {
 
+    private static final CharMatcher EXPRESSION_MATCHER = CharMatcher.anyOf("*?[]{}");
     private final Dir root = new Dir(null, "");
 
     public void search(String query, Appendable result) throws IOException {
@@ -25,10 +26,10 @@ public class MetricTree {
 
     /**
      * Рекурсивный метод для получения списка метрик внутри дерева.
-     * @param parentDir внутри какой директории ищем
-     * @param levels узлы дерева, каждый может быть задан явно или паттерном, используя *?[]{}
-     *               Пример: five_min.abo-main.timings-method.*.0_95
      *
+     * @param parentDir  внутри какой директории ищем
+     * @param levels     узлы дерева, каждый может быть задан явно или паттерном, используя *?[]{}
+     *                   Пример: five_min.abo-main.timings-method.*.0_95
      * @param levelIndex индекс текущего узла
      * @param result
      * @throws IOException
@@ -146,6 +147,7 @@ public class MetricTree {
 
     /**
      * Создает или изменяет статус метрики или целой директории.
+     *
      * @param metric если заканчивается на '.' , то директория
      * @param status
      * @return
@@ -244,7 +246,7 @@ public class MetricTree {
     }
 
     public static boolean containsExpressions(String metric) {
-        return CharMatcher.anyOf("*?[]{}").matchesAnyOf(metric);
+        return EXPRESSION_MATCHER.matchesAnyOf(metric);
     }
 
     private static class Dir {
