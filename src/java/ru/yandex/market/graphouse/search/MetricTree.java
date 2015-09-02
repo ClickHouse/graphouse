@@ -76,6 +76,14 @@ public class MetricTree {
         }
     }
 
+    public int metricCount() {
+        return root.metricCount();
+    }
+
+    public int dirCount() {
+        return root.dirCount();
+    }
+
     public static Pattern createPattern(String globPattern) {
         globPattern = globPattern.replace("*", "[-_0-9a-zA-Z]*");
         globPattern = globPattern.replace("?", "[-_0-9a-zA-Z]");
@@ -314,6 +322,22 @@ public class MetricTree {
             } else {
                 return parent.toString() + "." + name;
             }
+        }
+
+        public int metricCount() {
+            int count = metrics.size();
+            for (Dir dir : dirs.values()) {
+                count += dir.metricCount();
+            }
+            return count;
+        }
+
+        public int dirCount() {
+            int count = dirs.size();
+            for (Dir dir : dirs.values()) {
+                count += dir.dirCount();
+            }
+            return count;
         }
     }
 
