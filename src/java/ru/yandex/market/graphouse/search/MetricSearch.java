@@ -149,7 +149,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     public QueryStatus add(String metric) {
         QueryStatus status = metricTree.add(metric);
         // Если добавили новую директорию, то статус  QueryStatus.UNMODIFIED
-        if (status == QueryStatus.NEW || status == QueryStatus.UPDATED) {
+        if (status == QueryStatus.NEW) {
             newMetricQueue.add(metric);
         }
         return status;
