@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import ru.yandex.common.util.db.BulkUpdater;
 import ru.yandex.market.graphite.MetricValidator;
+import ru.yandex.market.graphouse.WritableName;
 import ru.yandex.market.monitoring.ComplicatedMonitoring;
 import ru.yandex.market.monitoring.MonitoringUnit;
 
@@ -143,7 +144,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         lastUpdatedTimestampSeconds = timeSeconds;
     }
 
-    public QueryStatus add(String metric) {
+    public WritableName add(String metric) {
         QueryStatus status = metricTree.add(metric);
         // Если добавили новую директорию, то статус  QueryStatus.UNMODIFIED
         if (status == QueryStatus.NEW || status == QueryStatus.UPDATED) {

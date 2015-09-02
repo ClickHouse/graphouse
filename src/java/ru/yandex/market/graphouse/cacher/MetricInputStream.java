@@ -10,6 +10,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -68,7 +69,7 @@ public class MetricInputStream extends InputStream {
 
         Metric metric = metrics.get(rowNum);
 
-        appendBytes(metric.getName().getBytes());
+        metric.getName().writeName(buffer);
         buffer.append('\t');
         appendBytes(Double.toString(metric.getValue()).getBytes());
         buffer.append('\t');
@@ -90,6 +91,6 @@ public class MetricInputStream extends InputStream {
     }
 
     private static int getTimestampSeconds(Date date) {
-        return (int) (date.getTime() / 1000);
+        return (int) (TimeUnit.MILLISECONDS.toSeconds(date.getTime()));
     }
 }

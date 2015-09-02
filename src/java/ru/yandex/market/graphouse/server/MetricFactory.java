@@ -3,12 +3,14 @@ package ru.yandex.market.graphouse.server;
 import org.springframework.beans.factory.annotation.Required;
 import ru.yandex.market.graphite.MetricValidator;
 import ru.yandex.market.graphouse.Metric;
+import ru.yandex.market.graphouse.WritableName;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.QueryStatus;
 
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -25,7 +27,8 @@ public class MetricFactory {
 
     /**
      * Валидирует метрику и в случае успеха создаёт или обновляет текущую.
-     * @param line через пробел название метрики, значение, метка времени
+     *
+     * @param line    через пробел название метрики, значение, метка времени
      * @param updated
      * @return созданную или обновленную метрику,
      * <code>null</code> если название метрики или значение не валидны
@@ -42,15 +45,15 @@ public class MetricFactory {
         }
         try {
             double value = Double.parseDouble(splits[1]);
-            int time = Integer.valueOf(splits[2]);
-            if (time <= 0) {
+            int timeSeconds = Integer.valueOf(splits[2]);
+            if (timeSeconds <= 0) {
                 return null;
             }
-            Date date = new Date(time * 1000L);
+            Date date = new Date(TimeUnit.SECONDS.toMillis(timeSeconds));
             name = processName(name);
-            QueryStatus status = metricSearch.add(name);
-            if (status == QueryStatus.NEW || status == QueryStatus.UPDATED) {
-                return new Metric(name, date, value, updated);
+            WritableName metricName = metricSearch.add(name);
+            if (metricName != null) {
+                return new Metric(metricName, date, value, updated);
             } else {
                 return null;
             }

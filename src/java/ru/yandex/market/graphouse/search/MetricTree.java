@@ -1,6 +1,8 @@
 package ru.yandex.market.graphouse.search;
 
 import com.google.common.base.CharMatcher;
+import org.apache.http.util.ByteArrayBuffer;
+import ru.yandex.market.graphouse.WritableName;
 
 import java.io.IOException;
 import java.util.List;
@@ -25,10 +27,10 @@ public class MetricTree {
 
     /**
      * Рекурсивный метод для получения списка метрик внутри дерева.
-     * @param parentDir внутри какой директории ищем
-     * @param levels узлы дерева, каждый может быть задан явно или паттерном, используя *?[]{}
-     *               Пример: five_min.abo-main.timings-method.*.0_95
      *
+     * @param parentDir  внутри какой директории ищем
+     * @param levels     узлы дерева, каждый может быть задан явно или паттерном, используя *?[]{}
+     *                   Пример: five_min.abo-main.timings-method.*.0_95
      * @param levelIndex индекс текущего узла
      * @param result
      * @throws IOException
@@ -146,6 +148,7 @@ public class MetricTree {
 
     /**
      * Создает или изменяет статус метрики или целой директории.
+     *
      * @param metric если заканчивается на '.' , то директория
      * @param status
      * @return
@@ -179,6 +182,8 @@ public class MetricTree {
         }
         throw new IllegalStateException();
     }
+
+//    private MetricName get
 
     private QueryStatus modify(Dir parent, String name, boolean isDir, MetricStatus status) {
         if (parent.isRoot()) {
@@ -247,7 +252,7 @@ public class MetricTree {
         return CharMatcher.anyOf("*?[]{}").matchesAnyOf(metric);
     }
 
-    private static class Dir {
+    private static class Dir implements WritableName {
         private final Dir parent;
         private final String name;
         private final ConcurrentMap<String, MetricName> metrics = new ConcurrentHashMap<>();
@@ -303,6 +308,20 @@ public class MetricTree {
         }
 
         @Override
+        public void writeName(ByteArrayBuffer buffer) {
+            if (isRoot()) {
+                appendBytes(buffer, "ROOT".getBytes());
+                return;
+            }
+
+            if (!parent.isRoot()) {
+                parent.writeName(buffer);
+            }
+            buffer.append('.');
+            appendBytes(buffer, name.getBytes());
+        }
+
+        @Override
         public String toString() {
             if (isRoot()) {
                 return "ROOT";
@@ -315,7 +334,7 @@ public class MetricTree {
         }
     }
 
-    private static class MetricName {
+    private static class MetricName implements WritableName {
         private final Dir parent;
         private final String name;
 
@@ -327,8 +346,20 @@ public class MetricTree {
         }
 
         @Override
+        public void writeName(ByteArrayBuffer buffer) {
+            parent.writeName(buffer);
+            buffer.append('.');
+            appendBytes(buffer, name.getBytes());
+        }
+
+        @Override
         public String toString() {
             return parent.toString() + "." + name;
         }
     }
+
+    private static void appendBytes(ByteArrayBuffer buffer, byte[] bytes) {
+        buffer.append(bytes, 0, bytes.length);
+    }
+
 }
