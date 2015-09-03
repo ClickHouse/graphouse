@@ -142,6 +142,9 @@ public class MetricSearch implements InitializingBean, Runnable {
     public void run() {
         while (!Thread.interrupted()) {
             try {
+                log.info(
+                    "Actual metrics count = " + metricTree.metricCount() + ", dir count: " + metricTree.dirCount()
+                );
                 loadNewMetrics();
                 saveUpdatedMetrics();
                 metricSearchUnit.ok();

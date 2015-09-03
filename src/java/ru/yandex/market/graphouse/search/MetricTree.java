@@ -282,6 +282,22 @@ public class MetricTree {
             return metrics.get(metric);
         }
 
+        public int metricCount() {
+            int count = metrics.size();
+            for (Dir dir : dirs.values()) {
+                count += dir.metricCount();
+            }
+            return count;
+        }
+
+        public int dirCount() {
+            int count = dirs.size();
+            for (Dir dir : dirs.values()) {
+                count += dir.dirCount();
+            }
+            return count;
+        }
+
         @Override
         public boolean isDir() {
             return true;
@@ -297,22 +313,6 @@ public class MetricTree {
         @Override
         public boolean isDir() {
             return false;
-        }
-
-        public int metricCount() {
-            int count = metrics.size();
-            for (Dir dir : dirs.values()) {
-                count += dir.metricCount();
-            }
-            return count;
-        }
-
-        public int dirCount() {
-            int count = dirs.size();
-            for (Dir dir : dirs.values()) {
-                count += dir.dirCount();
-            }
-            return count;
         }
     }
 
