@@ -83,13 +83,12 @@ public class MetricSearch implements InitializingBean, Runnable {
         BulkUpdater bulkUpdater = new BulkUpdater(
             graphouseJdbcTemplate,
             "INSERT INTO metric (name, status) VALUES (?, ?) " +
-                "ON DUPLICATE KEY UPDATE status = ?, " +
-                "   updated = IF(status != ?, CURRENT_TIMESTAMP, updated)",
+                "ON DUPLICATE KEY UPDATE status = ?, updated = IF(status != ?, CURRENT_TIMESTAMP, updated)",
             BATCH_SIZE
         );
-        for (MetricDescription metric : metrics) {
-            int statusId = metric.getStatus().getId();
-            bulkUpdater.submit(metric, statusId, statusId, statusId);
+        for (MetricDescription metricDescription : metrics) {
+            int statusId = metricDescription.getStatus().getId();
+            bulkUpdater.submit(metricDescription.getName(), statusId, statusId, statusId);
         }
         bulkUpdater.done();
     }
@@ -133,7 +132,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             saveMetrics(metrics);
             log.info("Saved " + metrics.size() + " metric names");
         } catch (Exception e) {
-            log.error("Failed to save metrics to mysql");
+            log.error("Failed to save metrics to mysql", e);
             updateQueue.addAll(metrics);
         }
     }
