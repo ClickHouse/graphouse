@@ -9,20 +9,20 @@ import java.util.Date;
  * @date 06/04/15
  */
 public class Metric {
-    private final MetricDescription name;
+    private final MetricDescription metricDescription;
     private final Date time;
     private final double value;
     private final int updated;
 
-    public Metric(MetricDescription name, Date time, double value, int updated) {
-        this.name = name;
+    public Metric(MetricDescription metricDescription, Date time, double value, int updated) {
+        this.metricDescription = metricDescription;
         this.time = time;
         this.value = value;
         this.updated = updated;
     }
 
-    public MetricDescription getName() {
-        return name;
+    public MetricDescription getMetricDescription() {
+        return metricDescription;
     }
 
     public Date getTime() {

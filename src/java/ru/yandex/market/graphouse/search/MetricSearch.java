@@ -14,6 +14,7 @@ import ru.yandex.market.monitoring.MonitoringUnit;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
@@ -30,6 +31,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private static final Logger log = LogManager.getLogger();
 
     private static final int BATCH_SIZE = 5_000;
+    private static final int MAX_METRICS_PER_SAVE = 1_000_000;
 
     private JdbcTemplate graphouseJdbcTemplate;
     private ComplicatedMonitoring monitoring;
@@ -41,7 +43,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private int lastUpdatedTimestampSeconds = 0;
 
-    private int saveIntervalSeconds = 300;
+    private int saveIntervalSeconds = 180;
     /**
      * Задержка на запись, репликацию, синхронизацию
      */
@@ -56,7 +58,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             @Override
             public void run() {
                 log.info("Shutting down Metric search");
-                saveNewMetrics();
+                saveUpdatedMetrics();
                 log.info("Metric search stopped");
             }
         }));
@@ -74,6 +76,24 @@ public class MetricSearch implements InitializingBean, Runnable {
         );
     }
 
+    private void saveMetrics(List<MetricDescription> metrics) {
+        if (metrics.isEmpty()) {
+            return;
+        }
+        BulkUpdater bulkUpdater = new BulkUpdater(
+            graphouseJdbcTemplate,
+            "INSERT INTO metric (name, status) VALUES (?, ?) " +
+                "ON DUPLICATE KEY UPDATE status = ?, " +
+                "   updated = IF(status != ?, CURRENT_TIMESTAMP, updated)",
+            BATCH_SIZE
+        );
+        for (MetricDescription metric : metrics) {
+            int statusId = metric.getStatus().getId();
+            bulkUpdater.submit(metric, statusId, statusId, statusId);
+        }
+        bulkUpdater.done();
+    }
+
     private void loadMetrics(int startTimestampSeconds) {
         log.info("Loading metric names from db");
         final AtomicInteger metricCount = new AtomicInteger();
@@ -89,7 +109,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                         log.warn("Invalid metric in db: " + metric);
                         return;
                     }
-                    metricTree.add(metric, status);
+                    metricTree.modify(metric, status);
                     metricCount.incrementAndGet();
                 }
             },
@@ -98,24 +118,23 @@ public class MetricSearch implements InitializingBean, Runnable {
         log.info("Loaded " + metricCount.get() + " metrics");
     }
 
-    private void saveNewMetrics() {
-        if (!updateQueue.isEmpty()) {
-            log.info("Saving new metric names to db");
-            int count = 0;
-            BulkUpdater bulkUpdater = new BulkUpdater(
-                graphouseJdbcTemplate,
-                "INSERT IGNORE INTO metric (name) values (?)",
-                BATCH_SIZE
-            );
-            MetricDescription metric;
-            while ((metric = updateQueue.poll()) != null) {
-                bulkUpdater.submit(metric.getName());
-                count++;
-            }
-            bulkUpdater.done();
-            log.info("Saved " + count + " metric names");
-        } else {
+    private void saveUpdatedMetrics() {
+        if (updateQueue.isEmpty()) {
             log.info("No new metric names to save");
+            return;
+        }
+        log.info("Saving new metric names to db. Current count: " + updateQueue.size());
+        List<MetricDescription> metrics = new ArrayList<>();
+        MetricDescription metric;
+        while (metrics.size() <= MAX_METRICS_PER_SAVE && (metric = updateQueue.poll()) != null) {
+            metrics.add(metric);
+        }
+        try {
+            saveMetrics(metrics);
+            log.info("Saved " + metrics.size() + " metric names");
+        } catch (Exception e) {
+            log.error("Failed to save metrics to mysql");
+            updateQueue.addAll(metrics);
         }
     }
 
@@ -124,7 +143,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         while (!Thread.interrupted()) {
             try {
                 loadNewMetrics();
-                saveNewMetrics();
+                saveUpdatedMetrics();
                 metricSearchUnit.ok();
             } catch (Exception e) {
                 log.error("Failed to update metric search", e);
@@ -144,12 +163,12 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public MetricDescription add(String metric) {
-        QueryStatus status = metricTree.add(metric);
-        // Если добавили новую директорию, то статус  QueryStatus.UNMODIFIED
-        if (status == QueryStatus.NEW || status == QueryStatus.UPDATED) {
-            updateQueue.add(metric);
+        long currentTimeMillis = System.currentTimeMillis();
+        MetricDescription metricDescription = metricTree.add(metric);
+        if (metricDescription != null && metricDescription.getUpdateTimeMillis() >= currentTimeMillis) {
+            updateQueue.add(metricDescription);
         }
-        return status;
+        return metricDescription;
     }
 
     public int multiModify(String query, final MetricStatus status, final Appendable result) throws IOException {
@@ -191,30 +210,27 @@ public class MetricSearch implements InitializingBean, Runnable {
         modify(Collections.singletonList(metric), status);
     }
 
+
     public void modify(List<String> metrics, MetricStatus status) {
         if (metrics == null || metrics.isEmpty()) {
             return;
         }
-        if (status.equals(MetricStatus.SIMPLE)) {
+        if (status.handmade()) {
             throw new IllegalStateException();
         }
-        BulkUpdater bulkUpdater = new BulkUpdater(
-            graphouseJdbcTemplate,
-            "INSERT INTO metric (name, status) VALUES (?, ?) " +
-                "ON DUPLICATE KEY UPDATE status = ?, " +
-                "   updated = IF(status != ?, CURRENT_TIMESTAMP, updated)",
-            BATCH_SIZE
-        );
+        long currentTimeMillis = System.currentTimeMillis();
+        List<MetricDescription> metricDescriptions = new ArrayList<>();
         for (String metric : metrics) {
             if (!metricValidator.validate(metric, true)) {
                 log.warn("Wrong metric to modify: " + metric);
                 continue;
             }
-            bulkUpdater.submit(metric, status.getId(), status.getId(), status.getId());
-            metricTree.add(metric, status);
-
+            MetricDescription metricDescription = metricTree.modify(metric, status);
+            if (metricDescription != null && metricDescription.getUpdateTimeMillis() >= currentTimeMillis) {
+                metricDescriptions.add(metricDescription);
+            }
         }
-        bulkUpdater.done();
+        saveMetrics(metricDescriptions);
         if (metrics.size() == 1) {
             log.info("Updated metric '" + metrics.get(0) + "', status: " + status.name());
         } else {

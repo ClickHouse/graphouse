@@ -50,9 +50,9 @@ public class MetricFactory {
             }
             Date date = new Date(TimeUnit.SECONDS.toMillis(timeSeconds));
             name = processName(name);
-            MetricDescription metricName = metricSearch.add(name);
-            if (metricName != null) {
-                return new Metric(metricName, date, value, updated);
+            MetricDescription metricDescription = metricSearch.add(name);
+            if (metricDescription != null) {
+                return new Metric(metricDescription, date, value, updated);
             } else {
                 return null;
             }

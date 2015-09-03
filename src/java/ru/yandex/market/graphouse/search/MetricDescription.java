@@ -14,4 +14,7 @@ public interface MetricDescription {
     MetricStatus getStatus();
 
     boolean isDir();
+
+    long getUpdateTimeMillis();
+
 }

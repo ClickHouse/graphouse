@@ -69,7 +69,7 @@ public class MetricInputStream extends InputStream {
 
         Metric metric = metrics.get(rowNum);
 
-        metric.getName().writeName(buffer);
+        metric.getMetricDescription().writeName(buffer);
         buffer.append('\t');
         appendBytes(Double.toString(metric.getValue()).getBytes());
         buffer.append('\t');
