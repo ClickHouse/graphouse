@@ -201,7 +201,8 @@ public class MetricSearch implements InitializingBean, Runnable {
         BulkUpdater bulkUpdater = new BulkUpdater(
             graphouseJdbcTemplate,
             "INSERT INTO metric (name, status) VALUES (?, ?) " +
-                "ON DUPLICATE KEY UPDATE status = ?, updated = CURRENT_TIMESTAMP",
+                "ON DUPLICATE KEY UPDATE status = ?, " +
+                "   updated = IF(status != ?, CURRENT_TIMESTAMP, updated)",
             BATCH_SIZE
         );
         for (String metric : metrics) {
@@ -209,7 +210,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 log.warn("Wrong metric to modify: " + metric);
                 continue;
             }
-            bulkUpdater.submit(metric, status.getId(), status.getId());
+            bulkUpdater.submit(metric, status.getId(), status.getId(), status.getId());
             metricTree.add(metric, status);
 
         }
