@@ -354,7 +354,7 @@ public class MetricTree {
             if (isRoot()) {
                 return "ROOT";
             }
-            return parent.toString() + "." + name;
+            return parent.isRoot() ? name : parent.toString() + "." + name;
         }
 
         @Override
