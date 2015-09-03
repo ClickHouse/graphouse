@@ -1,5 +1,7 @@
 package ru.yandex.market.graphouse;
 
+import ru.yandex.market.graphouse.search.MetricDescription;
+
 import java.util.Date;
 
 /**
@@ -7,19 +9,19 @@ import java.util.Date;
  * @date 06/04/15
  */
 public class Metric {
-    private final WritableName name;
+    private final MetricDescription name;
     private final Date time;
     private final double value;
     private final int updated;
 
-    public Metric(WritableName name, Date time, double value, int updated) {
+    public Metric(MetricDescription name, Date time, double value, int updated) {
         this.name = name;
         this.time = time;
         this.value = value;
         this.updated = updated;
     }
 
-    public WritableName getName() {
+    public MetricDescription getName() {
         return name;
     }
 

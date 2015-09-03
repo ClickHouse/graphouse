@@ -2,7 +2,6 @@ package ru.yandex.market.graphouse.search;
 
 import com.google.common.base.CharMatcher;
 import org.apache.http.util.ByteArrayBuffer;
-import ru.yandex.market.graphouse.WritableName;
 
 import java.io.IOException;
 import java.util.List;
@@ -252,7 +251,7 @@ public class MetricTree {
         return CharMatcher.anyOf("*?[]{}").matchesAnyOf(metric);
     }
 
-    private static class Dir implements WritableName {
+    private static class Dir implements MetricDescription {
         private final Dir parent;
         private final String name;
         private final ConcurrentMap<String, MetricName> metrics = new ConcurrentHashMap<>();
@@ -322,7 +321,7 @@ public class MetricTree {
         }
 
         @Override
-        public String toString() {
+        public String getName() {
             if (isRoot()) {
                 return "ROOT";
             }
@@ -332,9 +331,24 @@ public class MetricTree {
                 return parent.toString() + "." + name;
             }
         }
+
+        @Override
+        public MetricStatus getStatus() {
+            return status;
+        }
+
+        @Override
+        public boolean isDir() {
+            return true;
+        }
+
+        @Override
+        public String toString() {
+            return getName();
+        }
     }
 
-    private static class MetricName implements WritableName {
+    private static class MetricName implements MetricDescription {
         private final Dir parent;
         private final String name;
 
@@ -353,8 +367,23 @@ public class MetricTree {
         }
 
         @Override
-        public String toString() {
+        public String getName() {
             return parent.toString() + "." + name;
+        }
+
+        @Override
+        public MetricStatus getStatus() {
+            return status;
+        }
+
+        @Override
+        public boolean isDir() {
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return getName();
         }
     }
 

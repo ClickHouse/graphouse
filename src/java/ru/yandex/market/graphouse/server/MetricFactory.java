@@ -3,9 +3,8 @@ package ru.yandex.market.graphouse.server;
 import org.springframework.beans.factory.annotation.Required;
 import ru.yandex.market.graphite.MetricValidator;
 import ru.yandex.market.graphouse.Metric;
-import ru.yandex.market.graphouse.WritableName;
+import ru.yandex.market.graphouse.search.MetricDescription;
 import ru.yandex.market.graphouse.search.MetricSearch;
-import ru.yandex.market.graphouse.search.QueryStatus;
 
 import java.util.Arrays;
 import java.util.Date;
@@ -51,7 +50,7 @@ public class MetricFactory {
             }
             Date date = new Date(TimeUnit.SECONDS.toMillis(timeSeconds));
             name = processName(name);
-            WritableName metricName = metricSearch.add(name);
+            MetricDescription metricName = metricSearch.add(name);
             if (metricName != null) {
                 return new Metric(metricName, date, value, updated);
             } else {
