@@ -1,6 +1,7 @@
 package ru.yandex.market.graphouse.search;
 
 import com.google.common.base.CharMatcher;
+import org.apache.http.util.ByteArrayBuffer;
 
 import java.io.IOException;
 import java.util.List;
@@ -35,7 +36,7 @@ public class MetricTree {
      * @throws IOException
      */
     private void search(Dir parentDir, String[] levels, int levelIndex, Appendable result) throws IOException {
-        if (!parentDir.status.visible()) {
+        if (!parentDir.getStatus().visible()) {
             return;
         }
         boolean isLast = (levelIndex == levels.length - 1);
@@ -111,27 +112,27 @@ public class MetricTree {
     private void appendPatternResult(Dir parentDir, Pattern pattern, Appendable result) throws IOException {
         for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
             Dir dir = dirEntry.getValue();
-            if (dir.status.visible() && pattern.matcher(dirEntry.getKey()).matches()) {
+            if (dir.visible() && pattern.matcher(dirEntry.getKey()).matches()) {
                 appendResult(dir, result);
             }
         }
         for (Map.Entry<String, MetricName> metricEntry : parentDir.metrics.entrySet()) {
             MetricName metricName = metricEntry.getValue();
-            if (metricName.status.visible() && pattern.matcher(metricEntry.getKey()).matches()) {
+            if (metricName.visible() && pattern.matcher(metricEntry.getKey()).matches()) {
                 appendResult(metricName, result);
             }
         }
     }
 
     private void appendResult(Dir dir, Appendable result) throws IOException {
-        if (dir != null && dir.status.visible()) {
+        if (dir != null && dir.visible()) {
             appendDir(dir, result);
             result.append('\n');
         }
     }
 
     private void appendResult(MetricName metric, Appendable result) throws IOException {
-        if (metric != null && metric.status.visible()) {
+        if (metric != null && metric.visible()) {
             appendDir(metric.parent, result);
             result.append(metric.name).append('\n');
         }
@@ -145,12 +146,8 @@ public class MetricTree {
         result.append(dir.name).append('.');
     }
 
-    public QueryStatus add(String metric, MetricStatus status) {
-        return modify(metric, status);
-    }
-
-    public QueryStatus add(String metric) {
-        return add(metric, MetricStatus.SIMPLE);
+    public MetricDescription add(String metric) {
+        return modify(metric, MetricStatus.SIMPLE);
     }
 
     /**
@@ -158,52 +155,47 @@ public class MetricTree {
      *
      * @param metric если заканчивается на '.' , то директория
      * @param status
-     * @return
+     * @return null если метрика/директория забанена. Иначе MetricDescription
      */
-    private QueryStatus modify(String metric, MetricStatus status) {
-        if (containsExpressions(metric)) {
-            return QueryStatus.WRONG;
-        }
+    public MetricDescription modify(String metric, MetricStatus status) {
         boolean isDir = metric.charAt(metric.length() - 1) == '.';
 
         String[] levels = metric.split("\\.");
         Dir dir = root;
         for (int i = 0; i < levels.length; i++) {
             boolean isLast = (i == levels.length - 1);
-            if (dir.isBan()) {
-                return QueryStatus.BAN;
+            if (dir.getStatus() == MetricStatus.BAN) {
+                return null;
             }
             String level = levels[i];
             if (!isLast) {
                 dir = dir.getOrCreateDir(level);
-                if (dir.parent.status.visible() != dir.status.visible()) {
+                if (dir.parent.visible() != dir.visible()) {
                     updatePathVisibility(dir.parent);
                 }
             } else {
-                QueryStatus queryStatus = modify(dir, level, isDir, status);
-                if (status.visible() != dir.status.visible()) {
+                MetricDescription metricDescription = modify(dir, level, isDir, status);
+                if (status.visible() != dir.visible()) {
                     updatePathVisibility(dir);
                 }
-                return queryStatus;
+                return metricDescription;
             }
         }
         throw new IllegalStateException();
     }
 
-    private QueryStatus modify(Dir parent, String name, boolean isDir, MetricStatus status) {
+    private MetricDescription modify(Dir parent, String name, boolean isDir, MetricStatus status) {
         if (parent.isRoot()) {
-            return QueryStatus.WRONG; // Не даем править второй уровень.
+            throw new IllegalArgumentException("Disallowed modify second level");
         }
         if (isDir) {
             Dir dir = parent.getOrCreateDir(name);
-            MetricStatus oldStatus = dir.status;
-            dir.status = selectStatus(oldStatus, status);
-            return (oldStatus == dir.status) ? QueryStatus.UNMODIFIED : QueryStatus.UPDATED;
+            dir.setStatus(selectStatus(dir.getStatus(), status));
+            return dir;
         } else {
-            QueryStatus queryStatus = parent.createMetric(name);
-            MetricName metric = parent.get(name);
-            metric.status = selectStatus(metric.status, status);
-            return queryStatus;
+            MetricName metric = parent.getOrCreateMetric(name);
+            metric.setStatus(selectStatus(metric.getStatus(), status));
+            return metric;
         }
     }
 
@@ -218,23 +210,23 @@ public class MetricTree {
             return;
         }
         MetricStatus newStatus = selectStatus(
-            dir.status,
+            dir.getStatus(),
             hasVisibleChildren(dir) ? MetricStatus.SIMPLE : MetricStatus.AUTO_HIDDEN
         );
-        if (dir.status != newStatus) {
-            dir.status = newStatus;
+        if (dir.getStatus() != newStatus) {
+            dir.setStatus(newStatus);
             updatePathVisibility(dir.parent);
         }
     }
 
     private boolean hasVisibleChildren(Dir dir) {
         for (Dir child : dir.dirs.values()) {
-            if (child.status.visible()) {
+            if (child.visible()) {
                 return true;
             }
         }
         for (MetricName child : dir.metrics.values()) {
-            if (child.status.visible()) {
+            if (child.visible()) {
                 return true;
             }
         }
@@ -257,16 +249,12 @@ public class MetricTree {
         return EXPRESSION_MATCHER.matchesAnyOf(metric);
     }
 
-    private static class Dir {
-        private final Dir parent;
-        private final String name;
+    private static class Dir extends MetricBase {
         private final ConcurrentMap<String, MetricName> metrics = new ConcurrentHashMap<>();
         private final ConcurrentMap<String, Dir> dirs = new ConcurrentHashMap<>();
-        private volatile MetricStatus status = MetricStatus.SIMPLE;
 
         public Dir(Dir parent, String name) {
-            this.parent = parent;
-            this.name = name.intern();
+            super(parent, name);
         }
 
         private Dir getOrCreateDir(String name) {
@@ -279,49 +267,36 @@ public class MetricTree {
             return dir == null ? newDir : dir;
         }
 
-        private QueryStatus createMetric(String metric) {
-            if (metrics.containsKey(metric)) {
-                return QueryStatus.UPDATED;
-            }
-            MetricName newMetricName = new MetricName(this, metric);
-            if (metrics.putIfAbsent(metric, newMetricName) == null) {
-                return QueryStatus.NEW;
-            } else {
-                return QueryStatus.UPDATED;
-            }
-        }
 
-        private QueryStatus createIfNotExists(String metric) {
-            MetricName metricName = metrics.get(metric);
+        private MetricName getOrCreateMetric(String name) {
+            MetricName metricName = metrics.get(name);
             if (metricName != null) {
-                return QueryStatus.UPDATED;
+                return metricName;
             }
-            createMetric(metric);
-            return QueryStatus.NEW;
+            MetricName newMetricName = new MetricName(this, name);
+            metricName = metrics.putIfAbsent(name, newMetricName);
+            return metricName == null ? newMetricName : metricName;
         }
 
         private MetricName get(String metric) {
             return metrics.get(metric);
         }
 
-        private boolean isRoot() {
-            return parent == null;
+        @Override
+        public boolean isDir() {
+            return true;
         }
+    }
 
-        private boolean isBan() {
-            return status.equals(MetricStatus.BAN);
+    private static class MetricName extends MetricBase {
+
+        public MetricName(Dir parent, String name) {
+            super(parent, name);
         }
 
         @Override
-        public String toString() {
-            if (isRoot()) {
-                return "ROOT";
-            }
-            if (parent.isRoot()) {
-                return name;
-            } else {
-                return parent.toString() + "." + name;
-            }
+        public boolean isDir() {
+            return false;
         }
 
         public int metricCount() {
@@ -341,20 +316,72 @@ public class MetricTree {
         }
     }
 
-    private static class MetricName {
-        private final Dir parent;
-        private final String name;
+    private abstract static class MetricBase implements MetricDescription {
+        protected final Dir parent;
+        protected final String name;
 
+        private volatile long updateTimeMillis = System.currentTimeMillis();
         private volatile MetricStatus status = MetricStatus.SIMPLE;
 
-        public MetricName(Dir parent, String name) {
+        public MetricBase(Dir parent, String name) {
             this.parent = parent;
             this.name = name.intern();
         }
 
+        public boolean visible() {
+            return status.visible();
+        }
+
+        public boolean isRoot() {
+            return parent == null;
+        }
+
         @Override
-        public String toString() {
+        public void writeName(ByteArrayBuffer buffer) {
+            if (isRoot()) {
+                appendBytes(buffer, "ROOT".getBytes());
+                return;
+            }
+            if (!parent.isRoot()) {
+                parent.writeName(buffer);
+            }
+            buffer.append('.');
+            appendBytes(buffer, name.getBytes());
+        }
+
+        @Override
+        public String getName() {
+            if (isRoot()) {
+                return "ROOT";
+            }
             return parent.toString() + "." + name;
         }
+
+        @Override
+        public MetricStatus getStatus() {
+            return status;
+        }
+
+        public void setStatus(MetricStatus status) {
+            if (this.status != status) {
+                this.status = status;
+                updateTimeMillis = System.currentTimeMillis();
+            }
+        }
+
+        @Override
+        public String toString() {
+            return getName();
+        }
+
+        @Override
+        public long getUpdateTimeMillis() {
+            return updateTimeMillis;
+        }
     }
+
+    private static void appendBytes(ByteArrayBuffer buffer, byte[] bytes) {
+        buffer.append(bytes, 0, bytes.length);
+    }
+
 }
