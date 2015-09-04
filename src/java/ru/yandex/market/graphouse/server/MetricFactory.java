@@ -30,7 +30,7 @@ public class MetricFactory {
      * @param line    через пробел название метрики, значение, метка времени
      * @param updated
      * @return созданную или обновленную метрику,
-     * <code>null</code> если название метрики или значение не валидны
+     * <code>null</code> если название метрики или значение не валидны, метрика забанена
      */
     public Metric createMetric(String line, int updated) {
 

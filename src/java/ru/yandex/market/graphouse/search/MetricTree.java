@@ -36,7 +36,7 @@ public class MetricTree {
      * @throws IOException
      */
     private void search(Dir parentDir, String[] levels, int levelIndex, Appendable result) throws IOException {
-        if (!parentDir.getStatus().visible()) {
+        if (!parentDir.visible()) {
             return;
         }
         boolean isLast = (levelIndex == levels.length - 1);
