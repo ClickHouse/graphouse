@@ -40,7 +40,6 @@ public class MetricSearch implements InitializingBean, Runnable {
     private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch");
     private final MetricTree metricTree = new MetricTree();
     private final Queue<MetricDescription> updateQueue = new ConcurrentLinkedQueue<>();
-    private volatile boolean loaded = false;
 
     private int lastUpdatedTimestampSeconds = 0;
 
@@ -146,7 +145,6 @@ public class MetricSearch implements InitializingBean, Runnable {
                     "Actual metrics count = " + metricTree.metricCount() + ", dir count: " + metricTree.dirCount()
                 );
                 loadNewMetrics();
-                loaded = true;
                 saveUpdatedMetrics();
                 metricSearchUnit.ok();
             } catch (Exception e) {
@@ -169,9 +167,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     public MetricDescription add(String metric) {
         long currentTimeMillis = System.currentTimeMillis();
         MetricDescription metricDescription = metricTree.add(metric);
-        //В случае, если загрузка ещё прошла, мы не можем добавлять в дерево метрик,
-        //т.к. рискуем перезаписать ручные статусы, поэтому тупо ждем полной загрузки
-        if (loaded && metricDescription != null && metricDescription.getUpdateTimeMillis() >= currentTimeMillis) {
+        if (metricDescription != null && metricDescription.getUpdateTimeMillis() >= currentTimeMillis) {
             updateQueue.add(metricDescription);
         }
         return metricDescription;
@@ -221,8 +217,8 @@ public class MetricSearch implements InitializingBean, Runnable {
         if (metrics == null || metrics.isEmpty()) {
             return;
         }
-        if (status.handmade()) {
-            throw new IllegalStateException();
+        if (status == MetricStatus.SIMPLE) {
+            throw new IllegalStateException("Cannon modify to SIMPLE status");
         }
         long currentTimeMillis = System.currentTimeMillis();
         List<MetricDescription> metricDescriptions = new ArrayList<>();
