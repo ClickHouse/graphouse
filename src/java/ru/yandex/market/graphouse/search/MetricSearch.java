@@ -169,7 +169,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     public MetricDescription add(String metric) {
         long currentTimeMillis = System.currentTimeMillis();
         MetricDescription metricDescription = metricTree.add(metric);
-        //В случае, если загрузка ещё прошла, мы не можем добавлять в дерево метрик,
+        //В случае, если загрузка ещё не прошла, мы не можем добавлять в дерево метрик,
         //т.к. рискуем перезаписать ручные статусы, поэтому тупо ждем полной загрузки
         if (loaded && metricDescription != null && metricDescription.getUpdateTimeMillis() >= currentTimeMillis) {
             updateQueue.add(metricDescription);
