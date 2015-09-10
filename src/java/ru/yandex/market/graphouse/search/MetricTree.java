@@ -344,8 +344,8 @@ public class MetricTree {
             }
             if (!parent.isRoot()) {
                 parent.writeName(buffer);
+                buffer.append('.');
             }
-            buffer.append('.');
             appendBytes(buffer, name.getBytes());
         }
 
