@@ -2,14 +2,19 @@ package ru.yandex.market.graphouse.search;
 
 import com.google.common.base.CharMatcher;
 import org.apache.http.util.ByteArrayBuffer;
+import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+
+import static org.mockito.Mockito.when;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -61,20 +66,34 @@ public class MetricTree {
                 }
             }
         } else {
-            Pattern pattern = createPattern(level);
-            if (pattern == null) {
+            PathMatcher pathMatcher = createPathMatcher(level);
+            if (pathMatcher == null) {
                 return;
             }
             if (isLast) {
-                appendPatternResult(parentDir, pattern, result);
+                appendPatternResult(parentDir, pathMatcher, result);
             } else {
                 for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
-                    if (pattern.matcher(dirEntry.getKey()).matches()) {
+                    if (matches(pathMatcher, dirEntry.getKey())) {
                         search(dirEntry.getValue(), levels, levelIndex + 1, result);
                     }
                 }
             }
         }
+    }
+
+    protected static PathMatcher createPathMatcher(String globPattern) {
+        try {
+            return FileSystems.getDefault().getPathMatcher("glob:" + globPattern);
+        } catch (PatternSyntaxException e) {
+            return null;
+        }
+    }
+
+    protected static boolean matches(PathMatcher pathMatcher, final String fileName) {
+        Path mockPath = Mockito.mock(Path.class);
+        when(mockPath.toString()).thenReturn(fileName);
+        return pathMatcher.matches(mockPath);
     }
 
     public int metricCount() {
@@ -83,16 +102,6 @@ public class MetricTree {
 
     public int dirCount() {
         return root.dirCount();
-    }
-
-    public static Pattern createPattern(String globPattern) {
-        globPattern = globPattern.replace("*", "[-_0-9a-zA-Z]*");
-        globPattern = globPattern.replace("?", "[-_0-9a-zA-Z]");
-        try {
-            return Pattern.compile(globPattern);
-        } catch (PatternSyntaxException e) {
-            return null;
-        }
     }
 
     private void appendSimpleResult(Dir parentDir, String name, Appendable result) throws IOException {
@@ -109,16 +118,16 @@ public class MetricTree {
         }
     }
 
-    private void appendPatternResult(Dir parentDir, Pattern pattern, Appendable result) throws IOException {
+    private void appendPatternResult(Dir parentDir, PathMatcher pathMatcher, Appendable result) throws IOException {
         for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
             Dir dir = dirEntry.getValue();
-            if (dir.visible() && pattern.matcher(dirEntry.getKey()).matches()) {
+            if (dir.visible() && matches(pathMatcher, dirEntry.getKey())) {
                 appendResult(dir, result);
             }
         }
         for (Map.Entry<String, MetricName> metricEntry : parentDir.metrics.entrySet()) {
             MetricName metricName = metricEntry.getValue();
-            if (metricName.visible() && pattern.matcher(metricEntry.getKey()).matches()) {
+            if (metricName.visible() && matches(pathMatcher, metricEntry.getKey())) {
                 appendResult(metricName, result);
             }
         }
@@ -383,5 +392,4 @@ public class MetricTree {
     private static void appendBytes(ByteArrayBuffer buffer, byte[] bytes) {
         buffer.append(bytes, 0, bytes.length);
     }
-
 }

@@ -1,10 +1,16 @@
 package ru.yandex.market.graphouse.search;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.file.PathMatcher;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import static org.junit.Assert.*;
 
@@ -12,14 +18,58 @@ public class MetricTreeTest {
 
     private MetricTree tree = new MetricTree();
 
+    public static Pattern createPattern(final String globPattern) {
+        String result = globPattern.replace("*", "[-_0-9a-zA-Z]*");
+        result = result.replace("?", "[-_0-9a-zA-Z]");
+        try {
+            return Pattern.compile(result);
+        } catch (PatternSyntaxException e) {
+            return null;
+        }
+    }
+
     @Test
     public void testGlob() {
-        Pattern pattern = MetricTree.createPattern("msh0[1-6]d_market_yandex_net");
-        assertTrue(pattern.matcher("msh01d_market_yandex_net").matches());
+        Multimap<String, String> pattern2Candidates = generate();
+        for (Map.Entry<String, Collection<String>> pattern2CandidatesMap : pattern2Candidates.asMap().entrySet()) {
+            String glob = pattern2CandidatesMap.getKey();
+            Pattern pattern = createPattern(glob);
+            if (pattern == null) {
+                System.out.println("Wrong pattern " + glob);
+                continue;
+            }
+            for (String node : pattern2CandidatesMap.getValue()) {
+                System.out.println(String.format("%40s\t%40s\t%s", glob, node, pattern.matcher(node).matches()));
+            }
+        }
+    }
 
-        Pattern pattern2 = MetricTree.createPattern("one_min.market-front.timings-static.0_9[");
+    @Test
+    public void testGlobPath() {
+        PathMatcher matcher = MetricTree.createPathMatcher("asdf[");
+        assertNull(matcher);
 
+        Multimap<String, String> pattern2Candidates = generate();
+        for (Map.Entry<String, Collection<String>> pattern2CandidatesMap : pattern2Candidates.asMap().entrySet()) {
+            String glob = pattern2CandidatesMap.getKey();
+            matcher = MetricTree.createPathMatcher(glob);
+            if (matcher == null) {
+                System.out.println("Wrong pattern " + glob);
+                continue;
+            }
+            for (String node : pattern2CandidatesMap.getValue()) {
+                System.out.println(String.format("%40s\t%40s\t%s", glob, node, MetricTree.matches(matcher, node)));
+            }
+        }
+    }
 
+    private Multimap<String, String> generate() {
+        Multimap<String, String> pattern2Candidates = ArrayListMultimap.create();
+        pattern2Candidates.putAll("msh0[1-6]d_market_yandex_net", Arrays.asList("msh01d_market_yandex_net", "msh03d_market_yandex_net"));
+        pattern2Candidates.putAll("min.market-front*.e", Arrays.asList("min.market-front.e", "min.market-front-ugr.e"));
+        pattern2Candidates.putAll("min.market-front{-ugr,-fol}.e", Arrays.asList("min.market-front-fol.e", "min.market-front-ugr.e"));
+        pattern2Candidates.putAll("min.market-front{,-ugr,-fol}.e", Arrays.asList("min.market-front.e", "min.market-front-ugr.e"));
+        return pattern2Candidates;
     }
 
     @Test
