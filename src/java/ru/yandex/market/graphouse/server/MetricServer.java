@@ -17,6 +17,7 @@ import java.net.SocketTimeoutException;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
@@ -77,7 +78,6 @@ public class MetricServer implements InitializingBean {
         }
 
         private void read() throws IOException {
-            int updated = (int) (System.currentTimeMillis() / 1000);
             Socket socket = serverSocket.accept();
             try {
                 socket.setSoTimeout(socketTimeoutMillis);
@@ -85,6 +85,7 @@ public class MetricServer implements InitializingBean {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String line;
                 while ((line = reader.readLine()) != null) {
+                    int updated = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()));
                     Metric metric = metricFactory.createMetric(line, updated);
                     if (metric != null) {
                         metricCacher.submitMetric(metric);
