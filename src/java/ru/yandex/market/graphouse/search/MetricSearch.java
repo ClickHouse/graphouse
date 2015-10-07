@@ -67,7 +67,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private void initDatabase() {
         graphouseJdbcTemplate.update(
             "CREATE TABLE IF NOT EXISTS metric (" +
-                "  `NAME` VARCHAR(200) NOT NULL, " +
+                "  `NAME` VARCHAR(255) NOT NULL, " +
                 "  `status` TINYINT NOT NULL DEFAULT 0, " +
                 "  `UPDATED` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
                 "  PRIMARY KEY (`NAME`), " +
