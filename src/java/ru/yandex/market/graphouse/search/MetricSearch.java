@@ -101,7 +101,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             "SELECT name, status FROM metric",
             new MetricRowCallbackHandler(metricCount)
         );
-        log.info("Loaded complete. Total" + metricCount.get() + " metrics");
+        log.info("Loaded complete. Total " + metricCount.get() + " metrics");
     }
 
     private void loadUpdatedMetrics(int startTimestampSeconds) {
@@ -113,7 +113,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             new MetricRowCallbackHandler(metricCount),
             startTimestampSeconds
         );
-        log.info("Loaded complete. Total" + metricCount.get() + " metrics");
+        log.info("Loaded complete. Total " + metricCount.get() + " metrics");
     }
 
     private class MetricRowCallbackHandler implements RowCallbackHandler {
