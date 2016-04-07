@@ -93,31 +93,50 @@ public class MetricSearch implements InitializingBean, Runnable {
         bulkUpdater.done();
     }
 
-    private void loadMetrics(int startTimestampSeconds) {
-        log.info("Loading metric names from db...");
-        final AtomicInteger metricCount = new AtomicInteger();
+    private void loadAllMetrics() {
+        log.info("Loading all metric names from db...");
+        final AtomicInteger metricCount = new AtomicInteger(0);
+
+        graphouseJdbcTemplate.query(
+            "SELECT name, status FROM metric",
+            new MetricRowCallbackHandler(metricCount)
+        );
+        log.info("Loaded complete. Total" + metricCount.get() + " metrics");
+    }
+
+    private void loadUpdatedMetrics(int startTimestampSeconds) {
+        log.info("Loading updated metric names from db...");
+        final AtomicInteger metricCount = new AtomicInteger(0);
 
         graphouseJdbcTemplate.query(
             "SELECT name, status FROM metric WHERE updated >= FROM_UNIXTIME(?)",
-            new RowCallbackHandler() {
-                @Override
-                public void processRow(ResultSet rs) throws SQLException {
-                    String metric = rs.getString("name");
-                    MetricStatus status = MetricStatus.forId(rs.getInt("status"));
-                    if (!metricValidator.validate(metric, true)) {
-                        log.warn("Invalid metric in db: " + metric);
-                        return;
-                    }
-                    metricTree.modify(metric, status);
-                    if (metricCount.incrementAndGet() % 10_000 == 0){
-                        log.info("Loaded "+ metricCount.get() + " metrics...");
-                    }
-
-                }
-            },
+            new MetricRowCallbackHandler(metricCount),
             startTimestampSeconds
         );
         log.info("Loaded complete. Total" + metricCount.get() + " metrics");
+    }
+
+    private class MetricRowCallbackHandler implements RowCallbackHandler {
+
+        final AtomicInteger metricCount;
+
+        public MetricRowCallbackHandler(AtomicInteger metricCount) {
+            this.metricCount = metricCount;
+        }
+
+        @Override
+        public void processRow(ResultSet rs) throws SQLException {
+            String metric = rs.getString("name");
+            MetricStatus status = MetricStatus.forId(rs.getInt("status"));
+            if (!metricValidator.validate(metric, true)) {
+                log.warn("Invalid metric in db: " + metric);
+                return;
+            }
+            metricTree.modify(metric, status);
+            if (metricCount.incrementAndGet() % 100_000 == 0) {
+                log.info("Loaded " + metricCount.get() + " metrics...");
+            }
+        }
     }
 
     private void saveUpdatedMetrics() {
@@ -163,7 +182,11 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void loadNewMetrics() {
         int timeSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())) - updateDelaySeconds;
-        loadMetrics(lastUpdatedTimestampSeconds);
+        if (lastUpdatedTimestampSeconds == 0) {
+            loadAllMetrics();
+        } else {
+            loadUpdatedMetrics(lastUpdatedTimestampSeconds);
+        }
         lastUpdatedTimestampSeconds = timeSeconds;
     }
 
