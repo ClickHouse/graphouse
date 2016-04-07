@@ -94,7 +94,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     private void loadMetrics(int startTimestampSeconds) {
-        log.info("Loading metric names from db");
+        log.info("Loading metric names from db...");
         final AtomicInteger metricCount = new AtomicInteger();
 
         graphouseJdbcTemplate.query(
@@ -109,12 +109,15 @@ public class MetricSearch implements InitializingBean, Runnable {
                         return;
                     }
                     metricTree.modify(metric, status);
-                    metricCount.incrementAndGet();
+                    if (metricCount.incrementAndGet() % 10_000 == 0){
+                        log.info("Loaded "+ metricCount.get() + " metrics...");
+                    }
+
                 }
             },
             startTimestampSeconds
         );
-        log.info("Loaded " + metricCount.get() + " metrics");
+        log.info("Loaded complete. Total" + metricCount.get() + " metrics");
     }
 
     private void saveUpdatedMetrics() {
