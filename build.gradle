@@ -1,0 +1,33 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        maven { url 'http://artifactory.yandex.net/artifactory/yandex_market_snapshots' }
+        maven { url 'http://maven.yandex.net/nexus/content/groups/public' }
+    }
+    dependencies {
+        classpath 'ru.yandex.market:mbuild:+'
+    }
+}
+task printBuildScriptClasspath << {
+    println project.buildscript.configurations.classpath.asPath
+}
+apply plugin: 'mbuild-java'
+
+group = 'ru.yandex.market'
+version = version
+
+dependencies {
+    compile group: 'ru.yandex.market', name: 'health-utils', version:'+'
+    compile group: 'commons-io', name: 'commons-io', version:'2.4'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version:'2.2'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-api', version:'2.2'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version:'2.2'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-web', version:'2.2'
+    compile group: 'org.springframework', name: 'spring-jdbc', version:'4.1.6.RELEASE'
+    compile group: 'commons-dbcp', name: 'commons-dbcp', version:'1.4'
+    compile group: 'org.eclipse.jetty', name: 'jetty-server', version:'9.2.10.v20150310'
+    compile group: 'org.eclipse.jetty', name: 'jetty-servlet', version:'9.2.10.v20150310'
+
+    testCompile group: 'org.mockito', name: 'mockito-all', version:'1.9.5'
+    testCompile group: 'junit', name: 'junit', version:'4.8.1'
+}
