@@ -1,7 +1,7 @@
 buildscript {
     repositories {
         mavenLocal()
-        maven { url 'http://artifactory.yandex.net/artifactory/yandex_market_snapshots' }
+        maven { url 'http://artifactory.yandex.net/artifactory/yandex_market_releases' }
         maven { url 'http://maven.yandex.net/nexus/content/groups/public' }
     }
     dependencies {
