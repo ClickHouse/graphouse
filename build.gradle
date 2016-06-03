@@ -9,10 +9,20 @@ buildscript {
     }
 }
 
-apply plugin: 'mbuild-java'
+apply plugin: 'mbuild-deb'
 
 group = 'ru.yandex'
 version = version
+
+mbuild {
+    rbuildLayout = true
+
+    deb {
+        copy_etc_conf_list = 'graphouse.xml property-configurer.xml log4j2.xml graphouse-default.properties ulimit.conf'
+
+        copy_usr_bin_list = 'libyjpagent.so'
+    }
+}
 
 dependencies {
     compile group: 'ru.yandex.market', name: 'health-utils', version: '+'
