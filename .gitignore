@@ -1,5 +1,3 @@
-local-application.properties
-
 ### Java template
 *.class
 
