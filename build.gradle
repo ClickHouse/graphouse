@@ -15,8 +15,6 @@ group = 'ru.yandex'
 version = version
 
 mbuild {
-    rbuildLayout = true
-
     deb {
         copy_etc_conf_list = 'graphouse.xml property-configurer.xml log4j2.xml graphouse-default.properties ulimit.conf'
 
