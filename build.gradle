@@ -5,7 +5,7 @@ buildscript {
         maven { url 'http://maven.yandex.net/nexus/content/groups/public' }
     }
     dependencies {
-        classpath 'ru.yandex.market:mbuild:+'
+        classpath 'ru.yandex.market:mbuild:0.21-SNAPSHOT'
     }
 }
 
@@ -23,7 +23,7 @@ mbuild {
 }
 
 dependencies {
-    compile group: 'ru.yandex.market', name: 'health-utils', version: '+'
+    compile group: 'ru.yandex.market', name: 'health-utils', version: '1.9.9'
     compile group: 'commons-io', name: 'commons-io', version: '2.4'
     compile group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version: '2.2'
     compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.2'
