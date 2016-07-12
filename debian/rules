@@ -2,32 +2,21 @@
 
 package=yandex-graphouse
 
-build:
-	dh_testdir
-	ant -Dis.debuild=true -f 'rbuild.xml' rebuild
-	touch build
+%:
+	dh $@
 
-clean:
-	dh_testroot
-	dh_testdir
-	rm -rf build
-	ant -f 'rbuild.xml' clean
+override_dh_clean:
+	./gradlew clean
 	dh_clean
 
-binary-indep: build
+override_dh_build:
+	./gradlew build
+	dh_build
 
-binary-arch: build
+override_dh_install:
+	./gradlew prepareDebuild
+	dh_install
 
-binary: binary-indep binary-arch
-	dh_testroot
-	dh_testdir
-	ant -Ddest.dir=$(CURDIR)/debian/yandex-graphouse -f 'rbuild.xml' install
+override_dh_installinit:
 	dh_installinit --name=graphouse --noscripts
-	dh_installdeb
-	dh_gencontrol
-	dh_fixperms
-	dh_md5sums
-	dh_builddeb
 
-
-.PHONY: binary binary-arch binary-indep clean checkroot
