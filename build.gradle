@@ -20,6 +20,8 @@ version = version
 
 mbuild {
     deb {
+        packageName = 'yandex-graphouse'
+
         copy_etc_conf_list = 'graphouse.xml property-configurer.xml log4j2.xml graphouse-default.properties ulimit.conf'
         copy_usr_bin_list = 'libyjpagent.so'
     }
