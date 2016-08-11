@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * - последние значение по ней было {@link #missingDays}
  * - число точек менее {@link #maxValuesCount}
  *
- * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
+ * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 11/06/15
  */
 public class AutoHideService implements InitializingBean, Runnable {

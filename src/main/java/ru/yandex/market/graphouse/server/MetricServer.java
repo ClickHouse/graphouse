@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
+ * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 02/04/15
  */
 public class MetricServer implements InitializingBean {

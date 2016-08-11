@@ -5,7 +5,7 @@ import ru.yandex.market.graphouse.search.MetricDescription;
 import java.util.Date;
 
 /**
- * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
+ * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 06/04/15
  */
 public class Metric {

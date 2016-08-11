@@ -5,7 +5,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
- * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
+ * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 08/05/15
  */
 public class MetricFactoryTest {

@@ -14,7 +14,7 @@ import java.io.PrintWriter;
 import java.io.Writer;
 
 /**
- * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
+ * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 08/04/15
  */
 public class MetricSearchServlet extends HttpServlet {

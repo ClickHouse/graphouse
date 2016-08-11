@@ -17,7 +17,7 @@ import java.util.regex.PatternSyntaxException;
 import static org.mockito.Mockito.when;
 
 /**
- * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
+ * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 07/04/15
  */
 public class MetricTree {

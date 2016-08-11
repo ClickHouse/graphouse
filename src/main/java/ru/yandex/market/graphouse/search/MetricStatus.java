@@ -3,7 +3,7 @@ package ru.yandex.market.graphouse.search;
 import java.util.*;
 
 /**
- * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"/>
+ * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 08/06/15
  */
 public enum MetricStatus {
