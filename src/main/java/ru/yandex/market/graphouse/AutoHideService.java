@@ -4,12 +4,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
-import ru.yandex.market.clickhouse.ClickhouseTemplate;
-import ru.yandex.market.clickhouse.HttpResultRow;
-import ru.yandex.market.clickhouse.HttpRowCallbackHandler;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricStatus;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +32,7 @@ public class AutoHideService implements InitializingBean, Runnable {
     private static final Logger log = LogManager.getLogger();
     private static final int BATCH_SIZE = 50_000;
 
-    private ClickhouseTemplate clickhouseTemplate;
+    private JdbcTemplate clickHouseJdbcTemplate;
     private MetricSearch metricSearch;
     private boolean enabled = true;
 
@@ -62,12 +62,12 @@ public class AutoHideService implements InitializingBean, Runnable {
         final AtomicInteger count = new AtomicInteger();
         final List<String> metrics = new ArrayList<>(BATCH_SIZE);
         try {
-            clickhouseTemplate.query(
-                "select Path, count() as cnt, max(Timestamp) as ts from graphite group by Path " +
-                    "having cnt < " + maxValuesCount + " and ts < toUInt32(toDateTime(today() - " + missingDays + "))",
-                new HttpRowCallbackHandler() {
+            clickHouseJdbcTemplate.query(
+                "SELECT Path, count() AS cnt, max(Timestamp) AS ts FROM graphite GROUP BY Path " +
+                    "HAVING cnt < ? AND ts < toUInt32(toDateTime(today() - ?))",
+                new RowCallbackHandler() {
                     @Override
-                    public void processRow(HttpResultRow rs) throws SQLException {
+                    public void processRow(ResultSet rs) throws SQLException {
                         String metric = rs.getString(1);
                         metrics.add(metric);
                         count.incrementAndGet();
@@ -77,7 +77,8 @@ public class AutoHideService implements InitializingBean, Runnable {
                             log.info(count.get() + " metrics hidden");
                         }
                     }
-                }
+                },
+                maxValuesCount, missingDays
             );
             metricSearch.modify(metrics, MetricStatus.AUTO_HIDDEN);
             log.info("Autohide completed. " + count.get() + " metrics hidden");
@@ -108,7 +109,7 @@ public class AutoHideService implements InitializingBean, Runnable {
     }
 
     @Required
-    public void setClickhouseTemplate(ClickhouseTemplate clickhouseTemplate) {
-        this.clickhouseTemplate = clickhouseTemplate;
+    public void setClickHouseJdbcTemplate(JdbcTemplate clickHouseJdbcTemplate) {
+        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
     }
 }

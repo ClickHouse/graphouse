@@ -4,15 +4,18 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
-import ru.yandex.market.clickhouse.ClickhouseTemplate;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.monitoring.ComplicatedMonitoring;
 import ru.yandex.market.monitoring.MonitoringUnit;
 
 import java.io.IOException;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,7 +27,7 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     private static final Logger log = LogManager.getLogger();
 
-    private ClickhouseTemplate clickhouseTemplate;
+    private JdbcTemplate clickHouseJdbcTemplate;
     private ComplicatedMonitoring monitoring;
 
 
@@ -174,14 +177,32 @@ public class MetricCacher implements Runnable, InitializingBean {
         }
 
         private void saveMetrics() throws IOException {
-            MetricInputStream metricInputStream = new MetricInputStream(metrics);
-            clickhouseTemplate.sendStream(metricInputStream, "graphite");
+
+            clickHouseJdbcTemplate.batchUpdate(
+                "INSERT INTO graphite (Path, Value, Time, Date, Tiemstamp) VALUES (?, ?, ?, ?, ?)",
+                new BatchPreparedStatementSetter() {
+                    @Override
+                    public void setValues(PreparedStatement ps, int i) throws SQLException {
+                        Metric metric = metrics.get(i);
+                        ps.setString(1, metric.getMetricDescription().getName());
+                        ps.setDouble(2, metric.getValue());
+                        ps.setInt(3, metric.getTimeSeconds());
+                        ps.setDate(4, new Date(metric.getTime().getTime()));
+                        ps.setInt(5, metric.getUpdated());
+                    }
+
+                    @Override
+                    public int getBatchSize() {
+                        return metrics.size();
+                    }
+                }
+            );
         }
     }
 
     @Required
-    public void setClickhouseTemplate(ClickhouseTemplate clickhouseTemplate) {
-        this.clickhouseTemplate = clickhouseTemplate;
+    public void setClickHouseJdbcTemplate(JdbcTemplate clickHouseJdbcTemplate) {
+        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
     }
 
     @Required

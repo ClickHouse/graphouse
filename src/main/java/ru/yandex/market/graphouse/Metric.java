@@ -29,6 +29,10 @@ public class Metric {
         return time;
     }
 
+    public int getTimeSeconds() {
+        return (int) (time.getTime() / 1000);
+    }
+
     public double getValue() {
         return value;
     }
