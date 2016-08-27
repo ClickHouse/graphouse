@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="debug" packages="ru.yandex.market.log4j2">
+<Configuration status="debug" >
     <Appenders>
         <Async name="ASYNC">
             <AppenderRef ref="MAIN"/>
         </Async>
-        <LogRotateFile name="MAIN" fileName="/var/log/graphouse/graphouse.log">
+        <RollingFile name="MAIN" fileName="/var/log/graphouse/graphouse.log">
             <PatternLayout pattern="%d %-5p [%c{1} %t] %m%n"/>
-        </LogRotateFile>
+            <TimeBasedTriggeringPolicy interval="24" modulate="true"/>
+            <DefaultRolloverStrategy max="14"/>
+        </RollingFile>
     </Appenders>
     <Loggers>
         <Root level="info">
