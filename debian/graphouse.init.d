@@ -57,5 +57,7 @@ case "$1" in
   exit 1
  
 esac
- 
+
+echo -17 > /proc/$PID/oom_adj
+
 exit 0
