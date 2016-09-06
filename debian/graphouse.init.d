@@ -57,5 +57,8 @@ case "$1" in
   exit 1
  
 esac
- 
+
+PID=$(</var/run/$DAEMON_BASE/$DAEMON.pid)
+echo -17 > /proc/$PID/oom_adj
+
 exit 0
