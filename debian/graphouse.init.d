@@ -36,6 +36,8 @@ case "$1" in
       su $DAEMON_BASE -c "/sbin/start-stop-daemon --start --exec $DAEMON_ROOT/$DAEMON.sh --make-pidfile --pidfile /var/run/$DAEMON_BASE/$DAEMON.pid --background"
       log_end_msg $?
     fi
+    PID=$(</var/run/$DAEMON_BASE/$DAEMON.pid)
+    echo -17 > /proc/$PID/oom_adj
   ;;
  
   stop)
@@ -57,8 +59,5 @@ case "$1" in
   exit 1
  
 esac
-
-PID=$(</var/run/$DAEMON_BASE/$DAEMON.pid)
-echo -17 > /proc/$PID/oom_adj
 
 exit 0
