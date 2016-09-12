@@ -37,7 +37,7 @@ case "$1" in
       log_end_msg $?
     fi
     PID=$(</var/run/$DAEMON_BASE/$DAEMON.pid)
-    echo -17 > /proc/$PID/oom_adj
+    echo -1000 > /proc/$PID/oom_score_adj
   ;;
  
   stop)
