@@ -7,7 +7,7 @@
         <RollingFile name="MAIN" fileName="/var/log/graphouse/graphouse.log"
                      filePattern="/var/log/graphouse/graphouse-%d{yyyy-MM-dd}.log.gz">
             <PatternLayout pattern="%d %-5p [%c{1} %t] %m%n"/>
-            <TimeBasedTriggeringPolicy interval="24" modulate="true"/>
+            <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
             <DefaultRolloverStrategy max="14"/>
         </RollingFile>
     </Appenders>
