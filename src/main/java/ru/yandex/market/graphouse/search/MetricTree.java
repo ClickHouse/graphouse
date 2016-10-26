@@ -271,6 +271,7 @@ public class MetricTree {
             if (dir != null) {
                 return dir;
             }
+            name = name.intern();
             Dir newDir = new Dir(this, name);
             dir = dirs.putIfAbsent(name, newDir);
             return dir == null ? newDir : dir;
@@ -282,6 +283,7 @@ public class MetricTree {
             if (metricName != null) {
                 return metricName;
             }
+            name = name.intern();
             MetricName newMetricName = new MetricName(this, name);
             metricName = metrics.putIfAbsent(name, newMetricName);
             return metricName == null ? newMetricName : metricName;
@@ -334,7 +336,7 @@ public class MetricTree {
 
         public MetricBase(Dir parent, String name) {
             this.parent = parent;
-            this.name = name.intern();
+            this.name = name;
         }
 
         public boolean visible() {
