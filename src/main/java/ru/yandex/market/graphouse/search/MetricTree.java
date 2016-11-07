@@ -2,6 +2,7 @@ package ru.yandex.market.graphouse.search;
 
 import com.google.common.base.CharMatcher;
 import org.apache.http.util.ByteArrayBuffer;
+import ru.yandex.market.graphouse.utils.AppendableResult;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
@@ -19,11 +20,15 @@ import java.util.regex.PatternSyntaxException;
  */
 public class MetricTree {
 
-    private static final CharMatcher EXPRESSION_MATCHER = CharMatcher.anyOf("*?[]{}");
+    public static final String ALL_PATTERN = "*";
+    public static final String LEVEL_SPLITTER = ".";
+    public static final String LEVEL_SPLIT_PATTERN = "\\.";
+
+    private static final CharMatcher EXPRESSION_MATCHER = CharMatcher.anyOf(ALL_PATTERN + "?[]{}");
     private final Dir root = new Dir(null, "");
 
-    public void search(String query, Appendable result) throws IOException {
-        String[] levels = query.split("\\.");
+    public void search(String query, AppendableResult result) throws IOException {
+        String[] levels = query.split(LEVEL_SPLIT_PATTERN);
         search(root, levels, 0, result);
     }
 
@@ -37,7 +42,7 @@ public class MetricTree {
      * @param result
      * @throws IOException
      */
-    private void search(Dir parentDir, String[] levels, int levelIndex, Appendable result) throws IOException {
+    private void search(Dir parentDir, String[] levels, int levelIndex, AppendableResult result) throws IOException {
         if (!parentDir.visible()) {
             return;
         }
@@ -54,7 +59,7 @@ public class MetricTree {
                     search(dir, levels, levelIndex + 1, result);
                 }
             }
-        } else if (level.equals("*")) {
+        } else if (level.equals(ALL_PATTERN)) {
             if (isLast) {
                 appendAllResult(parentDir, result);
             } else {
@@ -100,12 +105,12 @@ public class MetricTree {
         return root.dirCount();
     }
 
-    private void appendSimpleResult(Dir parentDir, String name, Appendable result) throws IOException {
+    private void appendSimpleResult(Dir parentDir, String name, AppendableResult result) throws IOException {
         appendResult(parentDir.dirs.get(name), result);
         appendResult(parentDir.metrics.get(name), result);
     }
 
-    private void appendAllResult(Dir parentDir, Appendable result) throws IOException {
+    private void appendAllResult(Dir parentDir, AppendableResult result) throws IOException {
         for (Dir dir : parentDir.dirs.values()) {
             appendResult(dir, result);
         }
@@ -114,7 +119,7 @@ public class MetricTree {
         }
     }
 
-    private void appendPatternResult(Dir parentDir, PathMatcher pathMatcher, Appendable result) throws IOException {
+    private void appendPatternResult(Dir parentDir, PathMatcher pathMatcher, AppendableResult result) throws IOException {
         for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
             Dir dir = dirEntry.getValue();
             if (dir.visible() && matches(pathMatcher, dirEntry.getKey())) {
@@ -129,26 +134,16 @@ public class MetricTree {
         }
     }
 
-    private void appendResult(Dir dir, Appendable result) throws IOException {
+    private void appendResult(Dir dir, AppendableResult result) throws IOException {
         if (dir != null && dir.visible()) {
-            appendDir(dir, result);
-            result.append('\n');
+            result.appendMetric(dir);
         }
     }
 
-    private void appendResult(MetricName metric, Appendable result) throws IOException {
+    private void appendResult(MetricName metric, AppendableResult result) throws IOException {
         if (metric != null && metric.visible()) {
-            appendDir(metric.parent, result);
-            result.append(metric.name).append('\n');
+            result.appendMetric(metric);
         }
-    }
-
-    private void appendDir(Dir dir, Appendable result) throws IOException {
-        if (dir.isRoot()) {
-            return;
-        }
-        appendDir(dir.parent, result);
-        result.append(dir.name).append('.');
     }
 
     public MetricDescription add(String metric) {
@@ -158,14 +153,14 @@ public class MetricTree {
     /**
      * Создает или изменяет статус метрики или целой директории.
      *
-     * @param metric если заканчивается на '.' , то директория
+     * @param metric если заканчивается на {@link MetricTree#LEVEL_SPLITTER} , то директория
      * @param status
      * @return null если метрика/директория забанена. Иначе MetricDescription
      */
     public MetricDescription modify(String metric, MetricStatus status) {
-        boolean isDir = metric.charAt(metric.length() - 1) == '.';
+        boolean isDir = metric.endsWith(LEVEL_SPLITTER);
 
-        String[] levels = metric.split("\\.");
+        String[] levels = metric.split(LEVEL_SPLIT_PATTERN);
         Dir dir = root;
         for (int i = 0; i < levels.length; i++) {
             boolean isLast = (i == levels.length - 1);
@@ -309,6 +304,16 @@ public class MetricTree {
         public boolean isDir() {
             return true;
         }
+
+        @Override
+        public String getName() {
+            if (isRoot()) {
+                return "ROOT";
+            }
+
+            final String dirName = name + LEVEL_SPLITTER;
+            return parent.isRoot() ? dirName : parent.toString() + dirName;
+        }
     }
 
     private static class MetricName extends MetricBase {
@@ -320,6 +325,11 @@ public class MetricTree {
         @Override
         public boolean isDir() {
             return false;
+        }
+
+        @Override
+        public String getName() {
+            return parent.isRoot() ? name : parent.toString() + name;
         }
     }
 
@@ -354,14 +364,6 @@ public class MetricTree {
                 buffer.append('.');
             }
             appendBytes(buffer, name.getBytes());
-        }
-
-        @Override
-        public String getName() {
-            if (isRoot()) {
-                return "ROOT";
-            }
-            return parent.isRoot() ? name : parent.toString() + "." + name;
         }
 
         @Override

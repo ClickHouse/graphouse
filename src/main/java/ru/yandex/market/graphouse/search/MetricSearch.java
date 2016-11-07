@@ -7,6 +7,9 @@ import org.springframework.beans.factory.annotation.Required;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
+import ru.yandex.market.graphouse.utils.AppendableList;
+import ru.yandex.market.graphouse.utils.AppendableResult;
+import ru.yandex.market.graphouse.utils.AppendableWrapper;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
@@ -49,6 +52,8 @@ public class MetricSearch implements InitializingBean, Runnable {
      * Задержка на запись, репликацию, синхронизацию
      */
     private int updateDelaySeconds = 120;
+
+    private volatile boolean metricTreeLoaded = false;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -124,6 +129,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             "SELECT name, status FROM metric",
             new MetricRowCallbackHandler(metricCount)
         );
+        metricTreeLoaded = true;
         log.info("Loaded complete. Total " + metricCount.get() + " metrics");
     }
 
@@ -223,37 +229,18 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public int multiModify(String query, final MetricStatus status, final Appendable result) throws IOException {
-        final StringBuilder metricBuilder = new StringBuilder();
+        final AppendableList appendableList = new AppendableList();
         final AtomicInteger count = new AtomicInteger();
 
-        metricTree.search(query, new Appendable() {
-            @Override
-            public Appendable append(CharSequence csq) {
-                metricBuilder.append(csq);
-                return this;
-            }
+        metricTree.search(query, appendableList);
 
-            @Override
-            public Appendable append(CharSequence csq, int start, int end) {
-                metricBuilder.append(csq, start, end);
-                return this;
-            }
+        for (MetricDescription metricDescription : appendableList.getList()) {
+            final String metricName = metricDescription.getName();
+            modify(metricName, status);
+            result.append(metricName);
+            count.incrementAndGet();
+        }
 
-            @Override
-            public Appendable append(char c) throws IOException {
-                if (c == '\n') {
-                    modify(metricBuilder.toString(), status);
-                    if (result != null) {
-                        result.append(metricBuilder).append('\n');
-                    }
-                    metricBuilder.setLength(0);
-                    count.incrementAndGet();
-                } else {
-                    metricBuilder.append(c);
-                }
-                return this;
-            }
-        });
         return count.get();
     }
 
@@ -290,6 +277,10 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public void search(String query, Appendable result) throws IOException {
+        metricTree.search(query, new AppendableWrapper(result));
+    }
+
+    public void search(String query, AppendableResult result) throws IOException {
         metricTree.search(query, result);
     }
 
@@ -316,4 +307,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         this.updateDelaySeconds = updateDelaySeconds;
     }
 
+    public boolean isMetricTreeLoaded() {
+        return metricTreeLoaded;
+    }
 }
