@@ -32,9 +32,8 @@ dependencies {
     compile 'com.google.guava:guava:18.0'
     compile 'com.google.code.gson:gson:2.3.1'
     compile 'org.springframework:spring-jdbc:4.1.6.RELEASE'
+    compile 'org.springframework:spring-context:4.1.6.RELEASE'
 
-
-    compile group: 'ru.yandex.market', name: 'health-utils', version: '1.9.9'
     compile group: 'commons-io', name: 'commons-io', version: '2.4'
     compile group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version: '2.2'
     compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.2'

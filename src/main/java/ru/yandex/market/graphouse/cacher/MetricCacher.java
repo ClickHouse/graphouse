@@ -7,8 +7,8 @@ import org.springframework.beans.factory.annotation.Required;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import ru.yandex.market.graphouse.Metric;
-import ru.yandex.market.monitoring.ComplicatedMonitoring;
-import ru.yandex.market.monitoring.MonitoringUnit;
+import ru.yandex.market.graphouse.monitoring.Monitoring;
+import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
 
 import java.io.IOException;
 import java.sql.Date;
@@ -28,7 +28,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private static final Logger log = LogManager.getLogger();
 
     private JdbcTemplate clickHouseJdbcTemplate;
-    private ComplicatedMonitoring monitoring;
+    private Monitoring monitoring;
 
 
     private int cacheSize = 1_000_000;
@@ -206,7 +206,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     }
 
     @Required
-    public void setMonitoring(ComplicatedMonitoring monitoring) {
+    public void setMonitoring(Monitoring monitoring) {
         this.monitoring = monitoring;
     }
 
