@@ -4,14 +4,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
-import ru.yandex.common.util.db.BulkUpdater;
-import ru.yandex.market.graphite.MetricValidator;
-import ru.yandex.market.monitoring.ComplicatedMonitoring;
-import ru.yandex.market.monitoring.MonitoringUnit;
+import ru.yandex.market.graphouse.MetricValidator;
+import ru.yandex.market.graphouse.monitoring.Monitoring;
+import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
 
 import java.io.IOException;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -34,7 +35,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private static final int MAX_METRICS_PER_SAVE = 1_000_000;
 
     private JdbcTemplate graphouseJdbcTemplate;
-    private ComplicatedMonitoring monitoring;
+    private Monitoring monitoring;
     private MetricValidator metricValidator;
 
     private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch");
@@ -80,17 +81,39 @@ public class MetricSearch implements InitializingBean, Runnable {
         if (metrics.isEmpty()) {
             return;
         }
-        BulkUpdater bulkUpdater = new BulkUpdater(
-            graphouseJdbcTemplate,
-            "INSERT INTO metric (name, status) VALUES (?, ?) " +
-                "ON DUPLICATE KEY UPDATE status = ?, updated = IF(status != ?, CURRENT_TIMESTAMP, updated)",
-            BATCH_SIZE
-        );
-        for (MetricDescription metricDescription : metrics) {
-            int statusId = metricDescription.getStatus().getId();
-            bulkUpdater.submit(metricDescription.getName(), statusId, statusId, statusId);
+
+        final String sql = "INSERT INTO metric (name, status) VALUES (?, ?) " +
+            "ON DUPLICATE KEY UPDATE status = ?, updated = IF(status != ?, CURRENT_TIMESTAMP, updated)";
+
+        final int batchesCount = (metrics.size() - 1) / BATCH_SIZE + 1;
+
+        for (int batchNum = 0; batchNum < batchesCount; batchNum++) {
+            int firstIndex = batchNum * BATCH_SIZE;
+            int lastIndex = firstIndex + BATCH_SIZE;
+
+            lastIndex = (lastIndex <= metrics.size()) ? lastIndex : metrics.size();
+            final List<MetricDescription> batchList = metrics.subList(firstIndex, lastIndex);
+
+            BatchPreparedStatementSetter batchSetter = new BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                    MetricDescription metricDescription = batchList.get(i);
+                    int statusId = metricDescription.getStatus().getId();
+
+                    ps.setString(1, metricDescription.getName());
+                    ps.setInt(2, statusId);
+                    ps.setInt(3, statusId);
+                    ps.setInt(4, statusId);
+                }
+
+                @Override
+                public int getBatchSize() {
+                    return batchList.size();
+                }
+            };
+
+            graphouseJdbcTemplate.batchUpdate(sql, batchSetter);
         }
-        bulkUpdater.done();
     }
 
     private void loadAllMetrics() {
@@ -276,7 +299,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     @Required
-    public void setMonitoring(ComplicatedMonitoring monitoring) {
+    public void setMonitoring(Monitoring monitoring) {
         this.monitoring = monitoring;
     }
 

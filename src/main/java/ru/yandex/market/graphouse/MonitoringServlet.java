@@ -1,7 +1,7 @@
 package ru.yandex.market.graphouse;
 
 import org.springframework.beans.factory.annotation.Required;
-import ru.yandex.market.monitoring.ComplicatedMonitoring;
+import ru.yandex.market.graphouse.monitoring.Monitoring;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -14,7 +14,7 @@ import java.io.IOException;
  * @date 27/04/15
  */
 public class MonitoringServlet extends HttpServlet {
-    private ComplicatedMonitoring monitoring;
+    private Monitoring monitoring;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -38,7 +38,7 @@ public class MonitoringServlet extends HttpServlet {
     }
 
     private void monitoring(HttpServletResponse resp) throws IOException {
-        ComplicatedMonitoring.Result result = monitoring.getResult();
+        Monitoring.Result result = monitoring.getResult();
         switch (result.getStatus()) {
             case OK:
             case WARNING:
@@ -54,7 +54,7 @@ public class MonitoringServlet extends HttpServlet {
     }
 
     @Required
-    public void setMonitoring(ComplicatedMonitoring monitoring) {
+    public void setMonitoring(Monitoring monitoring) {
         this.monitoring = monitoring;
     }
 }
