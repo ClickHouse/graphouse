@@ -44,5 +44,6 @@ dependencies {
     compile group: 'org.eclipse.jetty', name: 'jetty-servlet', version: '9.2.10.v20150310'
 
     compile group: 'org.mockito', name: 'mockito-all', version: '1.9.5'
+    compile group: 'mysql', name: 'mysql-connector-java', version: '5.1.25'
     testCompile group: 'junit', name: 'junit', version: '4.8.1'
 }
