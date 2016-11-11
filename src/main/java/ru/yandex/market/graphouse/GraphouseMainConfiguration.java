@@ -8,6 +8,6 @@ import org.springframework.context.annotation.ImportResource;
  * @date 10.11.16
  */
 @Configuration
-@ImportResource("classpath:property-configurer.xml")
+@ImportResource("classpath:graphouse.xml")
 public class GraphouseMainConfiguration {
 }
