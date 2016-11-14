@@ -31,131 +31,131 @@ public class MetricPath implements Path {
 
     @Override
     public FileSystem getFileSystem() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public boolean isAbsolute() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path getRoot() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path getFileName() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path getParent() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public int getNameCount() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path getName(int index) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path subpath(int beginIndex, int endIndex) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public boolean startsWith(Path other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public boolean startsWith(String other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public boolean endsWith(Path other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public boolean endsWith(String other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path normalize() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path resolve(Path other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path resolve(String other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path resolveSibling(Path other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path resolveSibling(String other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path relativize(Path other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public URI toUri() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path toAbsolutePath() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Path toRealPath(LinkOption... options) throws IOException {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public File toFile() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public WatchKey register(WatchService watcher, WatchEvent.Kind<?>[] events, WatchEvent.Modifier... modifiers) throws IOException {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public WatchKey register(WatchService watcher, WatchEvent.Kind<?>[] events) throws IOException {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public Iterator<Path> iterator() {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 
     @Override
     public int compareTo(Path other) {
-        throw new RuntimeException("Unexpected call!");
+        throw new UnsupportedOperationException("Unexpected call!");
     }
 }
