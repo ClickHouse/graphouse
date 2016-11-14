@@ -2,7 +2,6 @@ package ru.yandex.market.graphouse.search;
 
 import com.google.common.base.CharMatcher;
 import org.apache.http.util.ByteArrayBuffer;
-import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
@@ -13,8 +12,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.PatternSyntaxException;
-
-import static org.mockito.Mockito.when;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -91,8 +88,7 @@ public class MetricTree {
     }
 
     protected static boolean matches(PathMatcher pathMatcher, final String fileName) {
-        Path mockPath = Mockito.mock(Path.class);
-        when(mockPath.toString()).thenReturn(fileName);
+        Path mockPath = new MetricPath(fileName);
         return pathMatcher.matches(mockPath);
     }
 
