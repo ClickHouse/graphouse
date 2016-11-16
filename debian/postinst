@@ -31,8 +31,8 @@ abort-upgrade|abort-remove|abort-deconfigure)
 
 esac
 
-    mkdir -p /var/log/$DAEMON/hprof/$DAEMON
-    chown $DAEMON:nogroup /var/log/$DAEMON/hprof/$DAEMON
+    mkdir -p /var/log/$DAEMON/hprof/
+    chown $DAEMON:nogroup /var/log/$DAEMON/hprof/
 
 exit 0
 
