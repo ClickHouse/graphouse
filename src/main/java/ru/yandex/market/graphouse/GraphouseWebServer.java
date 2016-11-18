@@ -13,13 +13,14 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
+import ru.yandex.market.graphouse.data.MetricDataServiceServlet;
 import ru.yandex.market.graphouse.search.MetricSearchServlet;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 08/04/15
  */
-public class GraphouseWebServer implements InitializingBean{
+public class GraphouseWebServer implements InitializingBean {
 
     private static final Logger log = LogManager.getLogger();
 
@@ -28,6 +29,8 @@ public class GraphouseWebServer implements InitializingBean{
 
     private MetricSearchServlet metricSearchServlet;
     private MonitoringServlet monitoringServlet;
+
+    private MetricDataServiceServlet metricDataServiceServlet;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -41,6 +44,7 @@ public class GraphouseWebServer implements InitializingBean{
         server.setConnectors(new Connector[]{serverConnector});
         ServletContextHandler context = new ServletContextHandler();
         context.setContextPath("/");
+
         ServletHolder metricSearchServletHolder = new ServletHolder(metricSearchServlet);
         context.addServlet(metricSearchServletHolder, "/search/*");
         context.addServlet(metricSearchServletHolder, "/ban/*");
@@ -49,9 +53,14 @@ public class GraphouseWebServer implements InitializingBean{
         context.addServlet(metricSearchServletHolder, "/multiApprove/*");
         context.addServlet(metricSearchServletHolder, "/hide/*");
         context.addServlet(metricSearchServletHolder, "/multiHide/*");
+
         ServletHolder monitoringServletHolder = new ServletHolder(monitoringServlet);
         context.addServlet(monitoringServletHolder, "/ping");
         context.addServlet(monitoringServletHolder, "/monitoring");
+
+        ServletHolder metricDataServletHolder = new ServletHolder(metricDataServiceServlet);
+        context.addServlet(metricDataServletHolder, "/metricData");
+
         HandlerCollection handlers = new HandlerCollection();
         handlers.setHandlers(new Handler[]{context, new DefaultHandler()});
         server.setHandler(handlers);
@@ -74,5 +83,10 @@ public class GraphouseWebServer implements InitializingBean{
 
     public void setThreadCount(int threadCount) {
         this.threadCount = threadCount;
+    }
+
+    @Required
+    public void setMetricDataServiceServlet(MetricDataServiceServlet metricDataServiceServlet) {
+        this.metricDataServiceServlet = metricDataServiceServlet;
     }
 }
