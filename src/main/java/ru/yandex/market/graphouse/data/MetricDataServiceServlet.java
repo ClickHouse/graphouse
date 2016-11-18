@@ -1,6 +1,5 @@
 package ru.yandex.market.graphouse.data;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -25,7 +24,7 @@ public class MetricDataServiceServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         final String metricsString = req.getParameter("metrics");
 
-        if (StringUtils.isEmpty(metricsString)) {
+        if (metricsString == null || metricsString.isEmpty()) {
             log.warn("Metrics list is empty");
             writeBadRequest(resp);
             return;
