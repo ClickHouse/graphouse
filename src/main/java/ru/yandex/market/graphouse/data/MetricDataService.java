@@ -1,15 +1,20 @@
 package ru.yandex.market.graphouse.data;
 
-import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import ru.yandex.market.graphouse.search.MetricDataRetention;
+import ru.yandex.market.graphouse.search.MetricDescription;
+import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -25,64 +30,112 @@ public class MetricDataService {
 
     private String graphiteTable;
 
+    private MetricSearch metricSearch;
 
-    private String buildQuery(MetricDataParameters parameters) {
+    private int defaultStepSize = 60;
+    private String defaultFunction = "avg";
 
-        final StringBuilder sqlBuilder = new StringBuilder("SELECT ");
+    private final MetricDataRetention DEFAULT_DATA_RETENTION;
 
-        if (parameters.isMultiMetrics()) {
-            sqlBuilder.append("metric, ");
+    public MetricDataService() {
+        final int month = (int) TimeUnit.DAYS.toSeconds(30);
+        DEFAULT_DATA_RETENTION = new MetricDataRetention.MetricDataRetentionBuilder("*.", defaultFunction)
+            .addRetention(0, defaultStepSize)
+            .addRetention(month, 5 * defaultStepSize)
+            .addRetention(12 * month, 30 * defaultStepSize)
+            .build();
+    }
+
+    private String buildQuery(Map<String, GroupParameters> parameters) {
+        final Map<GroupParameters, List<String>> groups = new HashMap<>();
+
+        parameters.entrySet().forEach(o -> groups.computeIfAbsent(o.getValue(), k -> new ArrayList<>()).add(o.getKey()));
+
+        final StringBuilder sqlBuilder = new StringBuilder();
+        final boolean isMultiGroups = (parameters.size() > 1);
+
+        if (isMultiGroups) {
+            sqlBuilder.append("SELECT metric, quantT, value FROM (");
         }
 
-        sqlBuilder.append("kvantT, argMax(value, updated) as Value FROM ").append(graphiteTable).append("\n");
+        final String sqlTemplate = "" +
+            " SELECT metric, quantT, %s(value) as value" +
+            " FROM (" +
+            "   SELECT metric, timestamp, argMax(value, updated) as value " +
+            "   FROM " + graphiteTable +
+            "   WHERE metric IN ( %s ) " +
+            "   AND date >= toDate(toDateTime(%d)) AND date <= toDate(toDateTime(%d)) " +
+            "   GROUP BY metric, timestamp) " +
+            " WHERE quantT >= %d AND quantT <= %d " +
+            " GROUP BY metric, intDiv(toUInt32(timestamp), %d) * %d as quantT";
 
-        final String metricNames = parameters.getMetrics().stream().collect(Collectors.joining("', '", "'", "'"));
+        int groupCounter = 0;
+        for (Map.Entry<GroupParameters, List<String>> parameter : groups.entrySet()) {
 
-        if (parameters.isMultiMetrics()) {
-            sqlBuilder.append("WHERE metric IN ( ").append(metricNames).append(" ) \n");
-        } else {
-            sqlBuilder.append("WHERE metric = ").append(metricNames).append("\n");
+            final GroupParameters groupParameters = parameter.getKey();
+            final String metricNames = parameter.getValue().stream().collect(Collectors.joining("', '", "'", "'"));
+
+            sqlBuilder.append(
+                String.format(sqlTemplate,
+                    groupParameters.function,
+                    metricNames,
+                    groupParameters.startTimeSeconds,
+                    groupParameters.endTimeSeconds,
+                    groupParameters.startTimeSeconds,
+                    groupParameters.endTimeSeconds,
+                    groupParameters.stepSizeInSeconds,
+                    groupParameters.stepSizeInSeconds
+                ));
+
+            if (isMultiGroups) {
+                final boolean isLast = (groupCounter == groups.keySet().size() - 1);
+                if (!isLast) {
+                    sqlBuilder.append("\n UNION ALL \n");
+                }
+            }
+
+            groupCounter++;
         }
 
-        sqlBuilder
-            .append("AND kvantT >= :startTime AND kvantT <= :endTime \n")
-            .append("AND date >= toDate(toDateTime( :startTime )) AND date <= toDate(toDateTime( :endTime )) \n")
-            .append("GROUP BY metric, intDiv(toUInt32(Time), :step ) * :step as kvantT \n");
-
-
-        if (parameters.isMultiMetrics()) {
-            sqlBuilder.append("ORDER BY metric, kvantT \n");
-        } else {
-            sqlBuilder.append("ORDER BY kvantT \n");
+        if (isMultiGroups) {
+            sqlBuilder.append(")");
         }
+
+        sqlBuilder.append(" ORDER BY metric, quantT");
 
         return sqlBuilder.toString();
     }
 
-    public void writeData(MetricDataParameters parameters, Writer resp) throws IOException {
+    void writeData(Writer resp, List<String> metrics, int startTimeSeconds, int endTimeSeconds, String reqKey) throws IOException {
         final long startTime = System.nanoTime();
 
-        final String query = buildQuery(parameters);
+        final Map<String, GroupParameters> parametersMap = new HashMap<>();
+        final int currentSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
+        for (String metricName : metrics) {
+            final int stepSize;
+            final String function;
+
+            final MetricDescription metricDescription = metricSearch.getMetricDescription(metricName);
+            final MetricDataRetention retention = (metricDescription == null) ? DEFAULT_DATA_RETENTION : metricDescription.getDataRetention();
+
+            stepSize = retention.getStepSize(currentSeconds - startTimeSeconds);
+            function = retention.getFunction();
+
+            final GroupParameters groupParameters = new GroupParameters(startTimeSeconds, endTimeSeconds, stepSize, function);
+            parametersMap.put(metricName, groupParameters);
+        }
+
+        final String query = buildQuery(parametersMap);
         log.debug("Request = \n" + query);
 
-        final Map<String, Object> queryParams = new HashMap<>();
-        queryParams.put("startTime", parameters.getStartTimeSeconds());
-        queryParams.put("endTime", parameters.getEndTimeSeconds());
-        queryParams.put("step", parameters.getMetricStep().getStepSizeInSeconds());
-
-        final MetricDataResult dataResult = new MetricDataResult(parameters, resp);
+        final MetricDataResult dataResult = new MetricDataResult(resp, parametersMap);
 
         clickHouseNamedJdbcTemplate.query(
             query,
-            queryParams,
             rs -> {
                 try {
-                    if (parameters.isMultiMetrics()) {
-                        dataResult.appendData(rs.getString(1), rs.getLong(2), rs.getFloat(3));
-                    } else {
-                        dataResult.appendData(rs.getLong(1), rs.getFloat(2));
-                    }
-                } catch (IOException e){
+                    dataResult.appendData(rs.getString(1), rs.getLong(2), rs.getFloat(3));
+                } catch (IOException e) {
                     log.warn("Can't write values to json", e);
                 }
             }
@@ -90,7 +143,7 @@ public class MetricDataService {
 
         dataResult.flush();
 
-        log.debug(String.format("graphouse_time:[%s] full = %s", parameters.getReqKey(), System.nanoTime() - startTime));
+        log.debug(String.format("graphouse_time:[%s] full = %s", reqKey, System.nanoTime() - startTime));
     }
 
     public void setGraphiteTable(String graphiteTable) {
@@ -100,5 +153,86 @@ public class MetricDataService {
     @Required
     public void setClickHouseNamedJdbcTemplate(NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate) {
         this.clickHouseNamedJdbcTemplate = clickHouseNamedJdbcTemplate;
+    }
+
+    @Required
+    public void setMetricSearch(MetricSearch metricSearch) {
+        this.metricSearch = metricSearch;
+    }
+
+    public void setDefaultStepSize(int defaultStepSize) {
+        this.defaultStepSize = defaultStepSize;
+    }
+
+    public void setDefaultFunction(String defaultFunction) {
+        this.defaultFunction = defaultFunction;
+    }
+
+    class GroupParameters {
+        private final int startTimeSeconds;
+        private final int endTimeSeconds;
+        private final int stepSizeInSeconds;
+        private final String function;
+        private final int pointsCount;
+
+        private GroupParameters(int startTimeSeconds, int endTimeSeconds, int metricStepInSeconds, String function) {
+            this.stepSizeInSeconds = metricStepInSeconds;
+            this.startTimeSeconds = startTimeSeconds - startTimeSeconds % metricStepInSeconds;
+            this.endTimeSeconds = endTimeSeconds - endTimeSeconds % metricStepInSeconds;
+            this.pointsCount = (this.endTimeSeconds - this.startTimeSeconds) / metricStepInSeconds + 1;
+            this.function = function;
+        }
+
+        int getStartTimeSeconds() {
+            return startTimeSeconds;
+        }
+
+        int getEndTimeSeconds() {
+            return endTimeSeconds;
+        }
+
+        int getStepSizeInSeconds() {
+            return stepSizeInSeconds;
+        }
+
+        String getFunction() {
+            return function;
+        }
+
+        int getPointsCount() {
+            return pointsCount;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            GroupParameters that = (GroupParameters) o;
+
+            if (startTimeSeconds != that.startTimeSeconds) {
+                return false;
+            }
+            if (endTimeSeconds != that.endTimeSeconds) {
+                return false;
+            }
+            if (stepSizeInSeconds != that.stepSizeInSeconds) {
+                return false;
+            }
+            return function.equals(that.function);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = startTimeSeconds;
+            result = 31 * result + endTimeSeconds;
+            result = 31 * result + stepSizeInSeconds;
+            result = 31 * result + function.hashCode();
+            return result;
+        }
     }
 }

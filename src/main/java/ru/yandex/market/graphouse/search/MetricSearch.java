@@ -42,6 +42,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private JdbcTemplate clickHouseJdbcTemplate;
     private Monitoring monitoring;
     private MetricValidator metricValidator;
+    private DataRetentionCollection dataRetentionCollection;
 
     private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch");
     private final MetricTree metricTree = new MetricTree();
@@ -150,7 +151,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 log.warn("Invalid metric in db: " + metric);
                 return;
             }
-            metricTree.modify(metric, status);
+            metricTree.modify(metric, status, dataRetentionCollection.getDataRetention(metric));
             if (metricCount.incrementAndGet() % 100_000 == 0) {
                 log.info("Loaded " + metricCount.get() + " metrics...");
             }
@@ -210,7 +211,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public MetricDescription add(String metric) {
         long currentTimeMillis = System.currentTimeMillis();
-        MetricDescription metricDescription = metricTree.add(metric);
+        MetricDescription metricDescription = metricTree.add(metric, dataRetentionCollection.getDataRetention(metric));
         if (metricDescription != null && metricDescription.getUpdateTimeMillis() >= currentTimeMillis) {
             updateQueue.add(metricDescription);
         }
@@ -252,7 +253,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 log.warn("Wrong metric to modify: " + metric);
                 continue;
             }
-            MetricDescription metricDescription = metricTree.modify(metric, status);
+            MetricDescription metricDescription = metricTree.modify(metric, status, dataRetentionCollection.getDataRetention(metric));
             if (metricDescription != null && metricDescription.getUpdateTimeMillis() >= currentTimeMillis) {
                 metricDescriptions.add(metricDescription);
             }
@@ -263,6 +264,10 @@ public class MetricSearch implements InitializingBean, Runnable {
         } else {
             log.info("Updated " + metrics.size() + " metrics, status: " + status.name());
         }
+    }
+
+    public MetricDescription getMetricDescription(String name){
+        return metricTree.getMetricName(name);
     }
 
     public void search(String query, Appendable result) throws IOException {
@@ -301,5 +306,9 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public boolean isMetricTreeLoaded() {
         return metricTreeLoaded;
+    }
+
+    public void setDataRetentionCollection(DataRetentionCollection dataRetentionCollection) {
+        this.dataRetentionCollection = dataRetentionCollection;
     }
 }

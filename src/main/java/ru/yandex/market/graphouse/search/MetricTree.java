@@ -126,8 +126,8 @@ public class MetricTree {
         return root.dirCount();
     }
 
-    MetricDescription add(String metric) {
-        return modify(metric, MetricStatus.SIMPLE);
+    MetricDescription add(String metric, MetricDataRetention dataRetention) {
+        return modify(metric, MetricStatus.SIMPLE, dataRetention);
     }
 
     /**
@@ -137,7 +137,7 @@ public class MetricTree {
      * @param status
      * @return null если метрика/директория забанена. Иначе MetricDescription
      */
-    MetricDescription modify(String metric, MetricStatus status) {
+    MetricDescription modify(String metric, MetricStatus status, MetricDataRetention dataRetention) {
         boolean isDir = metric.endsWith(LEVEL_SPLITTER);
 
         String[] levels = metric.split(LEVEL_SPLIT_PATTERN);
@@ -155,7 +155,7 @@ public class MetricTree {
             if (!isLast) {
                 dir = dir.getOrCreateDirWithStatus(level, status);
             } else {
-                MetricBase metricBase = isDir ? dir.getOrCreateDirWithStatus(level, status) : dir.getOrCreateMetricWithStatus(level, status);
+                MetricBase metricBase = isDir ? dir.getOrCreateDirWithStatus(level, status) : dir.getOrCreateMetricWithStatus(level, status, dataRetention);
                 metricBase.setStatus(selectStatus(metricBase.getStatus(), status));
                 if (status.visible() != dir.visible()) {
                     updatePathVisibility(dir);
@@ -218,6 +218,25 @@ public class MetricTree {
 
     static boolean containsExpressions(String metric) {
         return EXPRESSION_MATCHER.matchesAnyOf(metric);
+    }
+
+    MetricDescription getMetricName(String name) {
+        final String[] levels = name.split(LEVEL_SPLIT_PATTERN);
+        Dir dir = root;
+        final int lastLevelIndex = levels.length - 1;
+
+        for (int curLevel = 0; curLevel < levels.length; curLevel++) {
+            if (dir == null) {
+                break;
+            }
+
+            if (curLevel != lastLevelIndex) {
+                dir = dir.getDir(levels[curLevel]);
+            } else {
+                return dir.getMetric(levels[curLevel]);
+            }
+        }
+        return null;
     }
 
     private abstract static class MetricBase implements MetricDescription {
@@ -312,15 +331,27 @@ public class MetricTree {
             return metrics != null && !metrics.isEmpty();
         }
 
+        private <T extends MetricDescription> T get(Map<String, T> collection, String key) {
+            return collection != null ? collection.get(key) : null;
+        }
+
+        Dir getDir(String name) {
+            return get(dirs, name);
+        }
+
+        MetricName getMetric(String name) {
+            return get(metrics, name);
+        }
+
         private Dir getOrCreateDirWithStatus(String name, MetricStatus status) {
             initDirs();
             return dirs.computeIfAbsent(name, d -> new Dir(this, name.intern(), status));
         }
 
 
-        private MetricName getOrCreateMetricWithStatus(String name, MetricStatus status) {
+        private MetricName getOrCreateMetricWithStatus(String name, MetricStatus status, MetricDataRetention dataRetention) {
             initMetrics();
-            return metrics.computeIfAbsent(name, m -> new MetricName(this, name.intern(), status));
+            return metrics.computeIfAbsent(name, m -> new MetricName(this, name.intern(), status, dataRetention));
         }
 
         int metricCount() {
@@ -365,6 +396,11 @@ public class MetricTree {
             return parent.isRoot() ? dirName : parent.toString() + dirName;
         }
 
+        @Override
+        public MetricDataRetention getDataRetention() {
+            throw new UnsupportedOperationException("Unsupported for dirs");
+        }
+
         synchronized void incrementHiddenCounter() {
             hiddenElements++;
         }
@@ -376,8 +412,11 @@ public class MetricTree {
 
     private static class MetricName extends MetricBase {
 
-        MetricName(Dir parent, String name, MetricStatus status) {
+        final MetricDataRetention metricDataRetention;
+
+        public MetricName(Dir parent, String name, MetricStatus status, MetricDataRetention dataRetention) {
             super(parent, name, status);
+            this.metricDataRetention = dataRetention;
         }
 
         @Override
@@ -388,6 +427,11 @@ public class MetricTree {
         @Override
         public String getName() {
             return parent.isRoot() ? name : parent.toString() + name;
+        }
+
+        @Override
+        public MetricDataRetention getDataRetention() {
+            return metricDataRetention;
         }
     }
 }

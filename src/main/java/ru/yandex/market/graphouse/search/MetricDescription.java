@@ -16,4 +16,5 @@ public interface MetricDescription {
 
     long getUpdateTimeMillis();
 
+    MetricDataRetention getDataRetention();
 }

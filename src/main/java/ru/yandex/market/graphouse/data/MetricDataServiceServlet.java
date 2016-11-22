@@ -44,11 +44,9 @@ public class MetricDataServiceServlet extends HttpServlet {
             return;
         }
 
-        final MetricDataParameters parameters = new MetricDataParameters(metrics, startTimeSeconds, endTimeSeconds);
+        final String reqKey = req.getParameter("reqKey");
 
-        parameters.setReqKey(req.getParameter("reqKey"));
-
-        metricDataService.writeData(parameters, resp.getWriter());
+        metricDataService.writeData(resp.getWriter(), metrics, startTimeSeconds, endTimeSeconds, reqKey);
         resp.setStatus(HttpServletResponse.SC_OK);
     }
 
