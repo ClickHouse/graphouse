@@ -144,11 +144,10 @@ class GraphouseReader(object):
                     'endSecond': end_time,
                     'reqKey': self.reqkey
                 })
-            request = requests.get(
-                "http://%s:7000/metricData" % ''.join(getattr(settings, 'METRICSEARCH', '127.0.0.1')),
-                query)
+            request_str = "http://%s:7000/metricData?%s" % ("".join(getattr(settings, 'METRICSEARCH', '127.0.0.1')), query)
+            request = requests.get(request_str)
 
-            log.info('DEBUG:graphouse_data_query: %s' % query)
+            log.info('DEBUG:graphouse_data_query: %s' % request_str)
 
             request.raise_for_status()
         except Exception as e:
