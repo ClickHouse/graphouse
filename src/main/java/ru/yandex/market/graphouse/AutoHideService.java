@@ -5,14 +5,13 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowCallbackHandler;
+import ru.yandex.market.graphouse.search.MetricDescription;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricStatus;
+import ru.yandex.market.graphouse.search.MetricTree;
+import ru.yandex.market.graphouse.utils.AppendableList;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AutoHideService implements InitializingBean, Runnable {
 
     private static final Logger log = LogManager.getLogger();
-    private static final int BATCH_SIZE = 50_000;
+    private int stepSize = 100_000;
 
     private JdbcTemplate clickHouseJdbcTemplate;
     private MetricSearch metricSearch;
@@ -54,36 +53,103 @@ public class AutoHideService implements InitializingBean, Runnable {
 
     @Override
     public void run() {
-        hide();
+        if (metricSearch.isMetricTreeLoaded()) {
+            hide();
+        }
     }
 
     private void hide() {
         log.info("Running autohide.");
-        final AtomicInteger count = new AtomicInteger();
-        final List<String> metrics = new ArrayList<>(BATCH_SIZE);
         try {
-            clickHouseJdbcTemplate.query(
-                "SELECT Path, count() AS cnt, max(Timestamp) AS ts FROM graphite GROUP BY Path " +
-                    "HAVING cnt < ? AND ts < toUInt32(toDateTime(today() - ?))",
-                new RowCallbackHandler() {
-                    @Override
-                    public void processRow(ResultSet rs) throws SQLException {
-                        String metric = rs.getString(1);
-                        metrics.add(metric);
-                        count.incrementAndGet();
-                        if (metrics.size() >= BATCH_SIZE) {
-                            metricSearch.modify(metrics, MetricStatus.AUTO_HIDDEN);
-                            metrics.clear();
-                            log.info(count.get() + " metrics hidden");
-                        }
-                    }
-                },
-                maxValuesCount, missingDays
-            );
-            metricSearch.modify(metrics, MetricStatus.AUTO_HIDDEN);
-            log.info("Autohide completed. " + count.get() + " metrics hidden");
+            MetricMinMaxChecker metricMinMaxChecker = new MetricMinMaxChecker();
+            final AtomicInteger hiddenMetricCounter = new AtomicInteger();
+            checkPath(MetricTree.ALL_PATTERN, metricMinMaxChecker, hiddenMetricCounter);
+
+            log.info("Autohide completed. " + hiddenMetricCounter.get() + " metrics hidden");
         } catch (Exception e) {
             log.error("Failed to run autohide.", e);
+        }
+    }
+
+    private void checkPath(String path, MetricMinMaxChecker metricMinMaxChecker, AtomicInteger hiddenCounter) throws IOException {
+        AppendableList appendableList = new AppendableList();
+        metricSearch.search(path, appendableList);
+
+        for (MetricDescription metric : appendableList.getSortedList()) {
+            if (metric.isDir()) {
+                checkPath(metric.getName() + MetricTree.ALL_PATTERN, metricMinMaxChecker, hiddenCounter);
+            } else {
+                metricMinMaxChecker.addToCheck(metric.getName());
+            }
+        }
+
+        if (path.equals(MetricTree.ALL_PATTERN) || metricMinMaxChecker.needCheckInDb()) {
+            final int hiddenMetricCount = hideMetricsBetween(metricMinMaxChecker.minMetric, metricMinMaxChecker.maxMetric);
+            hiddenCounter.addAndGet(hiddenMetricCount);
+            metricMinMaxChecker.reset();
+        }
+    }
+
+    /*
+    * Проверяет метрики в диапазоне и возвращает количество скрытых
+    * */
+
+    private int hideMetricsBetween(String minMetric, String maxMetric) {
+        if (minMetric == null || maxMetric == null) {
+            return 0;
+        }
+
+        final AtomicInteger counter = new AtomicInteger();
+
+        clickHouseJdbcTemplate.query(
+            "SELECT Path, count() AS cnt, max(Timestamp) AS ts " +
+                "FROM graphite WHERE Path >= ? AND Path <= ?" +
+                "GROUP BY Path " +
+                "HAVING cnt < ? AND ts < toUInt32(toDateTime(today() - ?))",
+            row -> {
+                final String metric = row.getString(1);
+                metricSearch.modify(metric, MetricStatus.AUTO_HIDDEN);
+                counter.incrementAndGet();
+            },
+            minMetric, maxMetric, maxValuesCount, missingDays
+        );
+
+        log.info(counter.get() + " metrics hidden between <" + minMetric + "> and <" + maxMetric + ">");
+
+        return counter.get();
+    }
+
+    private class MetricMinMaxChecker {
+        private String minMetric = null;
+        private String maxMetric = null;
+
+        int lastCheckCounter = 0;
+
+        private void reset() {
+            minMetric = null;
+            maxMetric = null;
+            lastCheckCounter = 0;
+        }
+
+        private void addToCheck(String metric) {
+            if (lastCheckCounter == 0) {
+                minMetric = metric;
+                maxMetric = metric;
+            } else {
+                if (minMetric.compareTo(metric) > 0) {
+                    minMetric = metric;
+                }
+
+                if (maxMetric.compareTo(metric) < 0) {
+                    maxMetric = metric;
+                }
+            }
+
+            lastCheckCounter++;
+        }
+
+        private boolean needCheckInDb() {
+            return lastCheckCounter > stepSize;
         }
     }
 
@@ -111,5 +177,9 @@ public class AutoHideService implements InitializingBean, Runnable {
     @Required
     public void setClickHouseJdbcTemplate(JdbcTemplate clickHouseJdbcTemplate) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
+    }
+
+    public void setStepSize(Integer stepSize) {
+        this.stepSize = stepSize;
     }
 }

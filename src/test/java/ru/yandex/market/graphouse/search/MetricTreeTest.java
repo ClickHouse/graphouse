@@ -3,6 +3,7 @@ package ru.yandex.market.graphouse.search;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.junit.Test;
+import ru.yandex.market.graphouse.utils.AppendableWrapper;
 
 import java.io.IOException;
 import java.nio.file.PathMatcher;
@@ -139,7 +140,7 @@ public class MetricTreeTest {
 
     private void searchWithMessage(String message, String pattern, String... expected) throws IOException {
         Arrays.sort(expected);
-        StringBuilder result = new StringBuilder();
+        AppendableWrapper result = new AppendableWrapper();
         tree.search(pattern, result);
         String[] actual = result.toString().split("\\n");
         Arrays.sort(actual);
