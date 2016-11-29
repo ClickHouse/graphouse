@@ -25,7 +25,7 @@ public class MetricTree {
     public static final String LEVEL_SPLIT_PATTERN = "\\.";
 
     private static final CharMatcher EXPRESSION_MATCHER = CharMatcher.anyOf(ALL_PATTERN + "?[]{}");
-    private final Dir root = new Dir(null, "");
+    private final Dir root = new Dir(null, "", MetricStatus.SIMPLE);
 
     public void search(String query, AppendableResult result) throws IOException {
         String[] levels = query.split(LEVEL_SPLIT_PATTERN);
@@ -169,7 +169,7 @@ public class MetricTree {
             }
             String level = levels[i];
             if (!isLast) {
-                dir = dir.getOrCreateDir(level);
+                dir = dir.getOrCreateDirWithStatus(level, status);
                 if (dir.parent.visible() != dir.visible()) {
                     updatePathVisibility(dir.parent);
                 }
@@ -189,11 +189,11 @@ public class MetricTree {
             throw new IllegalArgumentException("Disallowed modify second level");
         }
         if (isDir) {
-            Dir dir = parent.getOrCreateDir(name);
+            Dir dir = parent.getOrCreateDirWithStatus(name, status);
             dir.setStatus(selectStatus(dir.getStatus(), status));
             return dir;
         } else {
-            MetricName metric = parent.getOrCreateMetric(name);
+            MetricName metric = parent.getOrCreateMetricWithStatus(name, status);
             metric.setStatus(selectStatus(metric.getStatus(), status));
             return metric;
         }
@@ -220,17 +220,7 @@ public class MetricTree {
     }
 
     private boolean hasVisibleChildren(Dir dir) {
-        for (Dir child : dir.dirs.values()) {
-            if (child.visible()) {
-                return true;
-            }
-        }
-        for (MetricName child : dir.metrics.values()) {
-            if (child.visible()) {
-                return true;
-            }
-        }
-        return false;
+        return dir.hiddenElements == 0 || dir.hiddenElements != dir.dirs.size() + dir.metrics.size();
     }
 
     /**
@@ -241,6 +231,10 @@ public class MetricTree {
      * @return
      */
     private MetricStatus selectStatus(MetricStatus oldStatus, MetricStatus newStatus) {
+        if (oldStatus == newStatus) {
+            return oldStatus;
+        }
+
         List<MetricStatus> restricted = MetricStatus.RESTRICTED_GRAPH_EDGES.get(oldStatus);
         return restricted == null || !restricted.contains(newStatus) ? newStatus : oldStatus;
     }
@@ -252,30 +246,31 @@ public class MetricTree {
     private static class Dir extends MetricBase {
         private final ConcurrentMap<String, MetricName> metrics = new ConcurrentHashMap<>();
         private final ConcurrentMap<String, Dir> dirs = new ConcurrentHashMap<>();
+        private volatile int hiddenElements = 0;
 
-        public Dir(Dir parent, String name) {
-            super(parent, name);
+        public Dir(Dir parent, String name, MetricStatus status) {
+            super(parent, name, status);
         }
 
-        private Dir getOrCreateDir(String name) {
+        private Dir getOrCreateDirWithStatus(String name, MetricStatus status) {
             Dir dir = dirs.get(name);
             if (dir != null) {
                 return dir;
             }
             name = name.intern();
-            Dir newDir = new Dir(this, name);
+            Dir newDir = new Dir(this, name, status);
             dir = dirs.putIfAbsent(name, newDir);
             return dir == null ? newDir : dir;
         }
 
 
-        private MetricName getOrCreateMetric(String name) {
+        private MetricName getOrCreateMetricWithStatus(String name, MetricStatus status) {
             MetricName metricName = metrics.get(name);
             if (metricName != null) {
                 return metricName;
             }
             name = name.intern();
-            MetricName newMetricName = new MetricName(this, name);
+            MetricName newMetricName = new MetricName(this, name, status);
             metricName = metrics.putIfAbsent(name, newMetricName);
             return metricName == null ? newMetricName : metricName;
         }
@@ -314,12 +309,20 @@ public class MetricTree {
             final String dirName = name + LEVEL_SPLITTER;
             return parent.isRoot() ? dirName : parent.toString() + dirName;
         }
+
+        synchronized void incrementHiddenCounter() {
+                hiddenElements++;
+        }
+
+        synchronized void decrementHiddenCounter(){
+            hiddenElements--;
+        }
     }
 
     private static class MetricName extends MetricBase {
 
-        public MetricName(Dir parent, String name) {
-            super(parent, name);
+        public MetricName(Dir parent, String name, MetricStatus status) {
+            super(parent, name, status);
         }
 
         @Override
@@ -340,9 +343,11 @@ public class MetricTree {
         private volatile long updateTimeMillis = System.currentTimeMillis();
         private volatile MetricStatus status = MetricStatus.SIMPLE;
 
-        public MetricBase(Dir parent, String name) {
+        public MetricBase(Dir parent, String name, MetricStatus status) {
             this.parent = parent;
             this.name = name;
+
+            this.setStatus(status);
         }
 
         public boolean visible() {
@@ -373,6 +378,13 @@ public class MetricTree {
 
         public void setStatus(MetricStatus status) {
             if (this.status != status) {
+                if (this.status.visible() != status.visible() && !isRoot()) {
+                    if (status.visible()){
+                        this.parent.incrementHiddenCounter();
+                    } else {
+                        this.parent.decrementHiddenCounter();
+                    }
+                }
                 this.status = status;
                 updateTimeMillis = System.currentTimeMillis();
             }
