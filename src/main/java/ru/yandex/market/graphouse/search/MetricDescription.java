@@ -7,7 +7,6 @@ import org.apache.http.util.ByteArrayBuffer;
  * @date 02/09/15
  */
 public interface MetricDescription {
-    void writeName(ByteArrayBuffer buffer);
 
     String getName();
 

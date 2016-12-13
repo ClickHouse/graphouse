@@ -1,7 +1,6 @@
 package ru.yandex.market.graphouse.search;
 
 import com.google.common.base.CharMatcher;
-import org.apache.http.util.ByteArrayBuffer;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 
 import java.io.IOException;
@@ -11,7 +10,6 @@ import java.nio.file.PathMatcher;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.regex.PatternSyntaxException;
 
 /**
@@ -35,56 +33,79 @@ public class MetricTree {
     /**
      * Рекурсивный метод для получения списка метрик внутри дерева.
      *
-     * @param parentDir  внутри какой директории ищем
+     * @param dir        внутри какой директории ищем
      * @param levels     узлы дерева, каждый может быть задан явно или паттерном, используя *?[]{}
      *                   Пример: five_min.abo-main.timings-method.*.0_95
      * @param levelIndex индекс текущего узла
      * @param result
      * @throws IOException
      */
-    private void search(Dir parentDir, String[] levels, int levelIndex, AppendableResult result) throws IOException {
-        if (!parentDir.visible()) {
+    private void search(Dir dir, String[] levels, int levelIndex, AppendableResult result) throws IOException {
+        if (dir == null || !dir.visible()) {
             return;
         }
         boolean isLast = (levelIndex == levels.length - 1);
         String level = levels[levelIndex];
         boolean isPattern = containsExpressions(level);
 
-        if (!isPattern) {
-            if (isLast) {
-                appendSimpleResult(parentDir, level, result);
+        if (isLast) {
+            if (!isPattern) {
+                appendSimpleResult(dir.metrics, level, result);
+                appendSimpleResult(dir.dirs, level, result);
+            } else if (level.equals(ALL_PATTERN)) {
+                appendAllResult(dir.metrics, result);
+                appendAllResult(dir.dirs, result);
             } else {
-                Dir dir = parentDir.dirs.get(level);
-                if (dir != null) {
-                    search(dir, levels, levelIndex + 1, result);
-                }
-            }
-        } else if (level.equals(ALL_PATTERN)) {
-            if (isLast) {
-                appendAllResult(parentDir, result);
-            } else {
-                for (Dir dir : parentDir.dirs.values()) {
-                    search(dir, levels, levelIndex + 1, result);
-                }
+                appendAllPatternResult(dir.metrics, level, result);
+                appendAllPatternResult(dir.dirs, level, result);
             }
         } else {
-            PathMatcher pathMatcher = createPathMatcher(level);
-            if (pathMatcher == null) {
-                return;
-            }
-            if (isLast) {
-                appendPatternResult(parentDir, pathMatcher, result);
-            } else {
-                for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
-                    if (matches(pathMatcher, dirEntry.getKey())) {
-                        search(dirEntry.getValue(), levels, levelIndex + 1, result);
+            if (dir.hasDirs()) {
+                for (Dir subDir : dir.dirs.values()) {
+                    boolean matches = (!isPattern && subDir.name.equals(level))
+                        || level.equals(ALL_PATTERN)
+                        || matches(createPathMatcher(level), subDir.name);
+
+                    if (matches) {
+                        search(subDir, levels, levelIndex + 1, result);
                     }
                 }
             }
         }
     }
 
-    protected static PathMatcher createPathMatcher(String globPattern) {
+    private <T extends MetricBase> void appendAllPatternResult(Map<String, T> map, String pattern, AppendableResult result) throws IOException {
+        if (map != null) {
+            final PathMatcher pathMatcher = createPathMatcher(pattern);
+            for (MetricBase metricBase : map.values()) {
+                if (matches(pathMatcher, metricBase.name)) {
+                    appendResult(metricBase, result);
+                }
+            }
+        }
+    }
+
+    private <T extends MetricBase> void appendAllResult(Map<String, T> map, AppendableResult result) throws IOException {
+        if (map != null) {
+            for (MetricBase metricBase : map.values()) {
+                appendResult(metricBase, result);
+            }
+        }
+    }
+
+    private <T extends MetricBase> void appendSimpleResult(Map<String, T> map, String name, AppendableResult result) throws IOException {
+        if (map != null) {
+            appendResult(map.get(name), result);
+        }
+    }
+
+    private static void appendResult(MetricBase metricBase, AppendableResult result) throws IOException {
+        if (metricBase != null && metricBase.visible()) {
+            result.appendMetric(metricBase);
+        }
+    }
+
+    static PathMatcher createPathMatcher(String globPattern) {
         try {
             return FileSystems.getDefault().getPathMatcher("glob:" + globPattern);
         } catch (PatternSyntaxException e) {
@@ -92,61 +113,20 @@ public class MetricTree {
         }
     }
 
-    protected static boolean matches(PathMatcher pathMatcher, final String fileName) {
+    static boolean matches(PathMatcher pathMatcher, final String fileName) {
         Path mockPath = new MetricPath(fileName);
         return pathMatcher.matches(mockPath);
     }
 
-    public int metricCount() {
+    int metricCount() {
         return root.metricCount();
     }
 
-    public int dirCount() {
+    int dirCount() {
         return root.dirCount();
     }
 
-    private void appendSimpleResult(Dir parentDir, String name, AppendableResult result) throws IOException {
-        appendResult(parentDir.dirs.get(name), result);
-        appendResult(parentDir.metrics.get(name), result);
-    }
-
-    private void appendAllResult(Dir parentDir, AppendableResult result) throws IOException {
-        for (Dir dir : parentDir.dirs.values()) {
-            appendResult(dir, result);
-        }
-        for (MetricName metric : parentDir.metrics.values()) {
-            appendResult(metric, result);
-        }
-    }
-
-    private void appendPatternResult(Dir parentDir, PathMatcher pathMatcher, AppendableResult result) throws IOException {
-        for (Map.Entry<String, Dir> dirEntry : parentDir.dirs.entrySet()) {
-            Dir dir = dirEntry.getValue();
-            if (dir.visible() && matches(pathMatcher, dirEntry.getKey())) {
-                appendResult(dir, result);
-            }
-        }
-        for (Map.Entry<String, MetricName> metricEntry : parentDir.metrics.entrySet()) {
-            MetricName metricName = metricEntry.getValue();
-            if (metricName.visible() && matches(pathMatcher, metricEntry.getKey())) {
-                appendResult(metricName, result);
-            }
-        }
-    }
-
-    private void appendResult(Dir dir, AppendableResult result) throws IOException {
-        if (dir != null && dir.visible()) {
-            result.appendMetric(dir);
-        }
-    }
-
-    private void appendResult(MetricName metric, AppendableResult result) throws IOException {
-        if (metric != null && metric.visible()) {
-            result.appendMetric(metric);
-        }
-    }
-
-    public MetricDescription add(String metric) {
+    MetricDescription add(String metric) {
         return modify(metric, MetricStatus.SIMPLE);
     }
 
@@ -157,10 +137,14 @@ public class MetricTree {
      * @param status
      * @return null если метрика/директория забанена. Иначе MetricDescription
      */
-    public MetricDescription modify(String metric, MetricStatus status) {
+    MetricDescription modify(String metric, MetricStatus status) {
         boolean isDir = metric.endsWith(LEVEL_SPLITTER);
 
         String[] levels = metric.split(LEVEL_SPLIT_PATTERN);
+        if (levels.length == 1) {
+            throw new IllegalArgumentException("Disallowed modify second level");
+        }
+
         Dir dir = root;
         for (int i = 0; i < levels.length; i++) {
             boolean isLast = (i == levels.length - 1);
@@ -170,33 +154,16 @@ public class MetricTree {
             String level = levels[i];
             if (!isLast) {
                 dir = dir.getOrCreateDirWithStatus(level, status);
-                if (dir.parent.visible() != dir.visible()) {
-                    updatePathVisibility(dir.parent);
-                }
             } else {
-                MetricDescription metricDescription = modify(dir, level, isDir, status);
+                MetricBase metricBase = isDir ? dir.getOrCreateDirWithStatus(level, status) : dir.getOrCreateMetricWithStatus(level, status);
+                metricBase.setStatus(selectStatus(metricBase.getStatus(), status));
                 if (status.visible() != dir.visible()) {
                     updatePathVisibility(dir);
                 }
-                return metricDescription;
+                return metricBase;
             }
         }
         throw new IllegalStateException();
-    }
-
-    private MetricDescription modify(Dir parent, String name, boolean isDir, MetricStatus status) {
-        if (parent.isRoot()) {
-            throw new IllegalArgumentException("Disallowed modify second level");
-        }
-        if (isDir) {
-            Dir dir = parent.getOrCreateDirWithStatus(name, status);
-            dir.setStatus(selectStatus(dir.getStatus(), status));
-            return dir;
-        } else {
-            MetricName metric = parent.getOrCreateMetricWithStatus(name, status);
-            metric.setStatus(selectStatus(metric.getStatus(), status));
-            return metric;
-        }
     }
 
     /**
@@ -220,7 +187,17 @@ public class MetricTree {
     }
 
     private boolean hasVisibleChildren(Dir dir) {
-        return dir.hiddenElements == 0 || dir.hiddenElements != dir.dirs.size() + dir.metrics.size();
+        if (dir.hiddenElements != 0) {
+            int count = 0;
+            if (dir.hasDirs()) {
+                count += dir.dirs.size();
+            }
+            if (dir.hasMetrics()) {
+                count += dir.metrics.size();
+            }
+            return dir.hiddenElements != count;
+        }
+        return true;
     }
 
     /**
@@ -239,55 +216,133 @@ public class MetricTree {
         return restricted == null || !restricted.contains(newStatus) ? newStatus : oldStatus;
     }
 
-    public static boolean containsExpressions(String metric) {
+    static boolean containsExpressions(String metric) {
         return EXPRESSION_MATCHER.matchesAnyOf(metric);
     }
 
+    private abstract static class MetricBase implements MetricDescription {
+        final Dir parent;
+        final String name;
+
+        private volatile long updateTimeMillis = System.currentTimeMillis();
+        private volatile MetricStatus status = MetricStatus.SIMPLE;
+
+        MetricBase(Dir parent, String name, MetricStatus status) {
+            this.parent = parent;
+            this.name = name;
+            this.status = status;
+
+            if (!status.visible() && !isRoot()) {
+                parent.incrementHiddenCounter();
+            }
+        }
+
+        boolean visible() {
+            return status.visible();
+        }
+
+        boolean isRoot() {
+            return parent == null;
+        }
+
+        @Override
+        public MetricStatus getStatus() {
+            return status;
+        }
+
+        void setStatus(MetricStatus status) {
+            if (this.status != status) {
+                if (this.status.visible() != status.visible() && !isRoot()) {
+                    if (status.visible()) {
+                        this.parent.incrementHiddenCounter();
+                    } else {
+                        this.parent.decrementHiddenCounter();
+                    }
+                }
+                this.status = status;
+                updateTimeMillis = System.currentTimeMillis();
+            }
+        }
+
+        @Override
+        public String toString() {
+            return getName();
+        }
+
+        @Override
+        public long getUpdateTimeMillis() {
+            return updateTimeMillis;
+        }
+    }
+
     private static class Dir extends MetricBase {
-        private final ConcurrentMap<String, MetricName> metrics = new ConcurrentHashMap<>();
-        private final ConcurrentMap<String, Dir> dirs = new ConcurrentHashMap<>();
+        private volatile Map<String, MetricName> metrics;
+        private volatile Map<String, Dir> dirs;
         private volatile int hiddenElements = 0;
 
         public Dir(Dir parent, String name, MetricStatus status) {
             super(parent, name, status);
         }
 
-        private Dir getOrCreateDirWithStatus(String name, MetricStatus status) {
-            Dir dir = dirs.get(name);
-            if (dir != null) {
-                return dir;
+        private void initDirs() {
+            if (dirs == null) {
+                synchronized (this) {
+                    if (dirs == null) {
+                        dirs = new ConcurrentHashMap<>();
+                    }
+                }
             }
-            name = name.intern();
-            Dir newDir = new Dir(this, name, status);
-            dir = dirs.putIfAbsent(name, newDir);
-            return dir == null ? newDir : dir;
+        }
+
+        private void initMetrics() {
+            if (metrics == null) {
+                synchronized (this) {
+                    if (metrics == null) {
+                        metrics = new ConcurrentHashMap<>();
+                    }
+                }
+            }
+        }
+
+        boolean hasDirs() {
+            return dirs != null && !dirs.isEmpty();
+        }
+
+        boolean hasMetrics() {
+            return metrics != null && !metrics.isEmpty();
+        }
+
+        private Dir getOrCreateDirWithStatus(String name, MetricStatus status) {
+            initDirs();
+            return dirs.computeIfAbsent(name, d -> new Dir(this, name.intern(), status));
         }
 
 
         private MetricName getOrCreateMetricWithStatus(String name, MetricStatus status) {
-            MetricName metricName = metrics.get(name);
-            if (metricName != null) {
-                return metricName;
+            initMetrics();
+            return metrics.computeIfAbsent(name, m -> new MetricName(this, name.intern(), status));
+        }
+
+        int metricCount() {
+            int count = 0;
+
+            if (hasMetrics()) {
+                count = metrics.size();
             }
-            name = name.intern();
-            MetricName newMetricName = new MetricName(this, name, status);
-            metricName = metrics.putIfAbsent(name, newMetricName);
-            return metricName == null ? newMetricName : metricName;
-        }
 
-        private MetricName get(String metric) {
-            return metrics.get(metric);
-        }
-
-        public int metricCount() {
-            int count = metrics.size();
-            for (Dir dir : dirs.values()) {
-                count += dir.metricCount();
+            if (hasDirs()) {
+                for (Dir dir : dirs.values()) {
+                    count += dir.metricCount();
+                }
             }
             return count;
         }
 
-        public int dirCount() {
+        int dirCount() {
+            if (!hasDirs()) {
+                return 0;
+            }
+
             int count = dirs.size();
             for (Dir dir : dirs.values()) {
                 count += dir.dirCount();
@@ -311,17 +366,17 @@ public class MetricTree {
         }
 
         synchronized void incrementHiddenCounter() {
-                hiddenElements++;
+            hiddenElements++;
         }
 
-        synchronized void decrementHiddenCounter(){
+        synchronized void decrementHiddenCounter() {
             hiddenElements--;
         }
     }
 
     private static class MetricName extends MetricBase {
 
-        public MetricName(Dir parent, String name, MetricStatus status) {
+        MetricName(Dir parent, String name, MetricStatus status) {
             super(parent, name, status);
         }
 
@@ -334,74 +389,5 @@ public class MetricTree {
         public String getName() {
             return parent.isRoot() ? name : parent.toString() + name;
         }
-    }
-
-    private abstract static class MetricBase implements MetricDescription {
-        protected final Dir parent;
-        protected final String name;
-
-        private volatile long updateTimeMillis = System.currentTimeMillis();
-        private volatile MetricStatus status = MetricStatus.SIMPLE;
-
-        public MetricBase(Dir parent, String name, MetricStatus status) {
-            this.parent = parent;
-            this.name = name;
-
-            this.setStatus(status);
-        }
-
-        public boolean visible() {
-            return status.visible();
-        }
-
-        public boolean isRoot() {
-            return parent == null;
-        }
-
-        @Override
-        public void writeName(ByteArrayBuffer buffer) {
-            if (isRoot()) {
-                appendBytes(buffer, "ROOT".getBytes());
-                return;
-            }
-            if (!parent.isRoot()) {
-                parent.writeName(buffer);
-                buffer.append('.');
-            }
-            appendBytes(buffer, name.getBytes());
-        }
-
-        @Override
-        public MetricStatus getStatus() {
-            return status;
-        }
-
-        public void setStatus(MetricStatus status) {
-            if (this.status != status) {
-                if (this.status.visible() != status.visible() && !isRoot()) {
-                    if (status.visible()){
-                        this.parent.incrementHiddenCounter();
-                    } else {
-                        this.parent.decrementHiddenCounter();
-                    }
-                }
-                this.status = status;
-                updateTimeMillis = System.currentTimeMillis();
-            }
-        }
-
-        @Override
-        public String toString() {
-            return getName();
-        }
-
-        @Override
-        public long getUpdateTimeMillis() {
-            return updateTimeMillis;
-        }
-    }
-
-    private static void appendBytes(ByteArrayBuffer buffer, byte[] bytes) {
-        buffer.append(bytes, 0, bytes.length);
     }
 }
