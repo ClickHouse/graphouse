@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AutoHideService implements InitializingBean, Runnable {
 
     private static final Logger log = LogManager.getLogger();
-    private int stepSize = 100_000;
+    private int stepSize = 10_000;
 
     private JdbcTemplate clickHouseJdbcTemplate;
     private MetricSearch metricSearch;
