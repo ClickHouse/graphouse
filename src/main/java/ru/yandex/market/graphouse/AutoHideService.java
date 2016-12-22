@@ -41,7 +41,7 @@ public class AutoHideService implements InitializingBean, Runnable {
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private int retryCount = 10;
-    private int retryWaitSeconds = 5000;
+    private int retryWaitSeconds = 10;
 
     @Override
     public void afterPropertiesSet() throws Exception {
