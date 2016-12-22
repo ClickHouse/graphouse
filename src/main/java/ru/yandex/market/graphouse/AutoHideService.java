@@ -40,6 +40,8 @@ public class AutoHideService implements InitializingBean, Runnable {
     private int runDelayMinutes = 10;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private int retryCount = 10;
+    private int retryWaitSeconds = 5000;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -101,18 +103,37 @@ public class AutoHideService implements InitializingBean, Runnable {
 
         final AtomicInteger counter = new AtomicInteger();
 
-        clickHouseJdbcTemplate.query(
-            "SELECT Path, count() AS cnt, max(Timestamp) AS ts " +
-                "FROM graphite WHERE Path >= ? AND Path <= ?" +
-                "GROUP BY Path " +
-                "HAVING cnt < ? AND ts < toUInt32(toDateTime(today() - ?))",
-            row -> {
-                final String metric = row.getString(1);
-                metricSearch.modify(metric, MetricStatus.AUTO_HIDDEN);
-                counter.incrementAndGet();
-            },
-            minMetric, maxMetric, maxValuesCount, missingDays
-        );
+        for (int i = 0; i < retryCount; i++) {
+            try {
+                clickHouseJdbcTemplate.query(
+                    "SELECT Path, count() AS cnt, max(Timestamp) AS ts " +
+                        "FROM graphite WHERE Path >= ? AND Path <= ?" +
+                        "GROUP BY Path " +
+                        "HAVING cnt < ? AND ts < toUInt32(toDateTime(today() - ?))",
+                    row -> {
+                        final String metric = row.getString(1);
+                        metricSearch.modify(metric, MetricStatus.AUTO_HIDDEN);
+                        counter.incrementAndGet();
+                    },
+                    minMetric, maxMetric, maxValuesCount, missingDays
+                );
+
+                break;
+            } catch (Exception e) {
+                boolean isLastTry = (i == retryCount - 1);
+                if (!isLastTry) {
+                    log.error("Write to clickhouse failed. Retry after " + retryWaitSeconds + " seconds", e);
+
+                    try {
+                        TimeUnit.SECONDS.sleep(retryWaitSeconds);
+                    } catch (InterruptedException ie) {
+                        log.error(ie);
+                    }
+                } else {
+                    throw e;
+                }
+            }
+        }
 
         log.info(counter.get() + " metrics hidden between <" + minMetric + "> and <" + maxMetric + ">");
 
@@ -181,5 +202,13 @@ public class AutoHideService implements InitializingBean, Runnable {
 
     public void setStepSize(Integer stepSize) {
         this.stepSize = stepSize;
+    }
+
+    public void setRetryCount(int retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public void setRetryWaitSeconds(int retryWaitSeconds) {
+        this.retryWaitSeconds = retryWaitSeconds;
     }
 }
