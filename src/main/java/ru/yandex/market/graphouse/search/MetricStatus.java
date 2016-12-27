@@ -10,7 +10,7 @@ public enum MetricStatus {
     /**
      * Статус по умолчанию при создании директории/метрики.
      */
-    SIMPLE(0),
+    SIMPLE,
     /**
      * Если директория (метрика) забанена, то
      * - директория и все метрики в ней (метрика) перестаёт находиться в поиске (а следовательно и в графите)
@@ -18,15 +18,15 @@ public enum MetricStatus {
      * <p/
      * Чтобы открыть деректорию(метрику), необходимо явно перевести в {@link #APPROVED}
      */
-    BAN(1),
-    APPROVED(2),
+    BAN,
+    APPROVED,
     /**
      * Если директория(метрика) скрыта, то
      * - директория и все метрики в ней (метрика) перестаёт находиться в поиске (а следовательно и в графите)
      * - как только появится новое значение метрика и все родительские директории будут открыты
      * <p/>
      */
-    HIDDEN(3),
+    HIDDEN,
     /**
      * Директория автоматически скрывается, если все её дочерние директории и метрики не видимы {@link #visible}
      * Как только появится новое значение для дочерней метрики, директория будет открыта {@link #SIMPLE}
@@ -34,7 +34,7 @@ public enum MetricStatus {
      * Метрика может быть автоматически скрыта в {@link ru.yandex.market.graphouse.AutoHideService}
      * Аналогично, при появлении новых значений будет открыта {@link #SIMPLE}
      */
-    AUTO_HIDDEN(4);
+    AUTO_HIDDEN;
 
 
     public static final Map<MetricStatus, List<MetricStatus>> RESTRICTED_GRAPH_EDGES = new EnumMap<>(
@@ -45,16 +45,6 @@ public enum MetricStatus {
         RESTRICTED_GRAPH_EDGES.put(MetricStatus.BAN, Arrays.asList(MetricStatus.SIMPLE, MetricStatus.AUTO_HIDDEN));
         RESTRICTED_GRAPH_EDGES.put(MetricStatus.HIDDEN, Collections.singletonList(MetricStatus.AUTO_HIDDEN));
         RESTRICTED_GRAPH_EDGES.put(MetricStatus.APPROVED, Arrays.asList(MetricStatus.SIMPLE, MetricStatus.AUTO_HIDDEN));
-    }
-
-    private final int id;
-
-    MetricStatus(int id) {
-        this.id = id;
-    }
-
-    public int getId() {
-        return id;
     }
 
     /**
@@ -86,15 +76,5 @@ public enum MetricStatus {
             default:
                 throw new IllegalStateException();
         }
-    }
-
-
-    public static MetricStatus forId(int id) {
-        for (MetricStatus status : MetricStatus.values()) {
-            if (status.getId() == id) {
-                return status;
-            }
-        }
-        throw new NoSuchElementException("No MetricStatus for id " + id);
     }
 }

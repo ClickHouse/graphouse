@@ -4,20 +4,22 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
-import ru.yandex.market.graphouse.utils.AppendableList;
-import ru.yandex.market.graphouse.utils.AppendableResult;
-import ru.yandex.market.graphouse.utils.AppendableWrapper;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
+import ru.yandex.market.graphouse.utils.AppendableList;
+import ru.yandex.market.graphouse.utils.AppendableResult;
+import ru.yandex.market.graphouse.utils.AppendableWrapper;
 
 import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -38,6 +40,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private static final int MAX_METRICS_PER_SAVE = 1_000_000;
 
     private JdbcTemplate graphouseJdbcTemplate;
+    private JdbcTemplate clickHouseJdbcTemplate;
     private Monitoring monitoring;
     private MetricValidator metricValidator;
 
@@ -55,31 +58,18 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private volatile boolean metricTreeLoaded = false;
 
+    private String metricsTable;
+
     @Override
     public void afterPropertiesSet() throws Exception {
-        initDatabase();
+        moveMetricsToClh();
         monitoring.addUnit(metricSearchUnit);
         new Thread(this, "MetricSearch thread").start();
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            @Override
-            public void run() {
-                log.info("Shutting down Metric search");
-                saveUpdatedMetrics();
-                log.info("Metric search stopped");
-            }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Shutting down Metric search");
+            saveUpdatedMetrics();
+            log.info("Metric search stopped");
         }));
-    }
-
-    private void initDatabase() {
-        graphouseJdbcTemplate.update(
-            "CREATE TABLE IF NOT EXISTS metric (" +
-                "  `NAME` VARCHAR(255) NOT NULL, " +
-                "  `status` TINYINT NOT NULL DEFAULT 0, " +
-                "  `UPDATED` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
-                "  PRIMARY KEY (`NAME`), " +
-                "  INDEX (`UPDATED`)" +
-                ") "
-        );
     }
 
     private void saveMetrics(List<MetricDescription> metrics) {
@@ -87,8 +77,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             return;
         }
 
-        final String sql = "INSERT INTO metric (name, status) VALUES (?, ?) " +
-            "ON DUPLICATE KEY UPDATE status = ?, updated = IF(status != ?, CURRENT_TIMESTAMP, updated)";
+        final String sql = "INSERT INTO " + metricsTable + " (name, status) VALUES (?, ?)";
 
         final int batchesCount = (metrics.size() - 1) / BATCH_SIZE + 1;
 
@@ -103,12 +92,10 @@ public class MetricSearch implements InitializingBean, Runnable {
                 @Override
                 public void setValues(PreparedStatement ps, int i) throws SQLException {
                     MetricDescription metricDescription = batchList.get(i);
-                    int statusId = metricDescription.getStatus().getId();
+                    String statusName = metricDescription.getStatus().name();
 
                     ps.setString(1, metricDescription.getName());
-                    ps.setInt(2, statusId);
-                    ps.setInt(3, statusId);
-                    ps.setInt(4, statusId);
+                    ps.setString(2, statusName);
                 }
 
                 @Override
@@ -117,16 +104,117 @@ public class MetricSearch implements InitializingBean, Runnable {
                 }
             };
 
-            graphouseJdbcTemplate.batchUpdate(sql, batchSetter);
+            clickHouseJdbcTemplate.batchUpdate(sql, batchSetter);
         }
+    }
+
+    @Deprecated
+    private boolean isMetricsMoved() {
+        boolean result;
+        try {
+            graphouseJdbcTemplate.execute("SELECT * FROM metrics_moved");
+            result = true;
+        } catch (DataAccessException e) {
+            result = false;
+        }
+
+        return result;
+    }
+
+    @Deprecated
+    private void setMetricsMoved() {
+        graphouseJdbcTemplate.execute("CREATE TABLE IF NOT EXISTS metrics_moved (moved BOOL)");
+    }
+
+    @Deprecated
+    private void moveMetricsToClh() {
+        if (isMetricsMoved()) {
+            return;
+        }
+
+        /*
+        * CREATE TABLE IF NOT EXISTS default.metrics (
+        *   date Date DEFAULT toDate(0),
+        *   name String,
+        *   updated DateTime DEFAULT now(),
+        *   status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4) DEFAULT 0
+        *)ENGINE = ReplacingMergeTree(date, (name), 8192, updated)
+        * */
+
+        class SimpleMetric {
+            final String name;
+            final String status;
+            final Timestamp updated;
+
+            SimpleMetric(String name, String status, Timestamp updated) {
+                this.name = name;
+                this.status = status;
+                this.updated = updated;
+            }
+        }
+
+        log.info("Load all metrics from MySql and move it to ClickHouse");
+        final String chInsertSql = "INSERT INTO " + metricsTable + " (name, status, updated) VALUES (?, ?, ?)";
+
+        final List<SimpleMetric> metricsList = new ArrayList<>(BATCH_SIZE);
+        final BatchPreparedStatementSetter clickHouseSetter = new BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps, int i) throws SQLException {
+                final SimpleMetric metric = metricsList.get(i);
+                ps.setString(1, metric.name);
+                ps.setString(2, metric.status);
+                ps.setTimestamp(3, metric.updated);
+            }
+
+            @Override
+            public int getBatchSize() {
+                return metricsList.size();
+            }
+        };
+
+        class MoveWrapper extends MetricRowCallbackHandler {
+            public MoveWrapper(AtomicInteger metricCount) {
+                super(metricCount);
+            }
+
+            @Override
+            public void processRow(ResultSet rs) throws SQLException {
+                metricsList.add(new SimpleMetric(rs.getString("name"), rs.getString("status"), rs.getTimestamp("updated")));
+                super.processRow(rs);
+                if (metricCount.get() % BATCH_SIZE == 0) {
+                    clickHouseJdbcTemplate.batchUpdate(chInsertSql, clickHouseSetter);
+                    metricsList.clear();
+                }
+            }
+        }
+
+        final AtomicInteger counter = new AtomicInteger();
+        graphouseJdbcTemplate.query("" +
+            "SELECT name, " +
+            "CASE status " +
+            "    WHEN 0 THEN 'SIMPLE' " +
+            "    WHEN 1 THEN 'BAN' " +
+            "    WHEN 2 THEN 'APPROVED' " +
+            "    WHEN 3 THEN 'HIDDEN' " +
+            "    WHEN 4 THEN 'AUTO_HIDDEN' " +
+            "END as status, " +
+            "updated FROM metric", new MoveWrapper(counter));
+
+        if (!metricsList.isEmpty()) {
+            clickHouseJdbcTemplate.batchUpdate(chInsertSql, clickHouseSetter);
+        }
+
+        setMetricsMoved();
+        lastUpdatedTimestampSeconds = (int) TimeUnit.MICROSECONDS.toSeconds(System.currentTimeMillis());
+        log.info("Moving completed. Total " + counter.get() + " metrics");
     }
 
     private void loadAllMetrics() {
         log.info("Loading all metric names from db...");
         final AtomicInteger metricCount = new AtomicInteger(0);
 
-        graphouseJdbcTemplate.query(
-            "SELECT name, status FROM metric",
+        clickHouseJdbcTemplate.query(
+            "SELECT name, argMax(status, updated) as status FROM " + metricsTable + " GROUP BY name",
             new MetricRowCallbackHandler(metricCount)
         );
         metricTreeLoaded = true;
@@ -137,8 +225,8 @@ public class MetricSearch implements InitializingBean, Runnable {
         log.info("Loading updated metric names from db...");
         final AtomicInteger metricCount = new AtomicInteger(0);
 
-        graphouseJdbcTemplate.query(
-            "SELECT name, status FROM metric WHERE updated >= FROM_UNIXTIME(?)",
+        clickHouseJdbcTemplate.query(
+            "SELECT name, argMax(status, updated) as status FROM " + metricsTable + " PREWHERE updated >= toDateTime(?) GROUP BY name",
             new MetricRowCallbackHandler(metricCount),
             startTimestampSeconds
         );
@@ -156,7 +244,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         @Override
         public void processRow(ResultSet rs) throws SQLException {
             String metric = rs.getString("name");
-            MetricStatus status = MetricStatus.forId(rs.getInt("status"));
+            MetricStatus status = MetricStatus.valueOf(rs.getString("status"));
             if (!metricValidator.validate(metric, true)) {
                 log.warn("Invalid metric in db: " + metric);
                 return;
@@ -183,7 +271,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             saveMetrics(metrics);
             log.info("Saved " + metrics.size() + " metric names");
         } catch (Exception e) {
-            log.error("Failed to save metrics to mysql", e);
+            log.error("Failed to save metrics to database", e);
             updateQueue.addAll(metrics);
         }
     }
@@ -305,6 +393,14 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void setUpdateDelaySeconds(int updateDelaySeconds) {
         this.updateDelaySeconds = updateDelaySeconds;
+    }
+
+    public void setClickHouseJdbcTemplate(JdbcTemplate clickHouseJdbcTemplate) {
+        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
+    }
+
+    public void setMetricsTable(String metricsTable) {
+        this.metricsTable = metricsTable;
     }
 
     public boolean isMetricTreeLoaded() {
