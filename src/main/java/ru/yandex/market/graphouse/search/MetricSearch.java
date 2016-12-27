@@ -62,7 +62,6 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        moveMetricsToClh();
         monitoring.addUnit(metricSearchUnit);
         new Thread(this, "MetricSearch thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -128,17 +127,29 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     @Deprecated
     private void moveMetricsToClh() {
-        if (isMetricsMoved()) {
-            return;
-        }
-
         /*
-        * CREATE TABLE IF NOT EXISTS default.metrics (
+        * Not sharded ClickHouse
+        * CREATE TABLE IF NOT EXISTS metrics (
         *   date Date DEFAULT toDate(0),
         *   name String,
         *   updated DateTime DEFAULT now(),
         *   status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4) DEFAULT 0
         *)ENGINE = ReplacingMergeTree(date, (name), 8192, updated)
+        *
+        * Sharded ClickHouse
+        * CREATE TABLE IF NOT EXISTS metrics_lr (
+        *   date Date DEFAULT toDate(0),
+        *   name String,
+        *   updated DateTime DEFAULT now(),
+        *   status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4) DEFAULT 0
+        *)ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/graphite.metrics_lr', '{replica}', date, (name), 8192, updated)
+        *
+        * CREATE TABLE IF NOT EXISTS metrics (
+        *   date Date DEFAULT toDate(0),
+        *   name String,
+        *   updated DateTime DEFAULT now(),
+        *   status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4) DEFAULT 0
+        *)ENGINE = Distributed(market_health, 'graphite', 'metrics_lr', 'name')
         * */
 
         class SimpleMetric {
@@ -210,15 +221,19 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     private void loadAllMetrics() {
-        log.info("Loading all metric names from db...");
-        final AtomicInteger metricCount = new AtomicInteger(0);
+        if (!isMetricsMoved()){
+            moveMetricsToClh();
+        } else {
+            log.info("Loading all metric names from db...");
+            final AtomicInteger metricCount = new AtomicInteger(0);
 
-        clickHouseJdbcTemplate.query(
-            "SELECT name, argMax(status, updated) as status FROM " + metricsTable + " GROUP BY name",
-            new MetricRowCallbackHandler(metricCount)
-        );
-        metricTreeLoaded = true;
-        log.info("Loaded complete. Total " + metricCount.get() + " metrics");
+            clickHouseJdbcTemplate.query(
+                "SELECT name, argMax(status, updated) as status FROM " + metricsTable + " GROUP BY name",
+                new MetricRowCallbackHandler(metricCount)
+            );
+            metricTreeLoaded = true;
+            log.info("Loaded complete. Total " + metricCount.get() + " metrics");
+        }
     }
 
     private void loadUpdatedMetrics(int startTimestampSeconds) {
