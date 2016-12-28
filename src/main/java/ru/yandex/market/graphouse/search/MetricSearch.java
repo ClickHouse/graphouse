@@ -8,6 +8,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
+import org.springframework.util.StopWatch;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
@@ -199,6 +200,8 @@ public class MetricSearch implements InitializingBean, Runnable {
             }
         }
 
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         final AtomicInteger counter = new AtomicInteger();
         graphouseJdbcTemplate.query("" +
             "SELECT name, " +
@@ -217,13 +220,16 @@ public class MetricSearch implements InitializingBean, Runnable {
 
         setMetricsMoved();
         lastUpdatedTimestampSeconds = (int) TimeUnit.MICROSECONDS.toSeconds(System.currentTimeMillis());
-        log.info("Moving completed. Total " + counter.get() + " metrics");
+        stopWatch.stop();
+        log.info("Moving completed. Total " + counter.get() + " metrics  in " + stopWatch.getTotalTimeSeconds() + " seconds");
     }
 
     private void loadAllMetrics() {
         if (!isMetricsMoved()){
             moveMetricsToClh();
         } else {
+            StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
             log.info("Loading all metric names from db...");
             final AtomicInteger metricCount = new AtomicInteger(0);
 
@@ -231,9 +237,10 @@ public class MetricSearch implements InitializingBean, Runnable {
                 "SELECT name, argMax(status, updated) as status FROM " + metricsTable + " GROUP BY name",
                 new MetricRowCallbackHandler(metricCount)
             );
-            metricTreeLoaded = true;
-            log.info("Loaded complete. Total " + metricCount.get() + " metrics");
+            stopWatch.stop();
+            log.info("Loaded complete. Total " + metricCount.get() + " metrics in " + stopWatch.getTotalTimeSeconds() + " seconds");
         }
+        metricTreeLoaded = true;
     }
 
     private void loadUpdatedMetrics(int startTimestampSeconds) {
