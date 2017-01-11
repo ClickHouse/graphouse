@@ -23,6 +23,7 @@ import graphite.readers
 
 conductor = Conductor()
 
+graphouse_url = getattr(settings, 'GRAPHOUSE_URL', 'http://localhost:7000')
 
 def conductor_glob(queries):
     result = set()
@@ -82,11 +83,10 @@ class GraphouseFinder(object):
     Find metrics in database and build metrics tree.
     """
     def find_nodes(self, query, req_key):
-        metric_search = getattr(settings, 'METRICSEARCH', '127.0.0.1')
 
         result = []
         for query in self.prepare_queries(query.pattern):
-            request = requests.get('http://%s:7000/search?%s' % (metric_search, urllib.urlencode({'query': query})))
+            request = requests.get('%s/search?%s' % (graphouse_url, urllib.urlencode({'query': query})))
             request.raise_for_status()
 
             result += request.text.split('\n')
@@ -144,7 +144,7 @@ class GraphouseReader(object):
                     'endSecond': end_time,
                     'reqKey': self.reqkey
                 })
-            request_str = "http://%s:7000/metricData?%s" % ("".join(getattr(settings, 'METRICSEARCH', '127.0.0.1')), query)
+            request_str = "%s/metricData?%s" % (graphouse_url, query)
             request = requests.get(request_str)
 
             log.info('DEBUG:graphouse_data_query: %s' % request_str)
