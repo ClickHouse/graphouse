@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +39,6 @@ public class MetricSearch implements InitializingBean, Runnable {
     private static final int BATCH_SIZE = 5_000;
     private static final int MAX_METRICS_PER_SAVE = 1_000_000;
 
-    private JdbcTemplate graphouseJdbcTemplate;
     private JdbcTemplate clickHouseJdbcTemplate;
     private Monitoring monitoring;
     private MetricValidator metricValidator;
@@ -108,138 +106,19 @@ public class MetricSearch implements InitializingBean, Runnable {
         }
     }
 
-    @Deprecated
-    private boolean isMetricsMoved() {
-        boolean result;
-        try {
-            graphouseJdbcTemplate.execute("SELECT * FROM metrics_moved");
-            result = true;
-        } catch (DataAccessException e) {
-            result = false;
-        }
-
-        return result;
-    }
-
-    @Deprecated
-    private void setMetricsMoved() {
-        graphouseJdbcTemplate.execute("CREATE TABLE IF NOT EXISTS metrics_moved (moved BOOL)");
-    }
-
-    @Deprecated
-    private void moveMetricsToClh() {
-        /*
-        * Not sharded ClickHouse
-        * CREATE TABLE IF NOT EXISTS metrics (
-        *   date Date DEFAULT toDate(0),
-        *   name String,
-        *   updated DateTime DEFAULT now(),
-        *   status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4) DEFAULT 0
-        *)ENGINE = ReplacingMergeTree(date, (name), 8192, updated)
-        *
-        * Sharded ClickHouse
-        * CREATE TABLE IF NOT EXISTS metrics_lr (
-        *   date Date DEFAULT toDate(0),
-        *   name String,
-        *   updated DateTime DEFAULT now(),
-        *   status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4) DEFAULT 0
-        *)ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/graphite.metrics_lr', '{replica}', date, (name), 8192, updated)
-        *
-        * CREATE TABLE IF NOT EXISTS metrics (
-        *   date Date DEFAULT toDate(0),
-        *   name String,
-        *   updated DateTime DEFAULT now(),
-        *   status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4) DEFAULT 0
-        *)ENGINE = Distributed(market_health, 'graphite', 'metrics_lr', 'name')
-        * */
-
-        class SimpleMetric {
-            final String name;
-            final String status;
-            final Timestamp updated;
-
-            SimpleMetric(String name, String status, Timestamp updated) {
-                this.name = name;
-                this.status = status;
-                this.updated = updated;
-            }
-        }
-
-        log.info("Load all metrics from MySql and move it to ClickHouse");
-        final String chInsertSql = "INSERT INTO " + metricsTable + " (name, status, updated) VALUES (?, ?, ?)";
-
-        final List<SimpleMetric> metricsList = new ArrayList<>(BATCH_SIZE);
-        final BatchPreparedStatementSetter clickHouseSetter = new BatchPreparedStatementSetter() {
-            @Override
-            public void setValues(PreparedStatement ps, int i) throws SQLException {
-                final SimpleMetric metric = metricsList.get(i);
-                ps.setString(1, metric.name);
-                ps.setString(2, metric.status);
-                ps.setTimestamp(3, metric.updated);
-            }
-
-            @Override
-            public int getBatchSize() {
-                return metricsList.size();
-            }
-        };
-
-        class MoveWrapper extends MetricRowCallbackHandler {
-            public MoveWrapper(AtomicInteger metricCount) {
-                super(metricCount);
-            }
-
-            @Override
-            public void processRow(ResultSet rs) throws SQLException {
-                metricsList.add(new SimpleMetric(rs.getString("name"), rs.getString("status"), rs.getTimestamp("updated")));
-                super.processRow(rs);
-                if (metricCount.get() % BATCH_SIZE == 0) {
-                    clickHouseJdbcTemplate.batchUpdate(chInsertSql, clickHouseSetter);
-                    metricsList.clear();
-                }
-            }
-        }
-
+    private void loadAllMetrics() {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        final AtomicInteger counter = new AtomicInteger();
-        graphouseJdbcTemplate.query("" +
-            "SELECT name, " +
-            "CASE status " +
-            "    WHEN 0 THEN 'SIMPLE' " +
-            "    WHEN 1 THEN 'BAN' " +
-            "    WHEN 2 THEN 'APPROVED' " +
-            "    WHEN 3 THEN 'HIDDEN' " +
-            "    WHEN 4 THEN 'AUTO_HIDDEN' " +
-            "END as status, " +
-            "updated FROM metric", new MoveWrapper(counter));
+        log.info("Loading all metric names from db...");
+        final AtomicInteger metricCount = new AtomicInteger(0);
 
-        if (!metricsList.isEmpty()) {
-            clickHouseJdbcTemplate.batchUpdate(chInsertSql, clickHouseSetter);
-        }
-
-        setMetricsMoved();
-        lastUpdatedTimestampSeconds = (int) TimeUnit.MICROSECONDS.toSeconds(System.currentTimeMillis());
+        clickHouseJdbcTemplate.query(
+            "SELECT name, argMax(status, updated) as status FROM " + metricsTable + " GROUP BY name",
+            new MetricRowCallbackHandler(metricCount)
+        );
         stopWatch.stop();
-        log.info("Moving completed. Total " + counter.get() + " metrics  in " + stopWatch.getTotalTimeSeconds() + " seconds");
-    }
+        log.info("Loaded complete. Total " + metricCount.get() + " metrics in " + stopWatch.getTotalTimeSeconds() + " seconds");
 
-    private void loadAllMetrics() {
-        if (!isMetricsMoved()){
-            moveMetricsToClh();
-        } else {
-            StopWatch stopWatch = new StopWatch();
-            stopWatch.start();
-            log.info("Loading all metric names from db...");
-            final AtomicInteger metricCount = new AtomicInteger(0);
-
-            clickHouseJdbcTemplate.query(
-                "SELECT name, argMax(status, updated) as status FROM " + metricsTable + " GROUP BY name",
-                new MetricRowCallbackHandler(metricCount)
-            );
-            stopWatch.stop();
-            log.info("Loaded complete. Total " + metricCount.get() + " metrics in " + stopWatch.getTotalTimeSeconds() + " seconds");
-        }
         metricTreeLoaded = true;
     }
 
@@ -392,11 +271,6 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void search(String query, AppendableResult result) throws IOException {
         metricTree.search(query, result);
-    }
-
-    @Required
-    public void setGraphouseJdbcTemplate(JdbcTemplate graphouseJdbcTemplate) {
-        this.graphouseJdbcTemplate = graphouseJdbcTemplate;
     }
 
     @Required

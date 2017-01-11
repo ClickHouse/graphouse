@@ -74,3 +74,4 @@ gradle-app.setting
 hs_err_pid*
 
 debian/yandex-graphouse
+!/src/main/script/graphouse-metrics-migration.jar
