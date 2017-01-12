@@ -31,27 +31,27 @@ public class MetricDataService {
         final StringBuilder sqlBuilder = new StringBuilder("SELECT ");
 
         if (parameters.isMultiMetrics()) {
-            sqlBuilder.append("Path, ");
+            sqlBuilder.append("metric, ");
         }
 
-        sqlBuilder.append("kvantT, argMax(Value, Timestamp) as Value FROM ").append(graphiteTable).append("\n");
+        sqlBuilder.append("kvantT, argMax(value, updated) as Value FROM ").append(graphiteTable).append("\n");
 
         final String metricNames = parameters.getMetrics().stream().collect(Collectors.joining("', '", "'", "'"));
 
         if (parameters.isMultiMetrics()) {
-            sqlBuilder.append("WHERE Path IN ( ").append(metricNames).append(" ) \n");
+            sqlBuilder.append("WHERE metric IN ( ").append(metricNames).append(" ) \n");
         } else {
-            sqlBuilder.append("WHERE Path = ").append(metricNames).append("\n");
+            sqlBuilder.append("WHERE metric = ").append(metricNames).append("\n");
         }
 
         sqlBuilder
             .append("AND kvantT >= :startTime AND kvantT <= :endTime \n")
-            .append("AND Date >= toDate(toDateTime( :startTime )) AND Date <= toDate(toDateTime( :endTime )) \n")
-            .append("GROUP BY Path, intDiv(toUInt32(Time), :step ) * :step as kvantT \n");
+            .append("AND date >= toDate(toDateTime( :startTime )) AND date <= toDate(toDateTime( :endTime )) \n")
+            .append("GROUP BY metric, intDiv(toUInt32(Time), :step ) * :step as kvantT \n");
 
 
         if (parameters.isMultiMetrics()) {
-            sqlBuilder.append("ORDER BY Path, kvantT \n");
+            sqlBuilder.append("ORDER BY metric, kvantT \n");
         } else {
             sqlBuilder.append("ORDER BY kvantT \n");
         }

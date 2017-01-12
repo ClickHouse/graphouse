@@ -43,6 +43,8 @@ public class AutoHideService implements InitializingBean, Runnable {
     private int retryCount = 10;
     private int retryWaitSeconds = 10;
 
+    private String graphiteTable;
+
     @Override
     public void afterPropertiesSet() throws Exception {
         if (!enabled) {
@@ -106,9 +108,9 @@ public class AutoHideService implements InitializingBean, Runnable {
         for (int i = 0; i < retryCount; i++) {
             try {
                 clickHouseJdbcTemplate.query(
-                    "SELECT Path, count() AS cnt, max(Timestamp) AS ts " +
-                        "FROM graphite WHERE Path >= ? AND Path <= ?" +
-                        "GROUP BY Path " +
+                    "SELECT metric, count() AS cnt, max(updated) AS ts " +
+                        "FROM " + graphiteTable + " WHERE metric >= ? AND metric <= ?" +
+                        "GROUP BY metric " +
                         "HAVING cnt < ? AND ts < toUInt32(toDateTime(today() - ?))",
                     row -> {
                         final String metric = row.getString(1);
@@ -210,5 +212,9 @@ public class AutoHideService implements InitializingBean, Runnable {
 
     public void setRetryWaitSeconds(int retryWaitSeconds) {
         this.retryWaitSeconds = retryWaitSeconds;
+    }
+
+    public void setGraphiteTable(String graphiteTable) {
+        this.graphiteTable = graphiteTable;
     }
 }

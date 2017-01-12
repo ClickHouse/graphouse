@@ -179,7 +179,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         private void saveMetrics() throws IOException {
 
             clickHouseJdbcTemplate.batchUpdate(
-                "INSERT INTO graphite (Path, Value, Time, Date, Timestamp) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO graphite (metric, value, timestamp, date, updated) VALUES (?, ?, ?, ?, ?)",
                 new BatchPreparedStatementSetter() {
                     @Override
                     public void setValues(PreparedStatement ps, int i) throws SQLException {
