@@ -39,7 +39,7 @@ public class MetricDataService {
         sqlBuilder
             .append("AND kvantT >= :startTime AND kvantT <= :endTime \n")
             .append("AND date >= toDate(toDateTime( :startTime )) AND date <= toDate(toDateTime( :endTime )) \n")
-            .append("GROUP BY metric, intDiv(toUInt32(updated), :step ) * :step as kvantT \n")
+            .append("GROUP BY metric, intDiv(toUInt32(timestamp), :step ) * :step as kvantT \n")
             .append("ORDER BY metric, kvantT \n");
 
         return sqlBuilder.toString();
@@ -57,7 +57,7 @@ public class MetricDataService {
         sqlBuilder
             .append("AND kvantT >= :startTime AND kvantT <= :endTime \n")
             .append("AND Date >= toDate(toDateTime( :startTime )) AND Date <= toDate(toDateTime( :endTime )) \n")
-            .append("GROUP BY Path, intDiv(toUInt32(Timestamp), :step ) * :step as kvantT \n")
+            .append("GROUP BY Path, intDiv(toUInt32(Time), :step ) * :step as kvantT \n")
             .append("ORDER BY metric, kvantT \n");
 
         return sqlBuilder.toString();
