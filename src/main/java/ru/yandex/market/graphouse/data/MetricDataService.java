@@ -30,7 +30,8 @@ public class MetricDataService {
 
         final StringBuilder sqlBuilder = new StringBuilder();
 
-        sqlBuilder.append("SELECT metric, kvantT, argMax(value, updated) as value FROM ").append(graphiteTable).append("\n");
+        //TODO: remove updated after migration
+        sqlBuilder.append("SELECT metric, kvantT, argMax(value, updated) as value, max(updated) as max_updated FROM ").append(graphiteTable).append("\n");
 
         final String metricNames = parameters.getMetrics().stream().collect(Collectors.joining("', '", "'", "'"));
         sqlBuilder.append("WHERE metric IN ( ").append(metricNames).append(" ) \n");
@@ -48,7 +49,7 @@ public class MetricDataService {
     private String bildOldTableQuery(MetricDataParameters parameters) {
         final StringBuilder sqlBuilder = new StringBuilder();
 
-        sqlBuilder.append("SELECT Path as metric, kvantT, argMax(Value, Timestamp) as value FROM graphite_old \n");
+        sqlBuilder.append("SELECT Path as metric, kvantT, argMax(Value, Timestamp) as value, max(Timestamp) as max_updated FROM graphite_old \n");
 
         final String metricNames = parameters.getMetrics().stream().collect(Collectors.joining("', '", "'", "'"));
         sqlBuilder.append("WHERE Path IN ( ").append(metricNames).append(" ) \n");
@@ -66,7 +67,7 @@ public class MetricDataService {
     private String appendOldTableUnion(String query, MetricDataParameters parameters) {
         final String oldTableQuery = bildOldTableQuery(parameters);
 
-        return "SELECT metric, kvantT, argMax(value, updated) as value FROM (" + query + " UNION ALL " + oldTableQuery + ") GROUP BY metric, kvantT ORDER BY metric, kvantT";
+        return "SELECT metric, kvantT, argMax(value, max_updated) as value FROM (" + query + " UNION ALL " + oldTableQuery + ") GROUP BY metric, kvantT ORDER BY metric, kvantT";
     }
 
 
