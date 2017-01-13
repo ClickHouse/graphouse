@@ -1,6 +1,5 @@
 package ru.yandex.market.graphouse.data;
 
-import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Required;
@@ -25,44 +24,60 @@ public class MetricDataService {
 
     private String graphiteTable;
 
+    private boolean migrationSchemeEnabled;
 
     private String buildQuery(MetricDataParameters parameters) {
 
-        final StringBuilder sqlBuilder = new StringBuilder("SELECT ");
+        final StringBuilder sqlBuilder = new StringBuilder();
 
-        if (parameters.isMultiMetrics()) {
-            sqlBuilder.append("metric, ");
-        }
-
-        sqlBuilder.append("kvantT, argMax(value, updated) as Value FROM ").append(graphiteTable).append("\n");
+        sqlBuilder.append("SELECT metric, kvantT, argMax(value, updated) as value FROM ").append(graphiteTable).append("\n");
 
         final String metricNames = parameters.getMetrics().stream().collect(Collectors.joining("', '", "'", "'"));
-
-        if (parameters.isMultiMetrics()) {
-            sqlBuilder.append("WHERE metric IN ( ").append(metricNames).append(" ) \n");
-        } else {
-            sqlBuilder.append("WHERE metric = ").append(metricNames).append("\n");
-        }
+        sqlBuilder.append("WHERE metric IN ( ").append(metricNames).append(" ) \n");
 
         sqlBuilder
             .append("AND kvantT >= :startTime AND kvantT <= :endTime \n")
             .append("AND date >= toDate(toDateTime( :startTime )) AND date <= toDate(toDateTime( :endTime )) \n")
-            .append("GROUP BY metric, intDiv(toUInt32(Time), :step ) * :step as kvantT \n");
-
-
-        if (parameters.isMultiMetrics()) {
-            sqlBuilder.append("ORDER BY metric, kvantT \n");
-        } else {
-            sqlBuilder.append("ORDER BY kvantT \n");
-        }
+            .append("GROUP BY metric, intDiv(toUInt32(updated), :step ) * :step as kvantT \n")
+            .append("ORDER BY metric, kvantT \n");
 
         return sqlBuilder.toString();
     }
 
+    @Deprecated
+    private String bildOldTableQuery(MetricDataParameters parameters) {
+        final StringBuilder sqlBuilder = new StringBuilder();
+
+        sqlBuilder.append("SELECT Path as metric, kvantT, argMax(Value, Timestamp) as value FROM graphite_old \n");
+
+        final String metricNames = parameters.getMetrics().stream().collect(Collectors.joining("', '", "'", "'"));
+        sqlBuilder.append("WHERE Path IN ( ").append(metricNames).append(" ) \n");
+
+        sqlBuilder
+            .append("AND kvantT >= :startTime AND kvantT <= :endTime \n")
+            .append("AND Date >= toDate(toDateTime( :startTime )) AND Date <= toDate(toDateTime( :endTime )) \n")
+            .append("GROUP BY Path, intDiv(toUInt32(Timestamp), :step ) * :step as kvantT \n")
+            .append("ORDER BY metric, kvantT \n");
+
+        return sqlBuilder.toString();
+    }
+
+    @Deprecated
+    private String appendOldTableUnion(String query, MetricDataParameters parameters) {
+        final String oldTableQuery = bildOldTableQuery(parameters);
+
+        return "SELECT metric, kvantT, argMax(value, updated) as value FROM (" + query + " UNION ALL " + oldTableQuery + ") GROUP BY metric, kvantT ORDER BY metric, kvantT";
+    }
+
+
     public void writeData(MetricDataParameters parameters, Writer resp) throws IOException {
         final long startTime = System.nanoTime();
 
-        final String query = buildQuery(parameters);
+        String query = buildQuery(parameters);
+        if (migrationSchemeEnabled) {
+            query = appendOldTableUnion(query, parameters);
+        }
+
         log.debug("Request = \n" + query);
 
         final Map<String, Object> queryParams = new HashMap<>();
@@ -80,7 +95,7 @@ public class MetricDataService {
                     if (parameters.isMultiMetrics()) {
                         dataResult.appendData(rs.getString(1), rs.getLong(2), rs.getFloat(3));
                     } else {
-                        dataResult.appendData(rs.getLong(1), rs.getFloat(2));
+                        dataResult.appendData(rs.getLong(2), rs.getFloat(3));
                     }
                 } catch (IOException e){
                     log.warn("Can't write values to json", e);
@@ -100,5 +115,9 @@ public class MetricDataService {
     @Required
     public void setClickHouseNamedJdbcTemplate(NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate) {
         this.clickHouseNamedJdbcTemplate = clickHouseNamedJdbcTemplate;
+    }
+
+    public void setMigrationSchemeEnabled(boolean migrationSchemeEnabled) {
+        this.migrationSchemeEnabled = migrationSchemeEnabled;
     }
 }
