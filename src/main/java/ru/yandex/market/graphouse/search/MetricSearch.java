@@ -4,7 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
@@ -25,6 +24,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -47,6 +48,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private final MetricTree metricTree = new MetricTree();
     private final Queue<MetricDescription> updateQueue = new ConcurrentLinkedQueue<>();
 
+
     private int lastUpdatedTimestampSeconds = 0;
 
     private int saveIntervalSeconds = 180;
@@ -55,7 +57,8 @@ public class MetricSearch implements InitializingBean, Runnable {
      */
     private int updateDelaySeconds = 120;
 
-    private volatile boolean metricTreeLoaded = false;
+    private int startupThreadsCount = 12;
+
 
     private String metricsTable;
 
@@ -91,11 +94,9 @@ public class MetricSearch implements InitializingBean, Runnable {
                 public void setValues(PreparedStatement ps, int i) throws SQLException {
                     MetricDescription metricDescription = batchList.get(i);
                     String statusName = metricDescription.getStatus().name();
-
                     ps.setString(1, metricDescription.getName());
                     ps.setString(2, statusName);
                 }
-
                 @Override
                 public int getBatchSize() {
                     return batchList.size();
@@ -107,19 +108,25 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     private void loadAllMetrics() {
+
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         log.info("Loading all metric names from db...");
         final AtomicInteger metricCount = new AtomicInteger(0);
 
-        clickHouseJdbcTemplate.query(
-            "SELECT name, argMax(status, updated) as status FROM " + metricsTable + " GROUP BY name",
-            new MetricRowCallbackHandler(metricCount)
-        );
+        try (
+            StartupRowCallbackHandler handler = new StartupRowCallbackHandler(metricCount, startupThreadsCount, BATCH_SIZE)
+        ) {
+            clickHouseJdbcTemplate.query(
+                "SELECT name, argMax(status, updated) as status FROM " + metricsTable + " GROUP BY name",
+                handler
+            );
+        } catch (Exception e) {
+            log.error("Error while loading metric tree");
+            throw new RuntimeException(e);
+        }
         stopWatch.stop();
         log.info("Loaded complete. Total " + metricCount.get() + " metrics in " + stopWatch.getTotalTimeSeconds() + " seconds");
-
-        metricTreeLoaded = true;
     }
 
     private void loadUpdatedMetrics(int startTimestampSeconds) {
@@ -146,16 +153,82 @@ public class MetricSearch implements InitializingBean, Runnable {
         public void processRow(ResultSet rs) throws SQLException {
             String metric = rs.getString("name");
             MetricStatus status = MetricStatus.valueOf(rs.getString("status"));
+            processMetric(metric, status);
+
+        }
+
+        protected void processMetric(String metric, MetricStatus status) {
+            doProcessMetric(metric, status);
+        }
+
+        protected void doProcessMetric(String metric, MetricStatus status) {
             if (!metricValidator.validate(metric, true)) {
                 log.warn("Invalid metric in db: " + metric);
                 return;
             }
             metricTree.modify(metric, status);
-            if (metricCount.incrementAndGet() % 100_000 == 0) {
+            if (metricCount.incrementAndGet() % 500_000 == 0) {
                 log.info("Loaded " + metricCount.get() + " metrics...");
             }
         }
     }
+
+    private class StartupRowCallbackHandler extends MetricRowCallbackHandler implements AutoCloseable {
+
+        private final int batchSize;
+        private final ExecutorService startupExecutorService;
+
+        private List<String> metrics;
+        private List<MetricStatus> statuses;
+
+        public StartupRowCallbackHandler(AtomicInteger metricCount, int threadCount, int batchSize) {
+            super(metricCount);
+            this.batchSize = batchSize;
+            startupExecutorService = Executors.newFixedThreadPool(threadCount);
+        }
+
+        private void clearLists() {
+            metrics = new ArrayList<>(BATCH_SIZE);
+            statuses = new ArrayList<>(BATCH_SIZE);
+        }
+
+        @Override
+        protected void processMetric(String metric, MetricStatus status) {
+            metrics.add(metric);
+            statuses.add(status);
+            if (metrics.size() >= batchSize) {
+                startupExecutorService.submit(new Worker(metrics, statuses));
+                clearLists();
+            }
+        }
+
+        @Override
+        public void close() throws Exception {
+            startupExecutorService.submit(new Worker(metrics, statuses));
+            startupExecutorService.shutdown();
+            while (!startupExecutorService.awaitTermination(1, TimeUnit.SECONDS)) {
+                log.info("Metrics read finished, waiting process workers...");
+            }
+        }
+
+        private class Worker implements Runnable {
+            private final List<String> metrics;
+            private final List<MetricStatus> statuses;
+
+            public Worker(List<String> metrics, List<MetricStatus> statuses) {
+                this.metrics = metrics;
+                this.statuses = statuses;
+            }
+
+            @Override
+            public void run() {
+                for (int i = 0; i < metrics.size(); i++) {
+                    doProcessMetric(metrics.get(i), statuses.get(i));
+                }
+            }
+        }
+    }
+
 
     private void saveUpdatedMetrics() {
         if (updateQueue.isEmpty()) {
@@ -200,10 +273,10 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void loadNewMetrics() {
         int timeSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())) - updateDelaySeconds;
-        if (lastUpdatedTimestampSeconds == 0) {
-            loadAllMetrics();
-        } else {
+        if (isMetricTreeLoaded()) {
             loadUpdatedMetrics(lastUpdatedTimestampSeconds);
+        } else {
+            loadAllMetrics();
         }
         lastUpdatedTimestampSeconds = timeSeconds;
     }
@@ -300,6 +373,6 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public boolean isMetricTreeLoaded() {
-        return metricTreeLoaded;
+        return lastUpdatedTimestampSeconds == 0;
     }
 }
