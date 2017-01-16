@@ -97,6 +97,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                     ps.setString(1, metricDescription.getName());
                     ps.setString(2, statusName);
                 }
+
                 @Override
                 public int getBatchSize() {
                     return batchList.size();
@@ -122,7 +123,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 handler
             );
         } catch (Exception e) {
-            log.error("Error while loading metric tree");
+            log.error("Error while loading metric tree", e);
             throw new RuntimeException(e);
         }
         stopWatch.stop();
@@ -185,9 +186,10 @@ public class MetricSearch implements InitializingBean, Runnable {
             super(metricCount);
             this.batchSize = batchSize;
             startupExecutorService = Executors.newFixedThreadPool(threadCount);
+            createLists();
         }
 
-        private void clearLists() {
+        private void createLists() {
             metrics = new ArrayList<>(BATCH_SIZE);
             statuses = new ArrayList<>(BATCH_SIZE);
         }
@@ -198,7 +200,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             statuses.add(status);
             if (metrics.size() >= batchSize) {
                 startupExecutorService.submit(new Worker(metrics, statuses));
-                clearLists();
+                createLists();
             }
         }
 
