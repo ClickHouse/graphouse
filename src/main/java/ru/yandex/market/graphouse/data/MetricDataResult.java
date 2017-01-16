@@ -4,6 +4,8 @@ import com.google.gson.stream.JsonWriter;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * @author Vlad Vinogradov <a href="mailto:vladvin@yandex-team.ru"></a>
@@ -11,6 +13,7 @@ import java.io.Writer;
  */
 public class MetricDataResult {
     private final MetricDataParameters parameters;
+    private final Set<String> metricsWithoutData;
     private final JsonWriter jsonWriter;
 
     private String previousMetric = null;
@@ -43,6 +46,7 @@ public class MetricDataResult {
 
         previousMetric = metric;
         previousPosition = 0;
+        metricsWithoutData.remove(metric);
     }
 
     private void writeTimeInfo() throws IOException {
@@ -56,6 +60,7 @@ public class MetricDataResult {
 
     public MetricDataResult(MetricDataParameters parameters, Writer writer) throws IOException {
         this.parameters = parameters;
+        this.metricsWithoutData = new HashSet<>(parameters.getMetrics());
         this.jsonWriter = new JsonWriter(writer).beginObject();
 
         writeTimeInfo();
@@ -80,6 +85,10 @@ public class MetricDataResult {
 
     public void flush() throws IOException {
         endPreviousData();
+        for (String metric : metricsWithoutData) {
+            beginNewData(metric);
+            endPreviousData();
+        }
         jsonWriter.endObject().endObject();
     }
 }

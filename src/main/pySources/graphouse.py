@@ -170,6 +170,9 @@ class GraphouseReader(object):
             profilingTime['convert'] - profilingTime['parse']
         ))
 
+        if len(result[0]) == 0:
+            return []
+
         if self.path:
             return result[0][1]
 
