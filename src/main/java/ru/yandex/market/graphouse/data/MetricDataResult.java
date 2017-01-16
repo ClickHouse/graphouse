@@ -86,7 +86,7 @@ public class MetricDataResult {
     public void flush() throws IOException {
         endPreviousData();
         for (String metric : metricsWithoutData) {
-            beginNewData(metric);
+            openNewMetricData(metric);
             endPreviousData();
         }
         jsonWriter.endObject().endObject();
