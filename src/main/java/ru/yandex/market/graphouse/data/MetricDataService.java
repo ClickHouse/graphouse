@@ -109,6 +109,7 @@ public class MetricDataService {
         log.debug(String.format("graphouse_time:[%s] full = %s", parameters.getReqKey(), System.nanoTime() - startTime));
     }
 
+    @Required
     public void setGraphiteTable(String graphiteTable) {
         this.graphiteTable = graphiteTable;
     }

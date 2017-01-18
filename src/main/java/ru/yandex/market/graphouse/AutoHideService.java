@@ -214,6 +214,7 @@ public class AutoHideService implements InitializingBean, Runnable {
         this.retryWaitSeconds = retryWaitSeconds;
     }
 
+    @Required
     public void setGraphiteTable(String graphiteTable) {
         this.graphiteTable = graphiteTable;
     }
