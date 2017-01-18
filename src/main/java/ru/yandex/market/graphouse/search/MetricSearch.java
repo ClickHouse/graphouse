@@ -209,7 +209,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             startupExecutorService.submit(new Worker(metrics, statuses));
             startupExecutorService.shutdown();
             while (!startupExecutorService.awaitTermination(1, TimeUnit.SECONDS)) {
-                log.info("Metrics read finished, waiting process workers...");
+                log.info("Metrics read finished, waiting workers...");
             }
         }
 
@@ -224,8 +224,12 @@ public class MetricSearch implements InitializingBean, Runnable {
 
             @Override
             public void run() {
-                for (int i = 0; i < metrics.size(); i++) {
-                    doProcessMetric(metrics.get(i), statuses.get(i));
+                try {
+                    for (int i = 0; i < metrics.size(); i++) {
+                        doProcessMetric(metrics.get(i), statuses.get(i));
+                    }
+                } catch (Exception e) {
+                    log.error("Exception in metric worker.", e);
                 }
             }
         }
@@ -375,6 +379,6 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public boolean isMetricTreeLoaded() {
-        return lastUpdatedTimestampSeconds == 0;
+        return lastUpdatedTimestampSeconds != 0;
     }
 }
