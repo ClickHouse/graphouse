@@ -48,7 +48,14 @@ public class MetricDataServiceServlet extends HttpServlet {
 
         parameters.setReqKey(req.getParameter("reqKey"));
 
-        metricDataService.writeData(parameters, resp.getWriter());
+        try {
+            metricDataService.writeData(parameters, resp.getWriter());
+        } catch (Exception e) {
+            log.error("Problems with request: " + req.getRequestURI(), e);
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            e.printStackTrace(resp.getWriter());
+            return;
+        }
         resp.setStatus(HttpServletResponse.SC_OK);
     }
 

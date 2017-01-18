@@ -61,4 +61,16 @@ public class MetricDataParameters {
     public void setReqKey(String reqKey) {
         this.reqKey = reqKey;
     }
+
+    @Override
+    public String toString() {
+        return "MetricDataParameters{" +
+            "metrics=" + metrics +
+            ", startTimeSeconds=" + startTimeSeconds +
+            ", endTimeSeconds=" + endTimeSeconds +
+            ", metricStep=" + metricStep +
+            ", pointsCount=" + pointsCount +
+            ", reqKey='" + reqKey + '\'' +
+            '}';
+    }
 }
