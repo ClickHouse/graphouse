@@ -168,7 +168,8 @@ public class MetricSearch implements InitializingBean, Runnable {
                 return;
             }
             metricTree.modify(metric, status);
-            if (metricCount.incrementAndGet() % 500_000 == 0) {
+            int count = metricCount.incrementAndGet();
+            if (count % 500_000 == 0) {
                 log.info("Loaded " + metricCount.get() + " metrics...");
             }
         }
