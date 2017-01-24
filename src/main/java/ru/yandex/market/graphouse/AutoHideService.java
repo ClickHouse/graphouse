@@ -3,7 +3,6 @@ package ru.yandex.market.graphouse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Required;
 import org.springframework.jdbc.core.JdbcTemplate;
 import ru.yandex.market.graphouse.search.tree.MetricDescription;
 import ru.yandex.market.graphouse.search.MetricSearch;
@@ -33,8 +32,9 @@ public class AutoHideService implements InitializingBean, Runnable {
     private static final Logger log = LogManager.getLogger();
     private int stepSize = 10_000;
 
-    private JdbcTemplate clickHouseJdbcTemplate;
-    private MetricSearch metricSearch;
+    private final JdbcTemplate clickHouseJdbcTemplate;
+    private final MetricSearch metricSearch;
+    private final String graphiteTable;
     private boolean enabled = true;
 
     private int maxValuesCount = 200;
@@ -45,7 +45,11 @@ public class AutoHideService implements InitializingBean, Runnable {
     private int retryCount = 10;
     private int retryWaitSeconds = 10;
 
-    private String graphiteTable;
+    public AutoHideService(JdbcTemplate clickHouseJdbcTemplate, MetricSearch metricSearch, String graphiteTable) {
+        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
+        this.metricSearch = metricSearch;
+        this.graphiteTable = graphiteTable;
+    }
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -193,16 +197,6 @@ public class AutoHideService implements InitializingBean, Runnable {
         this.enabled = enabled;
     }
 
-    @Required
-    public void setMetricSearch(MetricSearch metricSearch) {
-        this.metricSearch = metricSearch;
-    }
-
-    @Required
-    public void setClickHouseJdbcTemplate(JdbcTemplate clickHouseJdbcTemplate) {
-        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
-    }
-
     public void setStepSize(Integer stepSize) {
         this.stepSize = stepSize;
     }
@@ -213,10 +207,5 @@ public class AutoHideService implements InitializingBean, Runnable {
 
     public void setRetryWaitSeconds(int retryWaitSeconds) {
         this.retryWaitSeconds = retryWaitSeconds;
-    }
-
-    @Required
-    public void setGraphiteTable(String graphiteTable) {
-        this.graphiteTable = graphiteTable;
     }
 }

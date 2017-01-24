@@ -1,6 +1,5 @@
 package ru.yandex.market.graphouse;
 
-import org.springframework.beans.factory.annotation.Required;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 
 import javax.servlet.ServletException;
@@ -14,7 +13,11 @@ import java.io.IOException;
  * @date 27/04/15
  */
 public class MonitoringServlet extends HttpServlet {
-    private Monitoring monitoring;
+    private final Monitoring monitoring;
+
+    public MonitoringServlet(Monitoring monitoring) {
+        this.monitoring = monitoring;
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -51,10 +54,5 @@ public class MonitoringServlet extends HttpServlet {
                 throw new IllegalStateException();
         }
         resp.getWriter().print(result.toString());
-    }
-
-    @Required
-    public void setMonitoring(Monitoring monitoring) {
-        this.monitoring = monitoring;
     }
 }

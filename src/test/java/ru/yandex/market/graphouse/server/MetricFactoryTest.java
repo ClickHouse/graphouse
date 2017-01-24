@@ -10,10 +10,11 @@ import static org.junit.Assert.*;
  */
 public class MetricFactoryTest {
 
-    private MetricFactory factory = new MetricFactory();
+    private MetricFactory factory = new MetricFactory(null, null);
 
     @Test
     public void testProcessName() throws Exception {
+        factory.setHostPostfixes("yandex_net,yandex_ru");
         checkHostRedirect("one_min.zk03e_stat_yandex_net.sockstat_tcp.alloc", "one_min.HOST.zk03e_stat_yandex_net.sockstat_tcp.alloc");
         checkHostRedirect("one_min.zk03e_stat_yandex_ru.sockstat_tcp.alloc", "one_min.HOST.zk03e_stat_yandex_ru.sockstat_tcp.alloc");
         checkHostRedirect("one_min.some_service.safas.fasf", "one_min.some_service.safas.fasf");

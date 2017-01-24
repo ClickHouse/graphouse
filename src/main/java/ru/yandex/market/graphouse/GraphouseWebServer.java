@@ -12,7 +12,6 @@ import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Required;
 import ru.yandex.market.graphouse.data.MetricDataServiceServlet;
 import ru.yandex.market.graphouse.search.MetricSearchServlet;
 
@@ -27,10 +26,18 @@ public class GraphouseWebServer implements InitializingBean {
     private int metricSearchPort = 7000;
     private int threadCount = 20;
 
-    private MetricSearchServlet metricSearchServlet;
-    private MonitoringServlet monitoringServlet;
+    private final MetricSearchServlet metricSearchServlet;
+    private final MonitoringServlet monitoringServlet;
 
-    private MetricDataServiceServlet metricDataServiceServlet;
+    private final MetricDataServiceServlet metricDataServiceServlet;
+
+    public GraphouseWebServer(MetricSearchServlet metricSearchServlet,
+                              MonitoringServlet monitoringServlet,
+                              MetricDataServiceServlet metricDataServiceServlet) {
+        this.metricSearchServlet = metricSearchServlet;
+        this.monitoringServlet = monitoringServlet;
+        this.metricDataServiceServlet = metricDataServiceServlet;
+    }
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -67,16 +74,6 @@ public class GraphouseWebServer implements InitializingBean {
         server.start();
     }
 
-    @Required
-    public void setMetricSearchServlet(MetricSearchServlet metricSearchServlet) {
-        this.metricSearchServlet = metricSearchServlet;
-    }
-
-    @Required
-    public void setMonitoringServlet(MonitoringServlet monitoringServlet) {
-        this.monitoringServlet = monitoringServlet;
-    }
-
     public void setMetricSearchPort(int metricSearchPort) {
         this.metricSearchPort = metricSearchPort;
     }
@@ -85,8 +82,4 @@ public class GraphouseWebServer implements InitializingBean {
         this.threadCount = threadCount;
     }
 
-    @Required
-    public void setMetricDataServiceServlet(MetricDataServiceServlet metricDataServiceServlet) {
-        this.metricDataServiceServlet = metricDataServiceServlet;
-    }
 }

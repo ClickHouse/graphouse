@@ -4,6 +4,7 @@ package ru.yandex.market.graphouse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import ru.yandex.market.graphouse.config.GraphouseMainConfig;
 
 /**
  * @author Vlad Vinogradov <a href="mailto:vladvin@yandex-team.ru"></a>
@@ -20,7 +21,7 @@ public class GraphouseMain {
         AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
 
         applicationContext.registerShutdownHook();
-        applicationContext.register(GraphouseMainConfiguration.class);
+        applicationContext.register(GraphouseMainConfig.class);
         applicationContext.refresh();
 
         log.info("Graphouse up and running");
