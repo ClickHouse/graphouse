@@ -29,20 +29,28 @@ public class MetricDataResult {
         }
     }
 
-    private void endPreviousData() throws IOException {
-        if (previousMetric != null) {
-            writeNulls(parameters.getPointsCount() - previousPosition - 1);
+    private boolean metricDataOpened() {
+        return previousMetric != null;
+    }
+
+
+    private void closePrevMetricData() throws IOException {
+        closePrevMetricData(parameters.getPointsCount() - previousPosition - 1);
+    }
+
+    private void closePrevMetricData(int pointsLeft) throws IOException {
+        if (metricDataOpened()) {
+            writeNulls(pointsLeft);
             jsonWriter.endArray();
         }
     }
 
-    private void beginNewData(String metric) throws IOException {
-        jsonWriter.name(metric).beginArray();
-    }
+    private void openNextMetricData(String metric) throws IOException {
+        if (metricDataOpened()) {
+            closePrevMetricData();
+        }
 
-    private void openNewMetricData(String metric) throws IOException {
-        endPreviousData();
-        beginNewData(metric);
+        jsonWriter.name(metric).beginArray();
 
         previousMetric = metric;
         previousPosition = 0;
@@ -68,8 +76,8 @@ public class MetricDataResult {
     }
 
     public void appendData(String metric, long kvantT, float value) throws IOException {
-        if ((parameters.isMultiMetrics() && !metric.equals(previousMetric)) || previousMetric == null) {
-            openNewMetricData(metric);
+        if (!metric.equals(previousMetric)) {
+            openNextMetricData(metric);
         }
 
         final int position = calcDataPosition(kvantT);
@@ -78,16 +86,14 @@ public class MetricDataResult {
         previousPosition = position;
     }
 
-    public void appendData(long kvantT, float value) throws IOException {
-        String metric = parameters.getFirstMetric();
-        appendData(metric, kvantT, value);
-    }
-
     public void flush() throws IOException {
-        endPreviousData();
-        for (String metric : metricsWithoutData) {
-            openNewMetricData(metric);
-            endPreviousData();
+        if (metricsWithoutData.isEmpty()){
+            closePrevMetricData();
+        } else {
+            for (String metric : metricsWithoutData) {
+                openNextMetricData(metric);
+                closePrevMetricData(parameters.getPointsCount());
+            }
         }
         jsonWriter.endObject().endObject();
     }
