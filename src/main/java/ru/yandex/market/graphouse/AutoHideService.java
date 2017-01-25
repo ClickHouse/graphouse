@@ -12,6 +12,8 @@ import ru.yandex.market.graphouse.search.MetricTree;
 import ru.yandex.market.graphouse.utils.AppendableList;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -103,24 +105,25 @@ public class AutoHideService implements InitializingBean, Runnable {
             return 0;
         }
 
-        final AtomicInteger counter = new AtomicInteger();
-
         for (int i = 0; i < retryCount; i++) {
             try {
+                final List<String> metricsToHide = new ArrayList<>();
+
                 clickHouseJdbcTemplate.query(
                     "SELECT metric, count() AS cnt, max(updated) AS ts " +
                         "FROM " + graphiteTable + " WHERE metric >= ? AND metric <= ?" +
                         "GROUP BY metric " +
                         "HAVING cnt < ? AND ts < toUInt32(toDateTime(today() - ?))",
                     row -> {
-                        final String metric = row.getString(1);
-                        metricSearch.modify(metric, MetricStatus.AUTO_HIDDEN);
-                        counter.incrementAndGet();
+                        metricsToHide.add(row.getString(1));
                     },
                     minMetric, maxMetric, maxValuesCount, missingDays
                 );
 
-                break;
+                metricSearch.modify(metricsToHide, MetricStatus.AUTO_HIDDEN);
+                log.info(metricsToHide.size() + " metrics hidden between <" + minMetric + "> and <" + maxMetric + ">");
+
+                return metricsToHide.size();
             } catch (Exception e) {
                 boolean isLastTry = (i == retryCount - 1);
                 if (!isLastTry) {
@@ -137,9 +140,7 @@ public class AutoHideService implements InitializingBean, Runnable {
             }
         }
 
-        log.info(counter.get() + " metrics hidden between <" + minMetric + "> and <" + maxMetric + ">");
-
-        return counter.get();
+        throw new IllegalStateException();
     }
 
     private class MetricMinMaxChecker {

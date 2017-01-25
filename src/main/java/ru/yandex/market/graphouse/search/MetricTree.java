@@ -273,6 +273,11 @@ public class MetricTree {
         public long getUpdateTimeMillis() {
             return updateTimeMillis;
         }
+
+        @Override
+        public Dir getParent() {
+            return parent;
+        }
     }
 
     private static class Dir extends MetricBase {

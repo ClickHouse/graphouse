@@ -23,11 +23,7 @@ public class MetricDataParameters {
         this.startTimeSeconds = startTimeSeconds - startTimeSeconds % metricStep.getStepSizeInSeconds();
         this.endTimeSeconds = endTimeSeconds - endTimeSeconds % metricStep.getStepSizeInSeconds();
 
-        this.pointsCount = (this.endTimeSeconds - this.startTimeSeconds) / metricStep.getStepSizeInSeconds() + 1;
-    }
-
-    public String getFirstMetric() {
-        return metrics.get(0);
+        this.pointsCount = (this.endTimeSeconds - this.startTimeSeconds) / metricStep.getStepSizeInSeconds();
     }
 
     public List<String> getMetrics() {
@@ -48,10 +44,6 @@ public class MetricDataParameters {
 
     public MetricStep getMetricStep() {
         return metricStep;
-    }
-
-    public boolean isMultiMetrics() {
-        return metrics.size() > 1;
     }
 
     public int getPointsCount() {

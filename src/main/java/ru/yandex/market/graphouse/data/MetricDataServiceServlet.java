@@ -22,6 +22,15 @@ public class MetricDataServiceServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        getData(req, resp);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        getData(req, resp);
+    }
+
+    private void getData(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         final String metricsString = req.getParameter("metrics");
 
         if (metricsString == null || metricsString.isEmpty()) {

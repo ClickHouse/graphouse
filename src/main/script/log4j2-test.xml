@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="debug" packages="ru.yandex.market.log4j2">
+    <Appenders>
+        <Async name="ASYNC">
+            <AppenderRef ref="MAIN"/>
+        </Async>
+        <Console name="MAIN" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d %-5p [%c{1} %t] %m%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="ASYNC"/>
+        </Root>
+        <Logger name="requestTrace" level="trace" additivity="false">
+            <AppenderRef ref="ASYNC"/>
+        </Logger>
+    </Loggers>
+</Configuration>

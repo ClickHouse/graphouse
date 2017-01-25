@@ -144,10 +144,10 @@ class GraphouseReader(object):
                     'endSecond': end_time,
                     'reqKey': self.reqkey
                 })
-            request_str = "%s/metricData?%s" % (graphouse_url, query)
-            request = requests.get(request_str)
+            request_url = graphouse_url + "/metricData"
+            request = requests.post(request_url, params=query)
 
-            log.info('DEBUG:graphouse_data_query: %s' % request_str)
+            log.info('DEBUG:graphouse_data_query: %s parameters %s' % (request_url, query))
 
             request.raise_for_status()
         except Exception as e:
