@@ -1,6 +1,9 @@
 package ru.yandex.market.graphouse.search;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.LoadingCache;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 
 import java.io.IOException;
@@ -23,7 +26,7 @@ public class MetricTree {
     public static final String LEVEL_SPLIT_PATTERN = "\\.";
 
     private static final CharMatcher EXPRESSION_MATCHER = CharMatcher.anyOf(ALL_PATTERN + "?[]{}");
-    private final Dir root = new Dir(null, "", MetricStatus.SIMPLE);
+    private final Dir root = new InMemoryDir(null, "", MetricStatus.SIMPLE);
 
     public void search(String query, AppendableResult result) throws IOException {
         String[] levels = query.split(LEVEL_SPLIT_PATTERN);
@@ -50,18 +53,18 @@ public class MetricTree {
 
         if (isLast) {
             if (!isPattern) {
-                appendSimpleResult(dir.metrics, level, result);
-                appendSimpleResult(dir.dirs, level, result);
+                appendSimpleResult(dir.getMetrics(), level, result);
+                appendSimpleResult(dir.getDirs(), level, result);
             } else if (level.equals(ALL_PATTERN)) {
-                appendAllResult(dir.metrics, result);
-                appendAllResult(dir.dirs, result);
+                appendAllResult(dir.getMetrics(), result);
+                appendAllResult(dir.getDirs(), result);
             } else {
-                appendAllPatternResult(dir.metrics, level, result);
-                appendAllPatternResult(dir.dirs, level, result);
+                appendAllPatternResult(dir.getMetrics(), level, result);
+                appendAllPatternResult(dir.getDirs(), level, result);
             }
         } else {
             if (dir.hasDirs()) {
-                for (Dir subDir : dir.dirs.values()) {
+                for (Dir subDir : dir.getDirs().values()) {
                     boolean matches = (!isPattern && subDir.name.equals(level))
                         || level.equals(ALL_PATTERN)
                         || matches(createPathMatcher(level), subDir.name);
@@ -187,15 +190,15 @@ public class MetricTree {
     }
 
     private boolean hasVisibleChildren(Dir dir) {
-        if (dir.hiddenElements != 0) {
+        if (dir.getHiddenElementsCount() != 0) {
             int count = 0;
             if (dir.hasDirs()) {
-                count += dir.dirs.size();
+                count += dir.getDirs().size();
             }
             if (dir.hasMetrics()) {
-                count += dir.metrics.size();
+                count += dir.getMetrics().size();
             }
-            return dir.hiddenElements != count;
+            return dir.getHiddenElementsCount() != count;
         }
         return true;
     }
@@ -275,12 +278,58 @@ public class MetricTree {
         }
     }
 
-    private static class Dir extends MetricBase {
+    private static abstract class Dir extends MetricBase {
+        public Dir(Dir parent, String name, MetricStatus status) {
+            super(parent, name, status);
+        }
+
+        @Override
+        public boolean isDir() {
+            return true;
+        }
+
+        @Override
+        public String getName() {
+            if (isRoot()) {
+                return "ROOT";
+            }
+
+            final String dirName = name + LEVEL_SPLITTER;
+            return parent.isRoot() ? dirName : parent.toString() + dirName;
+        }
+
+        public abstract Map<String, Dir> getDirs();
+
+        public abstract Map<String, MetricName> getMetrics();
+
+        public abstract boolean hasDirs();
+
+        public abstract boolean hasMetrics();
+
+
+        public abstract int metricCount();
+
+        public abstract int dirCount();
+
+        public abstract Dir getOrCreateDirWithStatus(String level, MetricStatus status);
+
+        public abstract MetricName getOrCreateMetricWithStatus(String level, MetricStatus status);
+
+        public abstract void incrementHiddenCounter();
+
+        public abstract void decrementHiddenCounter();
+
+        public abstract int getHiddenElementsCount();
+
+
+    }
+
+    private static class InMemoryDir extends Dir {
         private volatile Map<String, MetricName> metrics;
         private volatile Map<String, Dir> dirs;
-        private volatile int hiddenElements = 0;
+        private volatile int hiddenElementsCount = 0;
 
-        public Dir(Dir parent, String name, MetricStatus status) {
+        public InMemoryDir(Dir parent, String name, MetricStatus status) {
             super(parent, name, status);
         }
 
@@ -304,26 +353,36 @@ public class MetricTree {
             }
         }
 
-        boolean hasDirs() {
+        @Override
+        public Map<String, MetricName> getMetrics() {
+            return metrics;
+        }
+
+        @Override
+        public Map<String, Dir> getDirs() {
+            return dirs;
+        }
+
+        public boolean hasDirs() {
             return dirs != null && !dirs.isEmpty();
         }
 
-        boolean hasMetrics() {
+        public boolean hasMetrics() {
             return metrics != null && !metrics.isEmpty();
         }
 
-        private Dir getOrCreateDirWithStatus(String name, MetricStatus status) {
+        public Dir getOrCreateDirWithStatus(String name, MetricStatus status) {
             initDirs();
-            return dirs.computeIfAbsent(name, d -> new Dir(this, name.intern(), status));
+            return dirs.computeIfAbsent(name, d -> new InMemoryDir(this, name.intern(), status));
         }
 
 
-        private MetricName getOrCreateMetricWithStatus(String name, MetricStatus status) {
+        public MetricName getOrCreateMetricWithStatus(String name, MetricStatus status) {
             initMetrics();
             return metrics.computeIfAbsent(name, m -> new MetricName(this, name.intern(), status));
         }
 
-        int metricCount() {
+        public int metricCount() {
             int count = 0;
 
             if (hasMetrics()) {
@@ -338,7 +397,7 @@ public class MetricTree {
             return count;
         }
 
-        int dirCount() {
+        public int dirCount() {
             if (!hasDirs()) {
                 return 0;
             }
@@ -350,27 +409,87 @@ public class MetricTree {
             return count;
         }
 
-        @Override
-        public boolean isDir() {
-            return true;
+        public synchronized void incrementHiddenCounter() {
+            hiddenElementsCount++;
+        }
+
+        public synchronized void decrementHiddenCounter() {
+            hiddenElementsCount--;
         }
 
         @Override
-        public String getName() {
-            if (isRoot()) {
-                return "ROOT";
-            }
+        public int getHiddenElementsCount() {
+            return hiddenElementsCount;
+        }
+    }
 
-            final String dirName = name + LEVEL_SPLITTER;
-            return parent.isRoot() ? dirName : parent.toString() + dirName;
+    private static class DirContent{
+        private final Map<String, MetricName> metrics;
+        private final Map<String, Dir> dirs;
+
+        public DirContent(Map<String, MetricName> metrics, Map<String, Dir> dirs) {
+            this.metrics = metrics;
+            this.dirs = dirs;
+        }
+    }
+
+    private static class LoadableDir extends Dir{
+        private final LoadingCache<Dir, String> dirContentProvider;
+
+
+        @Override
+        public Map<String, Dir> getDirs() {
+            return dirContentProvider.;
         }
 
-        synchronized void incrementHiddenCounter() {
-            hiddenElements++;
+        @Override
+        public Map<String, MetricName> getMetrics() {
+            return null;
         }
 
-        synchronized void decrementHiddenCounter() {
-            hiddenElements--;
+        @Override
+        public boolean hasDirs() {
+            return false;
+        }
+
+        @Override
+        public boolean hasMetrics() {
+            return false;
+        }
+
+        @Override
+        public int metricCount() {
+            return 0;
+        }
+
+        @Override
+        public int dirCount() {
+            return 0;
+        }
+
+        @Override
+        public Dir getOrCreateDirWithStatus(String level, MetricStatus status) {
+            return null;
+        }
+
+        @Override
+        public MetricName getOrCreateMetricWithStatus(String level, MetricStatus status) {
+            return null;
+        }
+
+        @Override
+        public void incrementHiddenCounter() {
+
+        }
+
+        @Override
+        public void decrementHiddenCounter() {
+
+        }
+
+        @Override
+        public int getHiddenElementsCount() {
+            return 0;
         }
     }
 
@@ -390,4 +509,6 @@ public class MetricTree {
             return parent.isRoot() ? name : parent.toString() + name;
         }
     }
+
+
 }
