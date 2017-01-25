@@ -19,7 +19,9 @@ import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
@@ -78,7 +80,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             return;
         }
 
-        final String sql = "INSERT INTO " + metricsTable + " (name, status) VALUES (?, ?)";
+        final String sql = "INSERT INTO " + metricsTable + " (name, status, updated) VALUES (?, ?, ?)";
 
         final int batchesCount = (metrics.size() - 1) / BATCH_SIZE + 1;
 
@@ -93,9 +95,9 @@ public class MetricSearch implements InitializingBean, Runnable {
                 @Override
                 public void setValues(PreparedStatement ps, int i) throws SQLException {
                     MetricDescription metricDescription = batchList.get(i);
-                    String statusName = metricDescription.getStatus().name();
                     ps.setString(1, metricDescription.getName());
-                    ps.setString(2, statusName);
+                    ps.setString(2, metricDescription.getStatus().name());
+                    ps.setTimestamp(3, new Timestamp(metricDescription.getUpdateTimeMillis()));
                 }
 
                 @Override
@@ -291,10 +293,16 @@ public class MetricSearch implements InitializingBean, Runnable {
     public MetricDescription add(String metric) {
         long currentTimeMillis = System.currentTimeMillis();
         MetricDescription metricDescription = metricTree.add(metric);
-        if (metricDescription != null && metricDescription.getUpdateTimeMillis() >= currentTimeMillis) {
-            updateQueue.add(metricDescription);
-        }
+        addUpdatedMetrics(currentTimeMillis, metricDescription, updateQueue);
         return metricDescription;
+    }
+
+    private void addUpdatedMetrics(long startTimeMillis, MetricDescription metricDescription,
+                                   Collection<MetricDescription> updatedCollection) {
+        if (metricDescription != null && metricDescription.getUpdateTimeMillis() >= startTimeMillis) {
+            updatedCollection.add(metricDescription);
+            addUpdatedMetrics(startTimeMillis, metricDescription.getParent(), updatedCollection);
+        }
     }
 
     public int multiModify(String query, final MetricStatus status, final Appendable result) throws IOException {
@@ -333,9 +341,9 @@ public class MetricSearch implements InitializingBean, Runnable {
                 continue;
             }
             MetricDescription metricDescription = metricTree.modify(metric, status);
-            if (metricDescription != null && metricDescription.getUpdateTimeMillis() >= currentTimeMillis) {
-                metricDescriptions.add(metricDescription);
-            }
+
+            addUpdatedMetrics(currentTimeMillis, metricDescription, metricDescriptions);
+
         }
         saveMetrics(metricDescriptions);
         if (metrics.size() == 1) {

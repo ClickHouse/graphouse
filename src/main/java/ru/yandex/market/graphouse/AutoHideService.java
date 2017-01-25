@@ -114,7 +114,9 @@ public class AutoHideService implements InitializingBean, Runnable {
                         "FROM " + graphiteTable + " WHERE metric >= ? AND metric <= ?" +
                         "GROUP BY metric " +
                         "HAVING cnt < ? AND ts < toUInt32(toDateTime(today() - ?))",
-                    row -> { metricsToHide.add(row.getString(1)); },
+                    row -> {
+                        metricsToHide.add(row.getString(1));
+                    },
                     minMetric, maxMetric, maxValuesCount, missingDays
                 );
 
@@ -138,7 +140,7 @@ public class AutoHideService implements InitializingBean, Runnable {
             }
         }
 
-        return 0;
+        throw new IllegalStateException();
     }
 
     private class MetricMinMaxChecker {
