@@ -16,4 +16,6 @@ public interface MetricDescription {
 
     long getUpdateTimeMillis();
 
+    MetricDescription getParent();
+
 }

@@ -16,7 +16,12 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -41,6 +46,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private BlockingQueue<Metric> metricQueue;
     private AtomicInteger activeWriters = new AtomicInteger(0);
 
+    private String graphiteTable;
 
     private ExecutorService executorService;
 
@@ -179,7 +185,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         private void saveMetrics() throws IOException {
 
             clickHouseJdbcTemplate.batchUpdate(
-                "INSERT INTO graphite (metric, value, timestamp, date, updated) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated) VALUES (?, ?, ?, ?, ?)",
                 new BatchPreparedStatementSetter() {
                     @Override
                     public void setValues(PreparedStatement ps, int i) throws SQLException {
@@ -198,6 +204,11 @@ public class MetricCacher implements Runnable, InitializingBean {
                 }
             );
         }
+    }
+
+    @Required
+    public void setGraphiteTable(String graphiteTable) {
+        this.graphiteTable = graphiteTable;
     }
 
     @Required

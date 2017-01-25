@@ -22,6 +22,15 @@ public class MetricDataServiceServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        getData(req, resp);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        getData(req, resp);
+    }
+
+    private void getData(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         final String metricsString = req.getParameter("metrics");
 
         if (metricsString == null || metricsString.isEmpty()) {
@@ -48,7 +57,14 @@ public class MetricDataServiceServlet extends HttpServlet {
 
         parameters.setReqKey(req.getParameter("reqKey"));
 
-        metricDataService.writeData(parameters, resp.getWriter());
+        try {
+            metricDataService.writeData(parameters, resp.getWriter());
+        } catch (Exception e) {
+            log.error("Problems with request: " + req.getRequestURI(), e);
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            e.printStackTrace(resp.getWriter());
+            return;
+        }
         resp.setStatus(HttpServletResponse.SC_OK);
     }
 
