@@ -3,7 +3,7 @@ package ru.yandex.market.graphouse.server;
 import org.springframework.beans.factory.annotation.Required;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.Metric;
-import ru.yandex.market.graphouse.search.MetricDescription;
+import ru.yandex.market.graphouse.search.tree.MetricDescription;
 import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.util.Arrays;

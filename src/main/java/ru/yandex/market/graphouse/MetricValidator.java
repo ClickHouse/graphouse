@@ -38,7 +38,8 @@ public class MetricValidator {
         if (name.charAt(0) == '.') {
             return false;
         }
-        if (!allowDirs && name.charAt(name.length() - 1) == '.') {
+        boolean isDir = MetricUtil.isDir(name);
+        if (!allowDirs && isDir) {
             return false;
         }
         int prevDotIndex = -1;
@@ -51,7 +52,8 @@ public class MetricValidator {
             prevDotIndex = dotIndex;
             dotCount++;
         }
-        if (dotCount < minDots || dotCount > maxDots) {
+
+        if ((!isDir && dotCount < minDots) || dotCount > maxDots) {
             return false;
         }
         return true;

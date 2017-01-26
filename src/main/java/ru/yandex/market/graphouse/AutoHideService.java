@@ -5,10 +5,10 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.jdbc.core.JdbcTemplate;
-import ru.yandex.market.graphouse.search.MetricDescription;
+import ru.yandex.market.graphouse.search.tree.MetricDescription;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricStatus;
-import ru.yandex.market.graphouse.search.MetricTree;
+import ru.yandex.market.graphouse.search.tree.MetricTree;
 import ru.yandex.market.graphouse.utils.AppendableList;
 
 import java.io.IOException;

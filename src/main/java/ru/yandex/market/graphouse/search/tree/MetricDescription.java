@@ -1,6 +1,6 @@
-package ru.yandex.market.graphouse.search;
+package ru.yandex.market.graphouse.search.tree;
 
-import org.apache.http.util.ByteArrayBuffer;
+import ru.yandex.market.graphouse.search.MetricStatus;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -18,4 +18,7 @@ public interface MetricDescription {
 
     MetricDescription getParent();
 
+    int getLevel();
+
+    boolean isRoot();
 }
