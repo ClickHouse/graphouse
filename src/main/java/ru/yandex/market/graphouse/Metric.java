@@ -1,6 +1,6 @@
 package ru.yandex.market.graphouse;
 
-import ru.yandex.market.graphouse.search.MetricDescription;
+import ru.yandex.market.graphouse.search.tree.MetricDescription;
 
 import java.util.Date;
 

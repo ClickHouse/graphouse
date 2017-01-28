@@ -1,6 +1,6 @@
 package ru.yandex.market.graphouse.utils;
 
-import ru.yandex.market.graphouse.search.MetricDescription;
+import ru.yandex.market.graphouse.search.tree.MetricDescription;
 
 import java.io.IOException;
 
