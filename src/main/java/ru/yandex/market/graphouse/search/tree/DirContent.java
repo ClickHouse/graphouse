@@ -2,6 +2,7 @@ package ru.yandex.market.graphouse.search.tree;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -25,5 +26,9 @@ public class DirContent {
 
     public Map<String, MetricName> getMetrics() {
         return metrics;
+    }
+
+    public static DirContent createEmpty() {
+        return new DirContent(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
 }
