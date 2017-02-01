@@ -15,4 +15,9 @@ public class MetricUtil {
         return metric.split("\\.");
     }
 
+    public static String getLastLevelName(String metric) {
+        int start = metric.lastIndexOf(LEVEL_SPLITTER);
+        return metric.substring(start);
+    }
+
 }

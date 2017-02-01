@@ -49,7 +49,7 @@ public class LoadableMetricDir extends MetricDir {
 
     @Override
     public int loadedMetricCount() {
-        DirContent dirContent = getContent();
+        DirContent dirContent = getContentOrEmpty();
         int count = dirContent.getMetrics().size();
         for (MetricDir metricDir : dirContent.getDirs().values()) {
             count += metricDir.loadedMetricCount();
@@ -59,7 +59,7 @@ public class LoadableMetricDir extends MetricDir {
 
     @Override
     public int loadedDirCount() {
-        DirContent dirContent = getContent();
+        DirContent dirContent = getContentOrEmpty();
         int count = dirContent.getDirs().size();
         for (MetricDir metricDir : dirContent.getDirs().values()) {
             count += metricDir.loadedDirCount();

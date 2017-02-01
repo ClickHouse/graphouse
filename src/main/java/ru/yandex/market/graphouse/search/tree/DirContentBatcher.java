@@ -25,7 +25,6 @@ public class DirContentBatcher {
 
     private final MetricSearch metricSearch;
 
-    private final int maxParallelRequests;
     private final int maxBatchSize;
     private final int batchAggregationTimeMillis;
 
@@ -38,7 +37,6 @@ public class DirContentBatcher {
     public DirContentBatcher(MetricSearch metricSearch, int maxParallelRequests,
                              int maxBatchSize, int batchAggregationTimeMillis) {
         this.metricSearch = metricSearch;
-        this.maxParallelRequests = maxParallelRequests;
         this.maxBatchSize = maxBatchSize;
         this.batchAggregationTimeMillis = batchAggregationTimeMillis;
         executorService = Executors.newScheduledThreadPool(maxParallelRequests);
@@ -104,17 +102,17 @@ public class DirContentBatcher {
             }
         }
 
-        public void addToBatch(MetricDir dir) {
+        private void addToBatch(MetricDir dir) {
             requests.computeIfAbsent(dir, metricDir -> SettableFuture.create());
         }
 
-        public DirContent getResult(MetricDir dir) throws Exception {
+        private DirContent getResult(MetricDir dir) throws Exception {
             Future<DirContent> future = requests.get(dir);
             Preconditions.checkNotNull(future);
             return future.get();
         }
 
-        public int size() {
+        private int size() {
             return requests.size();
         }
     }

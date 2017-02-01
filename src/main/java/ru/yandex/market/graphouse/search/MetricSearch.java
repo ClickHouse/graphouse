@@ -44,6 +44,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -204,8 +205,8 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public DirContent loadDirContent(MetricDir dir) throws Exception {
-        Map<String, MetricDir> dirs = new ConcurrentHashMap<>();
-        Map<String, MetricName> metrics = new ConcurrentHashMap<>();
+        ConcurrentMap<String, MetricDir> dirs = new ConcurrentHashMap<>();
+        ConcurrentMap<String, MetricName> metrics = new ConcurrentHashMap<>();
 
         Stopwatch stopwatch = Stopwatch.createStarted();
         String dirName = dir.getName();
@@ -246,8 +247,8 @@ public class MetricSearch implements InitializingBean, Runnable {
 
         private String currentDirName = null;
         private MetricDir currentDir;
-        private Map<String, MetricDir> currentDirs;
-        private Map<String, MetricName> currentMetrics;
+        private ConcurrentMap<String, MetricDir> currentDirs;
+        private ConcurrentMap<String, MetricName> currentMetrics;
         private int metricCount = 0;
         private int dirCount = 0;
 
@@ -269,8 +270,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
             MetricStatus status = MetricStatus.valueOf(rs.getString("last_status"));
             boolean isDir = MetricUtil.isDir(fullName);
-            String splits[] = MetricUtil.splitToLevels(fullName);
-            String name = splits[splits.length - 1].intern();
+            String name = MetricUtil.getLastLevelName(fullName).intern();
             if (isDir) {
                 currentDirs.put(name, metricDirFactory.createMetricDir(currentDir, name, status));
                 dirCount++;
@@ -306,12 +306,10 @@ public class MetricSearch implements InitializingBean, Runnable {
         }
 
         public int getMetricCount() {
-            flushResult();
             return metricCount;
         }
 
         public int getDirCount() {
-            flushResult();
             return dirCount;
         }
     }

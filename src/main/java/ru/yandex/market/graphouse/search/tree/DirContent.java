@@ -3,6 +3,7 @@ package ru.yandex.market.graphouse.search.tree;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -10,11 +11,16 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DirContent {
 
-    public static final DirContent EMPTY = new DirContent(Collections.emptyMap(), Collections.emptyMap());
+    public static final DirContent EMPTY = new DirContent();
 
-    public DirContent(Map<String, MetricDir> dirs, Map<String, MetricName> metrics) {
+    public DirContent(ConcurrentMap<String, MetricDir> dirs, ConcurrentMap<String, MetricName> metrics) {
         this.dirs = dirs;
         this.metrics = metrics;
+    }
+
+    private DirContent() {
+        this.dirs = Collections.emptyMap();
+        this.metrics = Collections.emptyMap();
     }
 
     private final Map<String, MetricDir> dirs;
