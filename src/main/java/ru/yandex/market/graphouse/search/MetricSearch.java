@@ -221,8 +221,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 }
                 MetricStatus status = MetricStatus.valueOf(rs.getString("last_status"));
                 boolean isDir = MetricUtil.isDir(fullName);
-                String splits[] = MetricUtil.splitToLevels(fullName);
-                String name = splits[splits.length - 1].intern();
+                String name = MetricUtil.getLastLevelName(fullName).intern();
                 if (isDir) {
                     dirs.put(name, metricDirFactory.createMetricDir(dir, name, status));
                 } else {

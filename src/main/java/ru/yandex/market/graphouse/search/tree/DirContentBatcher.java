@@ -87,9 +87,7 @@ public class DirContentBatcher {
                 }
                 if (!requests.isEmpty()) {
                     log.info(requests.size() + " requests without data for dirs: " + requests.entrySet());
-                    for (SettableFuture<DirContent> dirContentSettableFuture : requests.values()) {
-                        dirContentSettableFuture.setException(new IllegalStateException("No data for dir"));
-                    }
+                    throw new IllegalStateException("No data for dirs");
                 }
             } catch (Exception e) {
                 log.error("Failed to load content for dirs: " + requests.keySet(), e);
