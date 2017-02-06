@@ -360,7 +360,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private class MetricRowCallbackHandler implements RowCallbackHandler {
 
-        final AtomicInteger metricCount;
+        private final AtomicInteger metricCount;
 
         public MetricRowCallbackHandler(AtomicInteger metricCount) {
             this.metricCount = metricCount;
@@ -375,10 +375,6 @@ public class MetricSearch implements InitializingBean, Runnable {
         }
 
         protected void processMetric(String metric, MetricStatus status) {
-            doProcessMetric(metric, status);
-        }
-
-        protected void doProcessMetric(String metric, MetricStatus status) {
             if (!metricValidator.validate(metric, true)) {
                 log.warn("Invalid metric in db: " + metric);
                 return;
