@@ -141,7 +141,8 @@ public class MetricSearch implements InitializingBean, Runnable {
             return;
         }
 
-        final String sql = "INSERT INTO " + metricsTable + " (name, level, parent, status, updated) VALUES (?, ?, ?)";
+        final String sql = "INSERT INTO " + metricsTable
+            + " (name, level, parent, status, updated) VALUES (?, ?, ?, ?, ?)";
 
         final int batchesCount = (metrics.size() - 1) / BATCH_SIZE + 1;
 
@@ -179,7 +180,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
         Stopwatch stopwatch = Stopwatch.createStarted();
 
-        String dirFilter = dirs.stream().map(MetricDir::getName).collect(Collectors.joining(",", "'", "'"));
+        String dirFilter = dirs.stream().map(MetricDir::getName).collect(Collectors.joining("','", "'", "'"));
 
         DirContentRequestRowCallbackHandler metricHandler = new DirContentRequestRowCallbackHandler(dirs);
         clickHouseJdbcTemplate.query(

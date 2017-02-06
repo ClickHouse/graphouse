@@ -86,7 +86,7 @@ public class DirContentBatcher {
                     requests.remove(dirDirContentEntry.getKey()).set(dirDirContentEntry.getValue());
                 }
                 if (!requests.isEmpty()) {
-                    log.info(requests.size() + " requests without data for dirs: " + requests.entrySet());
+                    log.error(requests.size() + " requests without data for dirs: " + requests.entrySet());
                     throw new IllegalStateException("No data for dirs");
                 }
             } catch (Exception e) {
