@@ -45,8 +45,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -79,8 +77,6 @@ public class MetricSearch implements InitializingBean, Runnable {
      * Задержка на запись, репликацию, синхронизацию
      */
     private int updateDelaySeconds = 120;
-
-    private int startupThreadsCount = 6;
 
     private int inMemoryLevelsCount = 3;
     private int dirContentCacheTimeMinutes = 60;
@@ -318,25 +314,35 @@ public class MetricSearch implements InitializingBean, Runnable {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         log.info("Loading all metric names from db...");
-        final AtomicInteger metricCount = new AtomicInteger(0);
+        int totalMetrics = 0;
 
-        String prewere = inMemoryLevelsCount >= 0 ? ("PREWHERE level <= " + inMemoryLevelsCount) : "";
 
-        try (
-            StartupRowCallbackHandler handler = new StartupRowCallbackHandler(metricCount, startupThreadsCount, BATCH_SIZE)
-        ) {
+        for (int level = 1; ; level++) {
+            log.info("Loading metrics for level " + level);
+            final AtomicInteger levelCount = new AtomicInteger(0);
             clickHouseJdbcTemplate.query(
                 "SELECT name, argMax(status, updated) as last_status " +
-                    "FROM " + metricsTable + " " + prewere + " WHERE status != ? GROUP BY name",
-                handler,
-                MetricStatus.AUTO_HIDDEN.name()
+                    "FROM " + metricsTable + " PREWHERE level = ? WHERE status != ? GROUP BY name",
+                new MetricRowCallbackHandler(levelCount),
+                level, MetricStatus.AUTO_HIDDEN.name()
             );
-        } catch (Exception e) {
-            log.error("Error while loading metric tree", e);
-            throw new RuntimeException(e);
+
+            if (levelCount.get() == 0) {
+                log.info("No metrics on level " + level + " loading complete");
+                break;
+            }
+            totalMetrics += levelCount.get();
+            log.info("Loaded " + levelCount.get() + " metrics for level " + level);
+
+            if (inMemoryLevelsCount > 0 && level == inMemoryLevelsCount) {
+                log.info("Loaded first all " + inMemoryLevelsCount + " in memory levels of metric tree");
+                break;
+            }
         }
         stopWatch.stop();
-        log.info("Loaded complete. Total " + metricCount.get() + " metrics in " + stopWatch.getTotalTimeSeconds() + " seconds");
+        log.info(
+            "Loaded complete. Total " + totalMetrics + " metrics in " + stopWatch.getTotalTimeSeconds() + " seconds"
+        );
     }
 
     private void loadUpdatedMetrics(int startTimestampSeconds) {
@@ -384,68 +390,6 @@ public class MetricSearch implements InitializingBean, Runnable {
             }
         }
     }
-
-    private class StartupRowCallbackHandler extends MetricRowCallbackHandler implements AutoCloseable {
-
-        private final int batchSize;
-        private final ExecutorService startupExecutorService;
-
-        private List<String> metrics;
-        private List<MetricStatus> statuses;
-
-        public StartupRowCallbackHandler(AtomicInteger metricCount, int threadCount, int batchSize) {
-            super(metricCount);
-            this.batchSize = batchSize;
-            startupExecutorService = Executors.newFixedThreadPool(threadCount);
-            createLists();
-        }
-
-        private void createLists() {
-            metrics = new ArrayList<>(BATCH_SIZE);
-            statuses = new ArrayList<>(BATCH_SIZE);
-        }
-
-        @Override
-        protected void processMetric(String metric, MetricStatus status) {
-            metrics.add(metric);
-            statuses.add(status);
-            if (metrics.size() >= batchSize) {
-                startupExecutorService.submit(new Worker(metrics, statuses));
-                createLists();
-            }
-        }
-
-        @Override
-        public void close() throws Exception {
-            startupExecutorService.submit(new Worker(metrics, statuses));
-            startupExecutorService.shutdown();
-            while (!startupExecutorService.awaitTermination(1, TimeUnit.SECONDS)) {
-                log.info("Metrics read finished, waiting workers...");
-            }
-        }
-
-        private class Worker implements Runnable {
-            private final List<String> metrics;
-            private final List<MetricStatus> statuses;
-
-            public Worker(List<String> metrics, List<MetricStatus> statuses) {
-                this.metrics = metrics;
-                this.statuses = statuses;
-            }
-
-            @Override
-            public void run() {
-                try {
-                    for (int i = 0; i < metrics.size(); i++) {
-                        doProcessMetric(metrics.get(i), statuses.get(i));
-                    }
-                } catch (Exception e) {
-                    log.error("Exception in metric worker.", e);
-                }
-            }
-        }
-    }
-
 
     private void saveUpdatedMetrics() {
         if (updateQueue.isEmpty()) {
