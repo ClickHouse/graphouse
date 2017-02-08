@@ -65,7 +65,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private Monitoring monitoring;
     private MetricValidator metricValidator;
 
-    private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch");
+    private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
     private MetricTree metricTree;
     private final Queue<MetricDescription> updateQueue = new ConcurrentLinkedQueue<>();
 
