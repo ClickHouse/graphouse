@@ -79,13 +79,13 @@ public class MetricSearch implements InitializingBean, Runnable {
     private int updateDelaySeconds = 120;
 
     @Value("${graphouse.tree.in-memory-levels}")
-    private int inMemoryLevelsCount;
+    private int inMemoryLevelsCount = 3;
 
     @Value("${graphouse.tree.dir-content.cache-time-minutes}")
-    private int dirContentCacheTimeMinutes;
+    private int dirContentCacheTimeMinutes = 60;
 
-    @Value("${graphouse.tree.dir-content.cache-concurrency-level:6}")
-    private int dirContentCacheConcurrencyLevel;
+    @Value("${graphouse.tree.dir-content.cache-concurrency-level}")
+    private int dirContentCacheConcurrencyLevel = 6;
 
     @Value("${graphouse.tree.dir-content.batcher.max-parallel-requests}")
     private int dirContentBatcherMaxParallelRequest = 3;
