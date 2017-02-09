@@ -44,7 +44,7 @@ public class MetricFactory {
             return null;
         }
         String name = splits[0];
-        if (!metricValidator.validate(name)) {
+        if (!metricValidator.validate(name, false)) {
             return null;
         }
         try {

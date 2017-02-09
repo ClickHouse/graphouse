@@ -1,6 +1,7 @@
 package ru.yandex.market.graphouse;
 
 import ru.yandex.market.graphouse.monitoring.Monitoring;
+import ru.yandex.market.graphouse.search.MetricSearch;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -13,10 +14,15 @@ import java.io.IOException;
  * @date 27/04/15
  */
 public class MonitoringServlet extends HttpServlet {
-    private final Monitoring monitoring;
 
-    public MonitoringServlet(Monitoring monitoring) {
+    private final Monitoring monitoring;
+    private final MetricSearch metricSearch;
+    private final boolean allowColdRun;
+
+    public MonitoringServlet(Monitoring monitoring, MetricSearch metricSearch, boolean allowColdRun) {
         this.monitoring = monitoring;
+        this.metricSearch = metricSearch;
+        this.allowColdRun = allowColdRun;
     }
 
     @Override
@@ -36,8 +42,14 @@ public class MonitoringServlet extends HttpServlet {
     }
 
     private void ping(HttpServletResponse resp) throws IOException {
-        resp.setStatus(HttpServletResponse.SC_OK);
-        resp.getWriter().print("0;OK");
+        if (allowColdRun || metricSearch.isMetricTreeLoaded()) {
+            resp.setStatus(HttpServletResponse.SC_OK);
+            resp.getWriter().print("0;OK");
+            return;
+        }
+
+        resp.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        resp.getWriter().println("2;Metric tree not loaded ");
     }
 
     private void monitoring(HttpServletResponse resp) throws IOException {
@@ -55,4 +67,5 @@ public class MonitoringServlet extends HttpServlet {
         }
         resp.getWriter().print(result.toString());
     }
+
 }

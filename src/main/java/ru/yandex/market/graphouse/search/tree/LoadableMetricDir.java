@@ -49,12 +49,22 @@ public class LoadableMetricDir extends MetricDir {
 
     @Override
     public int loadedMetricCount() {
-        return getContentOrEmpty().getMetrics().size();
+        DirContent dirContent = getContentOrEmpty();
+        int count = dirContent.getMetrics().size();
+        for (MetricDir metricDir : dirContent.getDirs().values()) {
+            count += metricDir.loadedMetricCount();
+        }
+        return count;
     }
 
     @Override
     public int loadedDirCount() {
-        return getContentOrEmpty().getDirs().size();
+        DirContent dirContent = getContentOrEmpty();
+        int count = dirContent.getDirs().size();
+        for (MetricDir metricDir : dirContent.getDirs().values()) {
+            count += metricDir.loadedDirCount();
+        }
+        return count;
     }
 
 

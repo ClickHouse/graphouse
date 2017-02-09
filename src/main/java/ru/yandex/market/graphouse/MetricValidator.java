@@ -8,37 +8,31 @@ import java.util.regex.Pattern;
  */
 public class MetricValidator {
 
-    private static final int MAX_ALLOWED_METRIC_LENGTH = 255; //Cause VARCHAR шin mysql
-
     private int minMetricLength = 10;
     private int maxMetricLength = 200;
     private int minDots = 2;
     private int maxDots = 15;
 
-    private String metricRegexp = "^(one_sec|five_sec|one_min|five_min|one_hour|one_day)\\.[-_0-9a-zA-Z\\.]+$";
+    private String metricRegexp = "^(one_sec|five_sec|one_min|five_min|one_hour|one_day)\\.[-_0-9a-zA-Z\\.]*$";
     private Pattern metricPattern = Pattern.compile(metricRegexp);
 
     public static final MetricValidator DEFAULT = new MetricValidator();
 
-    public boolean validate(String name) {
-        return validate(name, false);
-    }
-
     public boolean validate(String name, boolean allowDirs) {
-        if (name.length() < minMetricLength || name.length() > maxMetricLength) {
+        boolean isDir = MetricUtil.isDir(name);
+        if ((!isDir && name.length() < minMetricLength) || name.length() > maxMetricLength) {
             return false;
         }
-        if (!validateDots(name, allowDirs)) {
+        if (!validateDots(name, allowDirs, isDir)) {
             return false;
         }
         return metricPattern.matcher(name).matches();
     }
 
-    private boolean validateDots(String name, boolean allowDirs) {
+    private boolean validateDots(String name, boolean allowDirs, boolean isDir) {
         if (name.charAt(0) == '.') {
             return false;
         }
-        boolean isDir = MetricUtil.isDir(name);
         if (!allowDirs && isDir) {
             return false;
         }
@@ -64,9 +58,6 @@ public class MetricValidator {
     }
 
     public void setMaxMetricLength(int maxMetricLength) {
-        if (maxMetricLength > MAX_ALLOWED_METRIC_LENGTH) {
-            throw new IllegalArgumentException("maxMetricLength show be mot more then " + MAX_ALLOWED_METRIC_LENGTH);
-        }
         this.maxMetricLength = maxMetricLength;
     }
 

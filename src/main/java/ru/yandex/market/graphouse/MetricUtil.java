@@ -15,4 +15,12 @@ public class MetricUtil {
         return metric.split("\\.");
     }
 
+    public static String getLastLevelName(String metric) {
+        if (isDir(metric)) {
+            return metric.substring(metric.lastIndexOf(LEVEL_SPLITTER, metric.length() - 2) + 1, metric.length() - 1);
+        } else {
+            return metric.substring(metric.lastIndexOf(LEVEL_SPLITTER) + 1);
+        }
+    }
+
 }
