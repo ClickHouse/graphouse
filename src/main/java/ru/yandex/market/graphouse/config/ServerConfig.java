@@ -22,20 +22,8 @@ import ru.yandex.market.graphouse.server.MetricServer;
 @Configuration
 public class ServerConfig {
 
-    @Value("${graphouse.server.port}")
-    private int metricSearchPort;
-
-    @Value("${graphouse.search.threads}")
-    private int metricSearchThreadCount;
-
-    @Value("${graphouse.server.socket-timeout-millis}")
-    private int serverSocketTimeoutMillis;
-
-    @Value("${graphouse.search.port}")
-    private int serverSearchPort;
-
-    @Value("${graphouse.server.threads}")
-    private int serverThreadCount;
+    @Value("${graphouse.allow-cold-run}")
+    private boolean allowColdRun = false;
 
     @Autowired
     private MetricSearch metricSearch;
@@ -52,31 +40,22 @@ public class ServerConfig {
     @Autowired
     private Monitoring monitoring;
 
-    @Bean
+    @Bean(initMethod = "startServer")
     public GraphouseWebServer graphouseWebServer() {
 
         final MetricSearchServlet metricSearchServlet = new MetricSearchServlet();
         metricSearchServlet.setMetricSearch(metricSearch);
 
-        final MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring);
+        final MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, metricSearch, allowColdRun);
 
         final MetricDataServiceServlet metricDataServiceServlet = new MetricDataServiceServlet();
         metricDataServiceServlet.setMetricDataService(metricDataService);
 
-        final GraphouseWebServer graphouseWebServer = new GraphouseWebServer(metricSearchServlet, monitoringServlet, metricDataServiceServlet);
-        graphouseWebServer.setMetricSearchPort(metricSearchPort);
-        graphouseWebServer.setThreadCount(metricSearchThreadCount);
-
-        return graphouseWebServer;
+        return new GraphouseWebServer(metricSearchServlet, monitoringServlet, metricDataServiceServlet);
     }
 
     @Bean
     public MetricServer metricServer() {
-        final MetricServer metricServer = new MetricServer(metricCacher, metricFactory);
-        metricServer.setPort(serverSearchPort);
-        metricServer.setSocketTimeoutMillis(serverSocketTimeoutMillis);
-        metricServer.setThreadCount(serverThreadCount);
-
-        return metricServer;
+        return new MetricServer(metricCacher, metricFactory);
     }
 }

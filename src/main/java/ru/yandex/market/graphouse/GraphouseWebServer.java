@@ -11,7 +11,7 @@ import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
-import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Value;
 import ru.yandex.market.graphouse.data.MetricDataServiceServlet;
 import ru.yandex.market.graphouse.search.MetricSearchServlet;
 
@@ -19,11 +19,14 @@ import ru.yandex.market.graphouse.search.MetricSearchServlet;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 08/04/15
  */
-public class GraphouseWebServer implements InitializingBean {
+public class GraphouseWebServer {
 
     private static final Logger log = LogManager.getLogger();
 
+    @Value("${graphouse.server.port}")
     private int metricSearchPort = 7000;
+
+    @Value("${graphouse.search.threads}")
     private int threadCount = 20;
 
     private final MetricSearchServlet metricSearchServlet;
@@ -37,11 +40,6 @@ public class GraphouseWebServer implements InitializingBean {
         this.metricSearchServlet = metricSearchServlet;
         this.monitoringServlet = monitoringServlet;
         this.metricDataServiceServlet = metricDataServiceServlet;
-    }
-
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        startServer();
     }
 
     private void startServer() throws Exception {
@@ -73,13 +71,4 @@ public class GraphouseWebServer implements InitializingBean {
         server.setHandler(handlers);
         server.start();
     }
-
-    public void setMetricSearchPort(int metricSearchPort) {
-        this.metricSearchPort = metricSearchPort;
-    }
-
-    public void setThreadCount(int threadCount) {
-        this.threadCount = threadCount;
-    }
-
 }

@@ -3,6 +3,7 @@ package ru.yandex.market.graphouse.cacher;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import ru.yandex.market.graphouse.Metric;
@@ -33,12 +34,20 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final Monitoring monitoring;
-    private final String graphiteTable;
 
+    @Value("${graphite.metric.data.table}")
+    private String graphiteTable = "graphite";
 
+    @Value("${graphouse.cacher.cache-size}")
     private int cacheSize = 1_000_000;
+
+    @Value("${graphouse.cacher.batch-size}")
     private int batchSize = 1_000_000;
+
+    @Value("${graphouse.cacher.writers-count}")
     private int writersCount = 2;
+
+    @Value("${graphouse.cacher.flush-interval-seconds}")
     private int flushIntervalSeconds = 5;
 
     private MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue", 2, TimeUnit.MINUTES);
@@ -49,10 +58,9 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     private ExecutorService executorService;
 
-    public MetricCacher(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring, String graphiteTable) {
+    public MetricCacher(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
-        this.graphiteTable = graphiteTable;
     }
 
     @Override

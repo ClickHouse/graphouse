@@ -4,6 +4,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Value;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
 
@@ -25,15 +26,20 @@ public class MetricServer implements InitializingBean {
 
     private static final Logger log = LogManager.getLogger();
 
-    private final MetricCacher metricCacher;
-    private final MetricFactory metricFactory;
-
+    @Value("${graphouse.search.port}")
     private int port = 2024;
+
+    @Value("${graphouse.server.socket-timeout-millis}")
     private int socketTimeoutMillis = 50_000;
+
+    @Value("${graphouse.server.threads}")
     private int threadCount = 20;
 
     private ServerSocket serverSocket;
     private ExecutorService executorService;
+
+    private final MetricCacher metricCacher;
+    private final MetricFactory metricFactory;
 
     public MetricServer(MetricCacher metricCacher, MetricFactory metricFactory) {
         this.metricCacher = metricCacher;

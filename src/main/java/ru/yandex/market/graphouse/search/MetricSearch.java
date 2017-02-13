@@ -72,6 +72,7 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private int lastUpdatedTimestampSeconds = 0;
 
+    @Value("${graphouse.search.refresh-seconds}")
     private int saveIntervalSeconds = 180;
     /**
      * Задержка на запись, репликацию, синхронизацию
@@ -96,9 +97,10 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Value("${graphouse.tree.dir-content.batcher.aggregation-time-millis}")
     private int dirContentBatcherAggregationTimeMillis = 50;
 
-    private LoadingCache<MetricDir, DirContent> dirContentProvider;
-
+    @Value("${graphouse.server.metric_table}")
     private String metricsTable;
+
+    private LoadingCache<MetricDir, DirContent> dirContentProvider;
     private MetricDirFactory metricDirFactory;
 
     private DirContentBatcher dirContentBatcher;
@@ -529,34 +531,6 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void search(String query, AppendableResult result) throws IOException {
         metricTree.search(query, result);
-    }
-
-    public void setSaveIntervalSeconds(int saveIntervalSeconds) {
-        this.saveIntervalSeconds = saveIntervalSeconds;
-    }
-
-    public void setUpdateDelaySeconds(int updateDelaySeconds) {
-        this.updateDelaySeconds = updateDelaySeconds;
-    }
-
-    public void setMetricsTable(String metricsTable) {
-        this.metricsTable = metricsTable;
-    }
-
-    public void setInMemoryLevelsCount(int inMemoryLevelsCount) {
-        this.inMemoryLevelsCount = inMemoryLevelsCount;
-    }
-
-    public void setDirContentBatcherMaxParallelRequest(int dirContentBatcherMaxParallelRequest) {
-        this.dirContentBatcherMaxParallelRequest = dirContentBatcherMaxParallelRequest;
-    }
-
-    public void setDirContentBatcherMaxBatchSize(int dirContentBatcherMaxBatchSize) {
-        this.dirContentBatcherMaxBatchSize = dirContentBatcherMaxBatchSize;
-    }
-
-    public void setDirContentBatcherAggregationTimeMillis(int dirContentBatcherAggregationTimeMillis) {
-        this.dirContentBatcherAggregationTimeMillis = dirContentBatcherAggregationTimeMillis;
     }
 
     public boolean isMetricTreeLoaded() {

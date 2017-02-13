@@ -1,7 +1,6 @@
 package ru.yandex.market.graphouse.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,51 +19,6 @@ import ru.yandex.market.graphouse.server.MetricFactory;
 @Configuration
 public class MetricsConfig {
 
-    @Value("${graphouse.search.refresh-seconds}")
-    private int searchRefreshSeconds;
-
-    @Value("${graphouse.server.metric_table}")
-    private String metricsTable;
-
-    @Value("${graphite.metric.data.table}")
-    private String metricDataTable;
-
-    @Value("${graphouse.metric-validation.min-length}")
-    private int metricValidationMinLen;
-
-    @Value("${graphouse.metric-validation.max-length}")
-    private int metricValidationMaxLen;
-
-    @Value("${graphouse.metric-validation.min-dots}")
-    private int metricValidationMinDots;
-
-    @Value("${graphouse.metric-validation.max-dots}")
-    private int metricValidationMaxDots;
-
-    @Value("${graphouse.metric-validation.regexp}")
-    private String metricValidationRegexp;
-
-    @Value("${graphouse.cacher.cache-size}")
-    private int cacheSize;
-
-    @Value("${graphouse.cacher.batch-size}")
-    private int cacheBatchSize;
-
-    @Value("${graphouse.cacher.writers-count}")
-    private int cacheWritersCount;
-
-    @Value("${graphouse.cacher.flush-interval-seconds}")
-    private int cacheFlushIntervalSeconds;
-
-    @Value("${graphouse.host-metric-redirect.enabled}")
-    private boolean hostMetricRedirectEnabled;
-
-    @Value("${graphouse.host-metric-redirect.dir}")
-    private String hostMetricRedirectDir;
-
-    @Value("${graphouse.host-metric-redirect.postfixes}")
-    private String hostMetricRedirectPostfixes;
-
     @Autowired
     private Monitoring monitoring;
 
@@ -76,48 +30,26 @@ public class MetricsConfig {
 
     @Bean
     public MetricSearch metricSearch(MetricValidator metricValidator) {
-        final MetricSearch metricSearch = new MetricSearch(clickHouseJdbcTemplate, monitoring, metricValidator);
-        metricSearch.setSaveIntervalSeconds(searchRefreshSeconds);
-        metricSearch.setMetricsTable(metricsTable);
-
-        return metricSearch;
+        return new MetricSearch(clickHouseJdbcTemplate, monitoring, metricValidator);
     }
 
     @Bean
     public MetricDataService metricDataService() {
-        return new MetricDataService(clickHouseNamedJdbcTemplate, metricDataTable);
+        return new MetricDataService(clickHouseNamedJdbcTemplate);
     }
 
     @Bean
     public MetricValidator metricValidator() {
-        final MetricValidator metricValidator = new MetricValidator();
-        metricValidator.setMinMetricLength(metricValidationMinLen);
-        metricValidator.setMaxMetricLength(metricValidationMaxLen);
-        metricValidator.setMinDots(metricValidationMinDots);
-        metricValidator.setMaxDots(metricValidationMaxDots);
-        metricValidator.setMetricRegexp(metricValidationRegexp);
-
-        return metricValidator;
+        return new MetricValidator();
     }
 
     @Bean
     public MetricCacher metricCacher() {
-        final MetricCacher metricCacher = new MetricCacher(clickHouseJdbcTemplate, monitoring, metricDataTable);
-        metricCacher.setCacheSize(cacheSize);
-        metricCacher.setBatchSize(cacheBatchSize);
-        metricCacher.setWritersCount(cacheWritersCount);
-        metricCacher.setFlushIntervalSeconds(cacheFlushIntervalSeconds);
-
-        return metricCacher;
+        return new MetricCacher(clickHouseJdbcTemplate, monitoring);
     }
 
     @Bean
     public MetricFactory metricFactory(MetricValidator metricValidator) {
-        final MetricFactory metricFactory = new MetricFactory(metricSearch(metricValidator), metricValidator);
-        metricFactory.setRedirectHostMetrics(hostMetricRedirectEnabled);
-        metricFactory.setHostMetricDir(hostMetricRedirectDir);
-        metricFactory.setHostPostfixes(hostMetricRedirectPostfixes);
-
-        return metricFactory;
+        return new MetricFactory(metricSearch(metricValidator), metricValidator);
     }
 }

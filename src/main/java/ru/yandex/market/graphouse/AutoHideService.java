@@ -2,11 +2,11 @@ package ru.yandex.market.graphouse;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
-import ru.yandex.market.graphouse.search.tree.MetricDescription;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricStatus;
+import ru.yandex.market.graphouse.search.tree.MetricDescription;
 import ru.yandex.market.graphouse.search.tree.MetricTree;
 import ru.yandex.market.graphouse.utils.AppendableList;
 
@@ -27,32 +27,45 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 11/06/15
  */
-public class AutoHideService implements InitializingBean, Runnable {
+public class AutoHideService implements Runnable {
 
     private static final Logger log = LogManager.getLogger();
+
+    @Value("${graphouse.autohide.step}")
     private int stepSize = 10_000;
 
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final MetricSearch metricSearch;
-    private final String graphiteTable;
+
+    @Value("${graphite.metric.data.table}")
+    private String graphiteTable;
+
+    @Value("${graphouse.autohide.enabled}")
     private boolean enabled = true;
 
+    @Value("${graphouse.autohide.max-values-count}")
     private int maxValuesCount = 200;
+
+    @Value("${graphouse.autohide.missing-days}")
     private int missingDays = 7;
+
+    @Value("${graphouse.autohide.run-delay-minutes}")
     private int runDelayMinutes = 10;
 
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    @Value("${graphouse.autohide.retry.count}")
     private int retryCount = 10;
+
+    @Value("${graphouse.autohide.retry.wait_seconds}")
     private int retryWaitSeconds = 10;
 
-    public AutoHideService(JdbcTemplate clickHouseJdbcTemplate, MetricSearch metricSearch, String graphiteTable) {
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
+    public AutoHideService(JdbcTemplate clickHouseJdbcTemplate, MetricSearch metricSearch) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.metricSearch = metricSearch;
-        this.graphiteTable = graphiteTable;
     }
 
-    @Override
-    public void afterPropertiesSet() throws Exception {
+    public void startService() throws Exception {
         if (!enabled) {
             log.info("Autohide disabled");
             return;
