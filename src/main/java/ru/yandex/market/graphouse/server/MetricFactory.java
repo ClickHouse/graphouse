@@ -1,12 +1,13 @@
 package ru.yandex.market.graphouse.server;
 
-import org.springframework.beans.factory.annotation.Required;
-import ru.yandex.market.graphouse.MetricValidator;
+import org.springframework.beans.factory.annotation.Value;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.search.tree.MetricDescription;
+import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -17,12 +18,22 @@ import java.util.concurrent.TimeUnit;
  */
 public class MetricFactory {
 
-    private MetricSearch metricSearch;
-    private MetricValidator metricValidator;
+    private final MetricSearch metricSearch;
+    private final MetricValidator metricValidator;
 
+    @Value("${graphouse.host-metric-redirect.enabled}")
     private boolean redirectHostMetrics = true;
+
+    @Value("${graphouse.host-metric-redirect.dir}")
     private String hostMetricDir = "HOST";
-    private List<String> hostPostfixes = Arrays.asList("yandex_net", "yandex_ru");
+
+    @Value("${graphouse.host-metric-redirect.postfixes}")
+    private List<String> hostPostfixes = Collections.emptyList();
+
+    public MetricFactory(MetricSearch metricSearch, MetricValidator metricValidator) {
+        this.metricSearch = metricSearch;
+        this.metricValidator = metricValidator;
+    }
 
     /**
      * Валидирует метрику и в случае успеха создаёт или обновляет текущую.
@@ -75,17 +86,6 @@ public class MetricFactory {
             }
         }
         return name;
-    }
-
-
-    @Required
-    public void setMetricValidator(MetricValidator metricValidator) {
-        this.metricValidator = metricValidator;
-    }
-
-    @Required
-    public void setMetricSearch(MetricSearch metricSearch) {
-        this.metricSearch = metricSearch;
     }
 
     public void setRedirectHostMetrics(boolean redirectHostMetrics) {

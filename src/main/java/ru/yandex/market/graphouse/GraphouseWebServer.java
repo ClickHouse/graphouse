@@ -11,8 +11,7 @@ import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Value;
 import ru.yandex.market.graphouse.data.MetricDataServiceServlet;
 import ru.yandex.market.graphouse.search.MetricSearchServlet;
 
@@ -20,21 +19,27 @@ import ru.yandex.market.graphouse.search.MetricSearchServlet;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 08/04/15
  */
-public class GraphouseWebServer implements InitializingBean {
+public class GraphouseWebServer {
 
     private static final Logger log = LogManager.getLogger();
 
+    @Value("${graphouse.server.port}")
     private int metricSearchPort = 7000;
+
+    @Value("${graphouse.search.threads}")
     private int threadCount = 20;
 
-    private MetricSearchServlet metricSearchServlet;
-    private MonitoringServlet monitoringServlet;
+    private final MetricSearchServlet metricSearchServlet;
+    private final MonitoringServlet monitoringServlet;
 
-    private MetricDataServiceServlet metricDataServiceServlet;
+    private final MetricDataServiceServlet metricDataServiceServlet;
 
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        startServer();
+    public GraphouseWebServer(MetricSearchServlet metricSearchServlet,
+                              MonitoringServlet monitoringServlet,
+                              MetricDataServiceServlet metricDataServiceServlet) {
+        this.metricSearchServlet = metricSearchServlet;
+        this.monitoringServlet = monitoringServlet;
+        this.metricDataServiceServlet = metricDataServiceServlet;
     }
 
     private void startServer() throws Exception {
@@ -65,28 +70,5 @@ public class GraphouseWebServer implements InitializingBean {
         handlers.setHandlers(new Handler[]{context, new DefaultHandler()});
         server.setHandler(handlers);
         server.start();
-    }
-
-    @Required
-    public void setMetricSearchServlet(MetricSearchServlet metricSearchServlet) {
-        this.metricSearchServlet = metricSearchServlet;
-    }
-
-    @Required
-    public void setMonitoringServlet(MonitoringServlet monitoringServlet) {
-        this.monitoringServlet = monitoringServlet;
-    }
-
-    public void setMetricSearchPort(int metricSearchPort) {
-        this.metricSearchPort = metricSearchPort;
-    }
-
-    public void setThreadCount(int threadCount) {
-        this.threadCount = threadCount;
-    }
-
-    @Required
-    public void setMetricDataServiceServlet(MetricDataServiceServlet metricDataServiceServlet) {
-        this.metricDataServiceServlet = metricDataServiceServlet;
     }
 }

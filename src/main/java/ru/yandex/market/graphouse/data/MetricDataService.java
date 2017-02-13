@@ -2,7 +2,7 @@ package ru.yandex.market.graphouse.data;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -21,9 +21,14 @@ public class MetricDataService {
 
     private static final Logger log = LogManager.getLogger();
 
-    private NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate;
-
+    @Value("${graphite.metric.data.table}")
     private String graphiteTable;
+
+    private final NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate;
+
+    public MetricDataService(NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate) {
+        this.clickHouseNamedJdbcTemplate = clickHouseNamedJdbcTemplate;
+    }
 
     private String buildQuery(MetricDataParameters parameters) {
 
@@ -78,15 +83,5 @@ public class MetricDataService {
         dataResult.flush();
 
         log.debug(String.format("graphouse_time:[%s] full = %s", parameters.getReqKey(), System.nanoTime() - startTime));
-    }
-
-    @Required
-    public void setGraphiteTable(String graphiteTable) {
-        this.graphiteTable = graphiteTable;
-    }
-
-    @Required
-    public void setClickHouseNamedJdbcTemplate(NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate) {
-        this.clickHouseNamedJdbcTemplate = clickHouseNamedJdbcTemplate;
     }
 }

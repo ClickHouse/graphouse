@@ -4,7 +4,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Value;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
 
@@ -14,7 +14,6 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
-import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -27,15 +26,25 @@ public class MetricServer implements InitializingBean {
 
     private static final Logger log = LogManager.getLogger();
 
-    private MetricCacher metricCacher;
-    private MetricFactory metricFactory;
-
+    @Value("${graphouse.search.port}")
     private int port = 2024;
+
+    @Value("${graphouse.server.socket-timeout-millis}")
     private int socketTimeoutMillis = 50_000;
+
+    @Value("${graphouse.server.threads}")
     private int threadCount = 20;
 
     private ServerSocket serverSocket;
     private ExecutorService executorService;
+
+    private final MetricCacher metricCacher;
+    private final MetricFactory metricFactory;
+
+    public MetricServer(MetricCacher metricCacher, MetricFactory metricFactory) {
+        this.metricCacher = metricCacher;
+        this.metricFactory = metricFactory;
+    }
 
     public void setPort(int port) {
         this.port = port;
@@ -97,16 +106,6 @@ public class MetricServer implements InitializingBean {
                 socket.close();
             }
         }
-    }
-
-    @Required
-    public void setMetricCacher(MetricCacher metricCacher) {
-        this.metricCacher = metricCacher;
-    }
-
-    @Required
-    public void setMetricFactory(MetricFactory metricFactory) {
-        this.metricFactory = metricFactory;
     }
 
     public void setSocketTimeoutMillis(int socketTimeoutMillis) {

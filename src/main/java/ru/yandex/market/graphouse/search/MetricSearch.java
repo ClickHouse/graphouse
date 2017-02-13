@@ -7,7 +7,7 @@ import com.google.common.cache.LoadingCache;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
@@ -61,9 +61,9 @@ public class MetricSearch implements InitializingBean, Runnable {
     private static final int BATCH_SIZE = 5_000;
     private static final int MAX_METRICS_PER_SAVE = 1_000_000;
 
-    private JdbcTemplate clickHouseJdbcTemplate;
-    private Monitoring monitoring;
-    private MetricValidator metricValidator;
+    private final JdbcTemplate clickHouseJdbcTemplate;
+    private final Monitoring monitoring;
+    private final MetricValidator metricValidator;
 
     private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
     private MetricTree metricTree;
@@ -72,26 +72,45 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private int lastUpdatedTimestampSeconds = 0;
 
+    @Value("${graphouse.search.refresh-seconds}")
     private int saveIntervalSeconds = 180;
     /**
      * Задержка на запись, репликацию, синхронизацию
      */
     private int updateDelaySeconds = 120;
 
+    @Value("${graphouse.tree.in-memory-levels}")
     private int inMemoryLevelsCount = 3;
+
+    @Value("${graphouse.tree.dir-content.cache-time-minutes}")
     private int dirContentCacheTimeMinutes = 60;
+
+    @Value("${graphouse.tree.dir-content.cache-concurrency-level}")
     private int dirContentCacheConcurrencyLevel = 6;
+
+    @Value("${graphouse.tree.dir-content.batcher.max-parallel-requests}")
     private int dirContentBatcherMaxParallelRequest = 3;
+
+    @Value("${graphouse.tree.dir-content.batcher.max-batch-size}")
     private int dirContentBatcherMaxBatchSize = 2000;
+
+    @Value("${graphouse.tree.dir-content.batcher.aggregation-time-millis}")
     private int dirContentBatcherAggregationTimeMillis = 50;
 
+    @Value("${graphouse.server.metric_table}")
+    private String metricsTable;
 
     private LoadingCache<MetricDir, DirContent> dirContentProvider;
-
-    private String metricsTable;
     private MetricDirFactory metricDirFactory;
 
     private DirContentBatcher dirContentBatcher;
+
+
+    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring, MetricValidator metricValidator) {
+        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
+        this.monitoring = monitoring;
+        this.metricValidator = metricValidator;
+    }
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -512,48 +531,6 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void search(String query, AppendableResult result) throws IOException {
         metricTree.search(query, result);
-    }
-
-    @Required
-    public void setMonitoring(Monitoring monitoring) {
-        this.monitoring = monitoring;
-    }
-
-    @Required
-    public void setMetricValidator(MetricValidator metricValidator) {
-        this.metricValidator = metricValidator;
-    }
-
-    public void setSaveIntervalSeconds(int saveIntervalSeconds) {
-        this.saveIntervalSeconds = saveIntervalSeconds;
-    }
-
-    public void setUpdateDelaySeconds(int updateDelaySeconds) {
-        this.updateDelaySeconds = updateDelaySeconds;
-    }
-
-    public void setClickHouseJdbcTemplate(JdbcTemplate clickHouseJdbcTemplate) {
-        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
-    }
-
-    public void setMetricsTable(String metricsTable) {
-        this.metricsTable = metricsTable;
-    }
-
-    public void setInMemoryLevelsCount(int inMemoryLevelsCount) {
-        this.inMemoryLevelsCount = inMemoryLevelsCount;
-    }
-
-    public void setDirContentBatcherMaxParallelRequest(int dirContentBatcherMaxParallelRequest) {
-        this.dirContentBatcherMaxParallelRequest = dirContentBatcherMaxParallelRequest;
-    }
-
-    public void setDirContentBatcherMaxBatchSize(int dirContentBatcherMaxBatchSize) {
-        this.dirContentBatcherMaxBatchSize = dirContentBatcherMaxBatchSize;
-    }
-
-    public void setDirContentBatcherAggregationTimeMillis(int dirContentBatcherAggregationTimeMillis) {
-        this.dirContentBatcherAggregationTimeMillis = dirContentBatcherAggregationTimeMillis;
     }
 
     public boolean isMetricTreeLoaded() {

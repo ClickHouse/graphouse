@@ -3,7 +3,7 @@ package ru.yandex.market.graphouse.cacher;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import ru.yandex.market.graphouse.Metric;
@@ -32,13 +32,22 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     private static final Logger log = LogManager.getLogger();
 
-    private JdbcTemplate clickHouseJdbcTemplate;
-    private Monitoring monitoring;
+    private final JdbcTemplate clickHouseJdbcTemplate;
+    private final Monitoring monitoring;
 
+    @Value("${graphite.metric.data.table}")
+    private String graphiteTable = "graphite";
 
+    @Value("${graphouse.cacher.cache-size}")
     private int cacheSize = 1_000_000;
+
+    @Value("${graphouse.cacher.batch-size}")
     private int batchSize = 1_000_000;
+
+    @Value("${graphouse.cacher.writers-count}")
     private int writersCount = 2;
+
+    @Value("${graphouse.cacher.flush-interval-seconds}")
     private int flushIntervalSeconds = 5;
 
     private MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue", 2, TimeUnit.MINUTES);
@@ -46,9 +55,13 @@ public class MetricCacher implements Runnable, InitializingBean {
     private BlockingQueue<Metric> metricQueue;
     private AtomicInteger activeWriters = new AtomicInteger(0);
 
-    private String graphiteTable;
 
     private ExecutorService executorService;
+
+    public MetricCacher(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring) {
+        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
+        this.monitoring = monitoring;
+    }
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -204,21 +217,6 @@ public class MetricCacher implements Runnable, InitializingBean {
                 }
             );
         }
-    }
-
-    @Required
-    public void setGraphiteTable(String graphiteTable) {
-        this.graphiteTable = graphiteTable;
-    }
-
-    @Required
-    public void setClickHouseJdbcTemplate(JdbcTemplate clickHouseJdbcTemplate) {
-        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
-    }
-
-    @Required
-    public void setMonitoring(Monitoring monitoring) {
-        this.monitoring = monitoring;
     }
 
     public void setCacheSize(int cacheSize) {

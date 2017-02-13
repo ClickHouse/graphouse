@@ -1,5 +1,7 @@
 package ru.yandex.market.graphouse;
 
+import org.springframework.beans.factory.annotation.Value;
+
 import java.util.regex.Pattern;
 
 /**
@@ -8,12 +10,21 @@ import java.util.regex.Pattern;
  */
 public class MetricValidator {
 
+    @Value("${graphouse.metric-validation.min-length}")
     private int minMetricLength = 10;
+
+    @Value("${graphouse.metric-validation.max-length}")
     private int maxMetricLength = 200;
+
+    @Value("${graphouse.metric-validation.min-dots}")
     private int minDots = 2;
+
+    @Value("${graphouse.metric-validation.max-dots}")
     private int maxDots = 15;
 
+    @Value("${graphouse.metric-validation.regexp}")
     private String metricRegexp = "^(one_sec|five_sec|one_min|five_min|one_hour|one_day)\\.[-_0-9a-zA-Z\\.]*$";
+
     private Pattern metricPattern = Pattern.compile(metricRegexp);
 
     public static final MetricValidator DEFAULT = new MetricValidator();
@@ -51,27 +62,6 @@ public class MetricValidator {
             return false;
         }
         return true;
-    }
-
-    public void setMinMetricLength(int minMetricLength) {
-        this.minMetricLength = minMetricLength;
-    }
-
-    public void setMaxMetricLength(int maxMetricLength) {
-        this.maxMetricLength = maxMetricLength;
-    }
-
-    public void setMinDots(int minDots) {
-        this.minDots = minDots;
-    }
-
-    public void setMaxDots(int maxDots) {
-        this.maxDots = maxDots;
-    }
-
-    public void setMetricRegexp(String metricRegexp) {
-        this.metricRegexp = metricRegexp;
-        this.metricPattern = Pattern.compile(metricRegexp);
     }
 }
 
