@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-package=yandex-graphouse
+package=graphouse
 
 %:
 	dh $@
@@ -14,9 +14,11 @@ override_dh_build:
 	dh_build
 
 override_dh_install:
-	./gradlew prepareDebuild
+	./gradlew installDist
 	dh_install
 
 override_dh_installinit:
 	dh_installinit --name=graphouse --noscripts
 
+override_dh_builddeb:
+	dh_builddeb -- -Zgzip

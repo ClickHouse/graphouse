@@ -1,6 +1,5 @@
 package ru.yandex.market.graphouse.server;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
@@ -46,10 +45,6 @@ public class MetricServer implements InitializingBean {
         this.metricFactory = metricFactory;
     }
 
-    public void setPort(int port) {
-        this.port = port;
-    }
-
     @Override
     public void afterPropertiesSet() throws Exception {
         log.info("Starting metric server on port: " + port);
@@ -65,7 +60,10 @@ public class MetricServer implements InitializingBean {
             public void run() {
                 log.info("Shutting down metric server");
                 executorService.shutdownNow();
-                IOUtils.closeQuietly(serverSocket);
+                try {
+                    serverSocket.close();
+                } catch (IOException ignored) {
+                }
                 log.info("Metric server stopped");
             }
         }));
@@ -114,5 +112,9 @@ public class MetricServer implements InitializingBean {
 
     public void setThreadCount(int threadCount) {
         this.threadCount = threadCount;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
     }
 }

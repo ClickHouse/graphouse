@@ -73,5 +73,5 @@ gradle-app.setting
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 
-debian/yandex-graphouse
+debian/graphouse
 !/src/main/script/graphouse-metrics-migration.jar

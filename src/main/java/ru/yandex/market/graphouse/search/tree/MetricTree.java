@@ -174,10 +174,6 @@ public class MetricTree {
 
         String[] levels = MetricUtil.splitToLevels(metric);
 
-        if (levels.length == 1 && status != MetricStatus.SIMPLE) {
-            throw new IllegalArgumentException("Disallowed modify second level");
-        }
-
         MetricDir dir = root;
         for (int i = 0; i < levels.length; i++) {
             boolean isLast = (i == levels.length - 1);

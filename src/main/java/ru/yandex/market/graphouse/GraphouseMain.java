@@ -4,7 +4,7 @@ package ru.yandex.market.graphouse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import ru.yandex.market.graphouse.config.GraphouseMainConfig;
+import ru.yandex.market.graphouse.config.GraphouseConfig;
 
 /**
  * @author Vlad Vinogradov <a href="mailto:vladvin@yandex-team.ru"></a>
@@ -18,10 +18,12 @@ public class GraphouseMain {
 
     public static void main(String[] args) throws Exception {
 
+        System.out.println("Graphouse path is: " + System.getProperty("app.home"));
+
         AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
 
         applicationContext.registerShutdownHook();
-        applicationContext.register(GraphouseMainConfig.class);
+        applicationContext.register(GraphouseConfig.class);
         applicationContext.refresh();
 
         log.info("Graphouse up and running");

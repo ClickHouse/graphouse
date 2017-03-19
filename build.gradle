@@ -1,48 +1,88 @@
 buildscript {
     repositories {
+        mavenCentral()
         mavenLocal()
-        maven { url 'http://artifactory.yandex.net/market' }
-    }
-    dependencies {
-        classpath 'ru.yandex.market:mbuild:0.22+'
     }
 }
 
 project.repositories {
+    mavenCentral()
     mavenLocal()
-    maven { url 'http://artifactory.yandex.net/market' }
 }
 
-apply plugin: 'mbuild-deb'
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'application'
 
 group = 'ru.yandex'
-version = version
+version = '1.3-SNAPSHOT'
 
-mbuild {
-    deb {
-        packageName = 'yandex-graphouse'
+mainClassName = 'ru.yandex.market.graphouse.GraphouseMain'
 
-        copy_etc_conf_list = 'property-configurer.xml log4j2.xml ' +
-            'graphouse-default.properties graphouse-testing.properties graphouse-production.properties ulimit.conf'
-        copy_usr_bin_list = 'libyjpagent.so'
+distributions {
+    main {
+        contents {
+            from('src/main/script/log4j2.xml') {
+                into 'conf'
+            }
+            from('src/main/graphouse.vmoptions') {
+                into 'conf'
+            }
+            from('src/main/resources/graphouse-default.properties') {
+                rename('graphouse-default.properties', 'graphouse.properties')
+                into 'conf'
+            }
+            from('LICENSE') {
+                into ''
+            }
+            //Creating empty dir
+            into('') {
+                def logDirBase = new File("$buildDir/tmp/logDirBase")
+                def logDir = new File(logDirBase.absolutePath + '/log')
+                logDir.mkdirs()
+                from { logDirBase }
+            }
+        }
+
+    }
+
+}
+
+applicationDefaultJvmArgs = [
+    '-Dapp.home=GRAPHOUSE_APP_HOME',
+    '-Dlog4j.configurationFile=GRAPHOUSE_APP_HOME/conf/log4j2.xml',
+    '-verbose:gc', '-XX:+PrintGC', '-XX:+PrintGCDetails', '-XX:+PrintGCTimeStamps', '-XX:+PrintGCDateStamps',
+    '-XX:+UseGCLogFileRotation', '-XX:NumberOfGCLogFiles=7', '-Xloggc:$LOG_GC:GRAPHOUSE_APP_HOME/log/graphouse.gc.log',
+    '-XX:+HeapDumpOnOutOfMemoryError ', '-XX:HeapDumpPath=GRAPHOUSE_APP_HOME/log/',
+    '-showversion', '-server', '-XX:+UseCompressedOops',
+    '-Dsun.net.inetaddr.ttl=60', '-Dsun.net.inetaddr.negative.ttl=0'
+]
+
+startScripts {
+    doLast {
+        unixScript.text = unixScript.text.replace('GRAPHOUSE_APP_HOME', '\$APP_HOME')
+        unixScript.text = unixScript.text.replace(
+            'APP_HOME="`pwd -P`"',
+            'APP_HOME="`pwd -P`"\n' +
+                'GRAPHOUSE_OPTS=$(<$APP_HOME\\conf\\graphouse.vmoptions)'
+        )
+        delete windowsScript
     }
 }
 
 dependencies {
-    compile 'ru.yandex.clickhouse:clickhouse-jdbc:0.1.7'
-    compile 'com.google.guava:guava:18.0'
+    compile 'ru.yandex.clickhouse:clickhouse-jdbc:0.1.17'
+    compile 'com.google.guava:guava:21.0'
     compile 'com.google.code.gson:gson:2.3.1'
     compile 'org.springframework:spring-jdbc:4.1.6.RELEASE'
     compile 'org.springframework:spring-context:4.1.6.RELEASE'
-
-    compile group: 'commons-io', name: 'commons-io', version: '2.4'
-    compile group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version: '2.2'
-    compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.2'
-    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.2'
-    compile group: 'org.apache.logging.log4j', name: 'log4j-web', version: '2.2'
-    compile group: 'commons-dbcp', name: 'commons-dbcp', version: '1.4'
-    compile group: 'org.eclipse.jetty', name: 'jetty-server', version: '9.2.10.v20150310'
-    compile group: 'org.eclipse.jetty', name: 'jetty-servlet', version: '9.2.10.v20150310'
+    compile 'org.apache.logging.log4j:log4j-1.2-api:2.2'
+    compile 'org.apache.logging.log4j:log4j-api:2.2'
+    compile 'org.apache.logging.log4j:log4j-core:2.2'
+    compile 'org.apache.logging.log4j:log4j-web:2.2'
+    compile 'commons-dbcp:commons-dbcp:1.4'
+    compile 'org.eclipse.jetty:jetty-server:9.2.10.v20150310'
+    compile 'org.eclipse.jetty:jetty-servlet:9.2.10.v20150310'
 
     testCompile group: 'junit', name: 'junit', version: '4.8.1'
 }
