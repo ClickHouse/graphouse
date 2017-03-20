@@ -53,7 +53,7 @@ applicationDefaultJvmArgs = [
     '-Dlog4j.configurationFile=GRAPHOUSE_APP_HOME/conf/log4j2.xml',
     '-verbose:gc', '-XX:+PrintGC', '-XX:+PrintGCDetails', '-XX:+PrintGCTimeStamps', '-XX:+PrintGCDateStamps',
     '-XX:+UseGCLogFileRotation', '-XX:NumberOfGCLogFiles=7', '-Xloggc:$LOG_GC:GRAPHOUSE_APP_HOME/log/graphouse.gc.log',
-    '-XX:+HeapDumpOnOutOfMemoryError ', '-XX:HeapDumpPath=GRAPHOUSE_APP_HOME/log/',
+    '-XX:+HeapDumpOnOutOfMemoryError', '-XX:HeapDumpPath=GRAPHOUSE_APP_HOME/log/',
     '-showversion', '-server', '-XX:+UseCompressedOops',
     '-Dsun.net.inetaddr.ttl=60', '-Dsun.net.inetaddr.negative.ttl=0'
 ]
@@ -64,7 +64,7 @@ startScripts {
         unixScript.text = unixScript.text.replace(
             'APP_HOME="`pwd -P`"',
             'APP_HOME="`pwd -P`"\n' +
-                'GRAPHOUSE_OPTS=$(<$APP_HOME\\conf\\graphouse.vmoptions)'
+                'GRAPHOUSE_OPTS=$(<$APP_HOME/conf/graphouse.vmoptions)'
         )
         delete windowsScript
     }

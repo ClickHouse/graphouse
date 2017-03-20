@@ -18,6 +18,7 @@
 USER="graphouse"
 SERVICE="graphouse"
 GRAPHOUSE_ROOT=/opt/graphouse
+SHELL_LOG=/opt/graphouse/log/graphouse.shell.log
 PID_FILE=/var/run/$SERVICE.pid
  
 case "$1" in
@@ -28,7 +29,7 @@ case "$1" in
     if start-stop-daemon --quiet --stop --signal 0 --pidfile $PID_FILE 2>/dev/null 1>/dev/null; then
       log_failure_msg "$DAEMON already running"
     else
-      su $SERVICE -c "/sbin/start-stop-daemon --start --exec $GRAPHOUSE_ROOT/bin/graphouse --make-pidfile --pidfile $PID_FILE --background"
+      /sbin/start-stop-daemon --start --exec $GRAPHOUSE_ROOT/bin/graphouse --make-pidfile --pidfile $PID_FILE --background --no-close --chuid $USER
       log_end_msg $?
     fi
     PID=$(<$PID_FILE)
@@ -36,7 +37,7 @@ case "$1" in
  
   stop)
     log_begin_msg "Stopping $DAEMON..."
-    start-stop-daemon --quiet --retry 10 --stop --pidfile $PID_FILE 1>/dev/null 2>&1
+    start-stop-daemon --quiet --oknodo --retry=TERM/15/KILL/5 --stop --pidfile $PID_FILE 1>/dev/null 2>&1
     log_end_msg $?
     rm -f $PID_FILE 2>/dev/null
   ;;
