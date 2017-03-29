@@ -18,7 +18,7 @@ override_dh_install:
 	dh_install
 
 override_dh_installinit:
-	dh_installinit --name=graphouse --noscripts
+	dh_installinit --name=$(package) --noscripts
 
 override_dh_builddeb:
 	dh_builddeb -- -Zgzip

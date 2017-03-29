@@ -38,8 +38,7 @@ distributions {
             //Creating empty dir
             into('') {
                 def logDirBase = new File("$buildDir/tmp/logDirBase")
-                def logDir = new File(logDirBase.absolutePath + '/log')
-                logDir.mkdirs()
+                new File(logDirBase.absolutePath + '/log').mkdirs()
                 from { logDirBase }
             }
         }
