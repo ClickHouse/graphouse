@@ -87,10 +87,10 @@ public class MetricTreeTest {
 
     @Test
     public void testSearch() throws Exception {
-        tree.add("five_sec.int_8742.x1");
-        tree.add("five_sec.int_8742.x1");
-        tree.add("five_sec.int_8743.x1");
-        tree.add("five_sec.int_8742.x2");
+        tree.add("five_sec.int_8742.x1", null);
+        tree.add("five_sec.int_8742.x1", null);
+        tree.add("five_sec.int_8743.x1", null);
+        tree.add("five_sec.int_8742.x2", null);
 
         search("five_sec.int_874?.x1", "five_sec.int_8742.x1", "five_sec.int_8743.x1");
         search("five_sec.int_8742.x*", "five_sec.int_8742.x1", "five_sec.int_8742.x2");
@@ -100,42 +100,42 @@ public class MetricTreeTest {
 
     @Test
     public void testStatusesWorkflow() throws Exception {
-        Assert.assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x1").getStatus());
-        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x1").getStatus());
+        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x1", null).getStatus());
+        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x1", null).getStatus());
 
         // BAN -> APPROVED
-        tree.add("five_sec.int_8743.x1");
-        assertEquals(MetricStatus.BAN, tree.modify("five_sec.int_8743.", MetricStatus.BAN).getStatus());
+        tree.add("five_sec.int_8743.x1", null);
+        assertEquals(MetricStatus.BAN, tree.modify("five_sec.int_8743.", MetricStatus.BAN, null).getStatus());
         searchWithMessage("Dir is BANned, but we found it", "five_sec.*", "five_sec.int_8742.");
         searchWithMessage("Dir is BANned, but we found it's metric", "five_sec.int_8743.", "");
-        assertEquals("Dir is BANned, but we can add metric into it", null, tree.add("five_sec.int_8743.x0"));
-        assertEquals("Dir is BANned, but we can add dir into it", null, tree.add("five_sec.int_8743.new."));
+        assertEquals("Dir is BANned, but we can add metric into it", null, tree.add("five_sec.int_8743.x0", null));
+        assertEquals("Dir is BANned, but we can add dir into it", null, tree.add("five_sec.int_8743.new.", null));
 
-        assertEquals(MetricStatus.APPROVED, tree.modify("five_sec.int_8743.", MetricStatus.APPROVED).getStatus());
+        assertEquals(MetricStatus.APPROVED, tree.modify("five_sec.int_8743.", MetricStatus.APPROVED, null).getStatus());
         search("five_sec.*", "five_sec.int_8742.", "five_sec.int_8743.");
 
         // HIDDEN
         search("five_sec.int_8742.*", "five_sec.int_8742.x1");
-        assertEquals(MetricStatus.HIDDEN, tree.modify("five_sec.int_8742.", MetricStatus.HIDDEN).getStatus());
+        assertEquals(MetricStatus.HIDDEN, tree.modify("five_sec.int_8742.", MetricStatus.HIDDEN, null).getStatus());
         searchWithMessage("Dir is HIDDEN, but we found it", "five_sec.*", "five_sec.int_8743.");
         searchWithMessage("Dir is HIDDEN, but we found it's metric", "five_sec.int_8742.*", "");
-        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x2").getStatus());
+        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x2", null).getStatus());
         search("five_sec.int_8742.*", "five_sec.int_8742.x1", "five_sec.int_8742.x2");
-        assertEquals(MetricStatus.APPROVED, tree.modify("five_sec.int_8742.", MetricStatus.APPROVED).getStatus());
+        assertEquals(MetricStatus.APPROVED, tree.modify("five_sec.int_8742.", MetricStatus.APPROVED, null).getStatus());
         search("five_sec.*", "five_sec.int_8742.", "five_sec.int_8743.");
 
         // SIMPLE -> AUTO_HIDDEN -> SIMPLE
         search("five_sec.int_8742.*", "five_sec.int_8742.x1", "five_sec.int_8742.x2");
-        assertEquals(MetricStatus.HIDDEN, tree.modify("five_sec.int_8742.x2", MetricStatus.HIDDEN).getStatus());
+        assertEquals(MetricStatus.HIDDEN, tree.modify("five_sec.int_8742.x2", MetricStatus.HIDDEN, null).getStatus());
         searchWithMessage("Metric is HIDDEN, but we found it", "five_sec.int_8742.*", "five_sec.int_8742.x1");
-        assertEquals(MetricStatus.HIDDEN, tree.modify("five_sec.int_8742.x1", MetricStatus.HIDDEN).getStatus());
+        assertEquals(MetricStatus.HIDDEN, tree.modify("five_sec.int_8742.x1", MetricStatus.HIDDEN, null).getStatus());
         searchWithMessage("Dir is AUTO_HIDDEN, but we found it", "five_sec.*", "five_sec.int_8743.", "five_sec.int_8742."); //Cause "five_sec.int_8742." is Approved
-        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x3").getStatus());
+        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x3", null).getStatus());
         searchWithMessage("We added new metric in AUTO_HIDDEN dir, but dir is still AUTO_HIDDEN",
             "five_sec.*", "five_sec.int_8742.", "five_sec.int_8743.");
         search("five_sec.int_8742.*", "five_sec.int_8742.x3");
 
-        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x2.y1").getStatus());
+        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x2.y1", null).getStatus());
         searchWithMessage("We added new metric, but dir is still AUTO_HIDDEN",
             "five_sec.*", "five_sec.int_8742.", "five_sec.int_8743.");
         search("five_sec.int_8742.*", "five_sec.int_8742.x2.", "five_sec.int_8742.x3");
