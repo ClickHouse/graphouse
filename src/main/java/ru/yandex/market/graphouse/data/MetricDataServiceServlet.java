@@ -18,7 +18,12 @@ import java.util.List;
 public class MetricDataServiceServlet extends HttpServlet {
 
     private static final Logger log = LogManager.getLogger();
-    private MetricDataService metricDataService;
+
+    private final MetricDataService metricDataService;
+
+    public MetricDataServiceServlet(MetricDataService metricDataService) {
+        this.metricDataService = metricDataService;
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -48,19 +53,18 @@ public class MetricDataServiceServlet extends HttpServlet {
             startTimeSeconds = Integer.parseInt(req.getParameter("startSecond"));
             endTimeSeconds = Integer.parseInt(req.getParameter("endSecond"));
         } catch (NumberFormatException e) {
-            log.warn("Integer parameters parsing failed", e);
+            log.warn("Failed to parse timestamp", e);
             writeBadRequest(resp);
             return;
         }
 
         final String reqKey = req.getParameter("reqKey");
 
-        parameters.setReqKey(req.getParameter("reqKey"));
 
         try {
-            metricDataService.writeData(parameters, resp.getWriter());
+            metricDataService.getData(metrics, startTimeSeconds, endTimeSeconds, resp.getWriter());
         } catch (Exception e) {
-            log.error("Problems with request: " + req.getRequestURI(), e);
+            log.error("Problems with request (" + reqKey + " ): " + req.getRequestURI(), e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             e.printStackTrace(resp.getWriter());
             return;
@@ -78,7 +82,4 @@ public class MetricDataServiceServlet extends HttpServlet {
         resp.getOutputStream().println("\t [&reqKey=<reqKey>]");
     }
 
-    public void setMetricDataService(MetricDataService metricDataService) {
-        this.metricDataService = metricDataService;
-    }
 }

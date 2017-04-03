@@ -5,4 +5,7 @@ package ru.yandex.market.graphouse.search.retention;
  * @date 03/04/2017
  */
 public interface RetentionProvider {
+
+    MetricRetention getRetention(String metric);
+
 }

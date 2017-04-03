@@ -48,8 +48,7 @@ public class ServerConfig {
 
         final MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, metricSearch, allowColdRun);
 
-        final MetricDataServiceServlet metricDataServiceServlet = new MetricDataServiceServlet();
-        metricDataServiceServlet.setMetricDataService(metricDataService);
+        final MetricDataServiceServlet metricDataServiceServlet = new MetricDataServiceServlet(metricDataService);
 
         return new GraphouseWebServer(metricSearchServlet, monitoringServlet, metricDataServiceServlet);
     }

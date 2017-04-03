@@ -1,4 +1,4 @@
-package ru.yandex.market.graphouse.search.tree;
+package ru.yandex.market.graphouse.search.retention;
 
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
@@ -29,7 +29,7 @@ public class MetricRetention {
         return function;
     }
 
-    boolean validateName(String name) {
+    boolean matches(String name) {
         return pattern.matcher(name).matches();
     }
 

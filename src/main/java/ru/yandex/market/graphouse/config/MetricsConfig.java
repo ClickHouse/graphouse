@@ -1,10 +1,10 @@
 package ru.yandex.market.graphouse.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
 import ru.yandex.market.graphouse.data.MetricDataService;
@@ -25,17 +25,17 @@ public class MetricsConfig {
     @Autowired
     private JdbcTemplate clickHouseJdbcTemplate;
 
-    @Autowired
-    private NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate;
+    @Value("${graphouse.clickhouse.data-table}")
+    private String graphiteDataTable;
 
     @Bean
-    public MetricSearch metricSearch(MetricValidator metricValidator) {
-        return new MetricSearch(clickHouseJdbcTemplate, monitoring, metricValidator);
+    public MetricSearch metricSearch() {
+        return new MetricSearch(clickHouseJdbcTemplate, monitoring, metricValidator());
     }
 
     @Bean
     public MetricDataService metricDataService() {
-        return new MetricDataService(clickHouseNamedJdbcTemplate);
+        return new MetricDataService(metricSearch(), clickHouseJdbcTemplate, graphiteDataTable);
     }
 
     @Bean
@@ -49,7 +49,7 @@ public class MetricsConfig {
     }
 
     @Bean
-    public MetricFactory metricFactory(MetricValidator metricValidator) {
-        return new MetricFactory(metricSearch(metricValidator), metricValidator);
+    public MetricFactory metricFactory() {
+        return new MetricFactory(metricSearch(), metricValidator());
     }
 }
