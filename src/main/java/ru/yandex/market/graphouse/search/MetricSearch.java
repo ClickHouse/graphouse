@@ -97,7 +97,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Value("${graphouse.tree.dir-content.batcher.aggregation-time-millis}")
     private int dirContentBatcherAggregationTimeMillis = 50;
 
-    @Value("${graphouse.server.metric_table}")
+    @Value("${graphouse.clickhouse.metric-tree-table}")
     private String metricsTable;
 
     private LoadingCache<MetricDir, DirContent> dirContentProvider;

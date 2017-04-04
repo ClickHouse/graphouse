@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# description: Starts and stops Yandex graphouse.
+# description: Starts and stops Graphouse.
 
 ### BEGIN INIT INFO
 # Provides:          graphouse
@@ -15,36 +15,31 @@
 
 . /lib/lsb/init-functions
  
-DAEMON="graphouse"
-DAEMON_BASE="graphouse"
-DAEMON_ROOT="/usr/bin"
+USER="graphouse"
+SERVICE="graphouse"
+GRAPHOUSE_ROOT=/opt/graphouse
+SHELL_LOG=/opt/graphouse/log/graphouse.shell.log
+PID_FILE=/var/run/$SERVICE.pid
  
 case "$1" in
   start)
     log_begin_msg "Starting $DAEMON..."
-    test -d /var/run/$DAEMON_BASE || mkdir -p /var/run/$DAEMON_BASE
-    chown $DAEMON_BASE:nogroup /var/run/$DAEMON_BASE
+    chown $SERVICE:nogroup /var/run/$SERVICE
  
-    if start-stop-daemon --quiet --stop --signal 0 --pidfile /var/run/$DAEMON_BASE/$DAEMON.pid 2>/dev/null 1>/dev/null; then
+    if start-stop-daemon --quiet --stop --signal 0 --pidfile $PID_FILE 2>/dev/null 1>/dev/null; then
       log_failure_msg "$DAEMON already running"
     else
-      uf=/etc/yandex/$DAEMON/ulimit.conf
-      if [ -x $uf ]; then
-        log_action_msg "Loading ulimits from file" $uf
-        . $uf
-      fi
-      su $DAEMON_BASE -c "/sbin/start-stop-daemon --start --exec $DAEMON_ROOT/$DAEMON.sh --make-pidfile --pidfile /var/run/$DAEMON_BASE/$DAEMON.pid --background"
+      /sbin/start-stop-daemon --start --exec $GRAPHOUSE_ROOT/bin/graphouse --make-pidfile --pidfile $PID_FILE --background --no-close --chuid $USER
       log_end_msg $?
     fi
-    PID=$(</var/run/$DAEMON_BASE/$DAEMON.pid)
-    echo -1000 > /proc/$PID/oom_score_adj
+    PID=$(<$PID_FILE)
   ;;
  
   stop)
     log_begin_msg "Stopping $DAEMON..."
-    start-stop-daemon --quiet --retry 10 --stop --pidfile /var/run/$DAEMON_BASE/$DAEMON.pid 1>/dev/null 2>&1
+    start-stop-daemon --quiet --oknodo --retry=TERM/15/KILL/5 --stop --pidfile $PID_FILE 1>/dev/null 2>&1
     log_end_msg $?
-    rm -f /var/run/$DAEMON_BASE/$DAEMON.pid 2>/dev/null
+    rm -f $PID_FILE 2>/dev/null
   ;;
  
   restart)

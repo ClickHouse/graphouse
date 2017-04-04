@@ -35,8 +35,8 @@ public class MetricCacher implements Runnable, InitializingBean {
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final Monitoring monitoring;
 
-    @Value("${graphite.metric.data.table}")
-    private String graphiteTable = "graphite";
+    @Value("${graphouse.clickhouse.data-table}")
+    private String graphiteTable;
 
     @Value("${graphouse.cacher.cache-size}")
     private int cacheSize = 1_000_000;

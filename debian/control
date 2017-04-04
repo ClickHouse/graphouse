@@ -1,12 +1,11 @@
-Source: yandex-graphouse
-Section: yandex
+Source: graphouse
 Priority: optional
 Maintainer: Dmitry Andreev <andreevdm@yandex-team.ru>
 Build-Depends: debhelper (>= 8.0.0)
 Standards-Version: 3.9.4
 
-Package: yandex-graphouse
+Package: graphouse
 Architecture: all
-Depends: yandex-jdk8, yandex-environment
-Description: Build graphics for logs
+Depends:
+Description: Connect your ClickHouse and Graphite-Web
 

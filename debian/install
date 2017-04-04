@@ -1,2 +1,1 @@
-src/main/pySources/graphouse.py usr/lib/yandex/graphouse/
-src/main/script/graphouse-metrics-migration.jar usr/lib/yandex/graphouse/migration/
+build/install/graphouse opt

@@ -2,25 +2,14 @@
 
 case $1 in
 configure)
-	DAEMON=graphouse
-	LOGDIR=/var/log/$DAEMON
-	RUNDIR=/var/run/$DAEMON
-	LIBDIR=/var/lib/yandex/$DAEMON/
-	CONFIGDIR=/etc/yandex/graphouse/conf.d/
-	mkdir -p $LOGDIR
-	mkdir -p $RUNDIR
-	mkdir -p $LIBDIR
-	mkdir -p $CONFIGDIR
+	USER=graphouse
+	GRAPHOUSE_ROOT=/opt/graphouse
 
-	chmod +x /etc/yandex/$DAEMON/ulimit.conf
+	useradd ${USER} -g nogroup 2>/dev/null && echo "User ${USER} created"
+	chown -R $USER:nogroup $GRAPHOUSE_ROOT
 
-	if ! chown $DAEMON:nogroup -R $LOGDIR $RUNDIR 2>/dev/null
-	then
-		useradd $DAEMON -g nogroup
-		chown $DAEMON:nogroup -R $LOGDIR $RUNDIR
-	fi
-	update-rc.d $DAEMON defaults > /dev/null
-	chown -R $DAEMON:nogroup $LOGDIR $RUNDIR $LIBDIR
+	ln -s $GRAPHOUSE_ROOT/conf /etc/graphouse
+	ln -s $GRAPHOUSE_ROOT/log /var/log/graphouse
 ;;
 
 abort-upgrade|abort-remove|abort-deconfigure)
@@ -31,8 +20,6 @@ abort-upgrade|abort-remove|abort-deconfigure)
 
 esac
 
-    mkdir -p /var/log/$DAEMON/hprof/
-    chown $DAEMON:nogroup /var/log/$DAEMON/hprof/
 
 exit 0
 

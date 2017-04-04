@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="debug" packages="ru.yandex.market.log4j2">
+<Configuration status="debug">
     <Appenders>
         <Async name="ASYNC">
             <AppenderRef ref="MAIN"/>
@@ -9,11 +9,8 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Root level="info">
+        <Root level="debug">
             <AppenderRef ref="ASYNC"/>
         </Root>
-        <Logger name="requestTrace" level="trace" additivity="false">
-            <AppenderRef ref="ASYNC"/>
-        </Logger>
     </Loggers>
 </Configuration>

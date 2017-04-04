@@ -21,7 +21,7 @@ public class MetricDataService {
 
     private static final Logger log = LogManager.getLogger();
 
-    @Value("${graphite.metric.data.table}")
+    @Value("${graphouse.clickhouse.data-table}")
     private String graphiteTable;
 
     private final NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate;
