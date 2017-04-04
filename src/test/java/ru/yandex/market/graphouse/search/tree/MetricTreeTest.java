@@ -3,8 +3,8 @@ package ru.yandex.market.graphouse.search.tree;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.junit.Test;
-import ru.yandex.market.graphouse.search.MetricStatus;
 import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
+import ru.yandex.market.graphouse.search.MetricStatus;
 import ru.yandex.market.graphouse.utils.AppendableWrapper;
 
 import java.io.IOException;
@@ -106,8 +106,8 @@ public class MetricTreeTest {
         assertEquals(MetricStatus.BAN, tree.modify("five_sec.int_8743.", MetricStatus.BAN).getStatus());
         searchWithMessage("Dir is BANned, but we found it", "five_sec.*", "five_sec.int_8742.");
         searchWithMessage("Dir is BANned, but we found it's metric", "five_sec.int_8743.", "");
-        assertEquals("Dir is BANned, but we can add metric into it", tree.add("five_sec.int_8743.x0"));
-        assertEquals("Dir is BANned, but we can add dir into it", tree.add("five_sec.int_8743.new."));
+        assertEquals("Dir is BANned, but we can add metric into it", null, tree.add("five_sec.int_8743.x0"));
+        assertEquals("Dir is BANned, but we can add dir into it", null, tree.add("five_sec.int_8743.new."));
 
         assertEquals(MetricStatus.APPROVED, tree.modify("five_sec.int_8743.", MetricStatus.APPROVED).getStatus());
         search("five_sec.*", "five_sec.int_8742.", "five_sec.int_8743.");
