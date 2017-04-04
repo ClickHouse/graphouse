@@ -43,15 +43,6 @@ project.sourceSets {
     }
 }
 
-//run {
-//    classpath += files('src/main/script')
-//}
-//
-//idea {
-//    module {
-//        sourceDirs += file("src/main/script");
-//    }
-//}
 mainClassName = 'ru.yandex.market.graphouse.GraphouseMain'
 
 distributions {
