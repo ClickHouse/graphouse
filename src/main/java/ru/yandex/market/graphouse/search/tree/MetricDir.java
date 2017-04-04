@@ -2,8 +2,7 @@ package ru.yandex.market.graphouse.search.tree;
 
 import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.search.MetricStatus;
-import ru.yandex.market.graphouse.search.retention.MetricRetention;
-import ru.yandex.market.graphouse.search.retention.RetentionProvider;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
 
 import java.util.Map;
 
@@ -67,7 +66,7 @@ public abstract class MetricDir extends MetricBase {
         String internName = name.intern();
         metric = metrics.computeIfAbsent(
             internName,
-            s -> new MetricName(this, internName, status, retentionProvider.getRetention(name))
+            s -> new MetricName(this, internName, status, retentionProvider.getRetention(getName() + name))
         );
         notifyChildStatusChange(metric, null); //Can be false call, but its ok
         return metric;

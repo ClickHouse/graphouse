@@ -9,6 +9,9 @@ import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
 import ru.yandex.market.graphouse.data.MetricDataService;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
+import ru.yandex.market.graphouse.retention.ClickHouseRetentionProvider;
+import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.server.MetricFactory;
 
@@ -28,9 +31,21 @@ public class MetricsConfig {
     @Value("${graphouse.clickhouse.data-table}")
     private String graphiteDataTable;
 
+    @Value("${graphouse.clickhouse.retention_config}")
+    private String retentionConfig;
+
     @Bean
     public MetricSearch metricSearch() {
-        return new MetricSearch(clickHouseJdbcTemplate, monitoring, metricValidator());
+        return new MetricSearch(clickHouseJdbcTemplate, monitoring, metricValidator(), retentionProvider());
+    }
+
+    @Bean
+    public RetentionProvider retentionProvider() {
+        if (retentionConfig.isEmpty()) {
+            return new DefaultRetentionProvider();
+        } else {
+            return new ClickHouseRetentionProvider(clickHouseJdbcTemplate, retentionConfig);
+        }
     }
 
     @Bean

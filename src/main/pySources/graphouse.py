@@ -140,8 +140,8 @@ class GraphouseReader(object):
             query = urllib.urlencode(
                 {
                     'metrics': ','.join(paths),
-                    'startSecond': start_time,
-                    'endSecond': end_time,
+                    'start': start_time,
+                    'end': end_time,
                     'reqKey': self.reqkey
                 })
             request_url = graphouse_url + "/metricData"

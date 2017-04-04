@@ -50,8 +50,8 @@ public class MetricDataServiceServlet extends HttpServlet {
         final int endTimeSeconds;
 
         try {
-            startTimeSeconds = Integer.parseInt(req.getParameter("startSecond"));
-            endTimeSeconds = Integer.parseInt(req.getParameter("endSecond"));
+            startTimeSeconds = Integer.parseInt(req.getParameter("start"));
+            endTimeSeconds = Integer.parseInt(req.getParameter("end"));
         } catch (NumberFormatException e) {
             log.warn("Failed to parse timestamp", e);
             writeBadRequest(resp);
@@ -77,8 +77,8 @@ public class MetricDataServiceServlet extends HttpServlet {
         resp.getOutputStream().println("Usage:");
         resp.getOutputStream().println("/metricData?");
         resp.getOutputStream().println("\t metrics=<metric1,metric2...>");
-        resp.getOutputStream().println("\t &startSecond=<startTime>");
-        resp.getOutputStream().println("\t &endSecond=<endTime>");
+        resp.getOutputStream().println("\t &start=<startTimeSeconds>");
+        resp.getOutputStream().println("\t &end=<endTimeSeconds>");
         resp.getOutputStream().println("\t [&reqKey=<reqKey>]");
     }
 

@@ -5,7 +5,7 @@ import com.google.common.base.CharMatcher;
 import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.search.MetricPath;
 import ru.yandex.market.graphouse.search.MetricStatus;
-import ru.yandex.market.graphouse.search.retention.RetentionProvider;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 
 import java.io.IOException;

@@ -4,7 +4,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.junit.Test;
 import ru.yandex.market.graphouse.search.MetricStatus;
-import ru.yandex.market.graphouse.search.retention.DefaultRetentionProvider;
+import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
 import ru.yandex.market.graphouse.utils.AppendableWrapper;
 
 import java.io.IOException;

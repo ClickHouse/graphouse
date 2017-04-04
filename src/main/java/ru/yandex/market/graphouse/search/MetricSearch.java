@@ -16,8 +16,7 @@ import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
-import ru.yandex.market.graphouse.search.retention.DefaultRetentionProvider;
-import ru.yandex.market.graphouse.search.retention.RetentionProvider;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.search.tree.DirContent;
 import ru.yandex.market.graphouse.search.tree.DirContentBatcher;
 import ru.yandex.market.graphouse.search.tree.InMemoryMetricDir;
@@ -66,11 +65,12 @@ public class MetricSearch implements InitializingBean, Runnable {
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final Monitoring monitoring;
     private final MetricValidator metricValidator;
+    private final RetentionProvider retentionProvider;
+
 
     private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
     private MetricTree metricTree;
     private final Queue<MetricDescription> updateQueue = new ConcurrentLinkedQueue<>();
-
 
     private int lastUpdatedTimestampSeconds = 0;
 
@@ -107,12 +107,13 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private DirContentBatcher dirContentBatcher;
 
-    private RetentionProvider retentionProvider;
 
-    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring, MetricValidator metricValidator) {
+    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring,
+                        MetricValidator metricValidator, RetentionProvider retentionProvider) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
         this.metricValidator = metricValidator;
+        this.retentionProvider = retentionProvider;
     }
 
     @Override
@@ -147,9 +148,6 @@ public class MetricSearch implements InitializingBean, Runnable {
                 }
             });
 
-
-        retentionProvider = new DefaultRetentionProvider();
-
         metricTree = new MetricTree(metricDirFactory, retentionProvider);
 
         new Thread(this, "MetricSearch thread").start();
@@ -159,7 +157,6 @@ public class MetricSearch implements InitializingBean, Runnable {
             log.info("Metric search stopped");
         }));
     }
-
 
     private void saveMetrics(List<MetricDescription> metrics) {
         if (metrics.isEmpty()) {

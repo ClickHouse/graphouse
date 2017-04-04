@@ -1,7 +1,6 @@
 package ru.yandex.market.graphouse.search.tree;
 
 import ru.yandex.market.graphouse.search.MetricStatus;
-import ru.yandex.market.graphouse.search.retention.MetricRetention;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>

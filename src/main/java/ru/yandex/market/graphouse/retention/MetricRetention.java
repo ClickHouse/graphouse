@@ -1,4 +1,4 @@
-package ru.yandex.market.graphouse.search.retention;
+package ru.yandex.market.graphouse.retention;
 
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
@@ -33,8 +33,12 @@ public class MetricRetention {
         return pattern.matcher(name).matches();
     }
 
-    public Integer getStepSize(int endTimeSeconds) {
-        return ranges.get(endTimeSeconds);
+    public Integer getStepSize(int ageSeconds) {
+        return ranges.get(ageSeconds);
+    }
+
+    public static MetricDataRetentionBuilder newBuilder(String pattern, String function) {
+        return new MetricDataRetentionBuilder(pattern, function);
     }
 
     public static class MetricDataRetentionBuilder {
