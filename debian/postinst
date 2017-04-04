@@ -8,8 +8,8 @@ configure)
 	useradd ${USER} -g nogroup 2>/dev/null && echo "User ${USER} created"
 	chown -R $USER:nogroup $GRAPHOUSE_ROOT
 
-	ln -s $GRAPHOUSE_ROOT/conf /etc/graphouse
-	ln -s $GRAPHOUSE_ROOT/log /var/log/graphouse
+	ln -sf $GRAPHOUSE_ROOT/conf /etc/graphouse
+	ln -sf $GRAPHOUSE_ROOT/log /var/log/graphouse
 ;;
 
 abort-upgrade|abort-remove|abort-deconfigure)

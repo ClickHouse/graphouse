@@ -1,8 +1,6 @@
 -Xmx4g
 -Xms4g
 -Xss2m
--XX:PermSize=128m
--XX:MaxPermSize=128m
 -XX:StringTableSize=10000000
 -XX:+UseG1GC
 -XX:MaxGCPauseMillis=1000
