@@ -24,8 +24,7 @@ PID_FILE=/var/run/$SERVICE.pid
 case "$1" in
   start)
     log_begin_msg "Starting $DAEMON..."
-    chown $SERVICE:nogroup /var/run/$SERVICE
- 
+
     if start-stop-daemon --quiet --stop --signal 0 --pidfile $PID_FILE 2>/dev/null 1>/dev/null; then
       log_failure_msg "$DAEMON already running"
     else
