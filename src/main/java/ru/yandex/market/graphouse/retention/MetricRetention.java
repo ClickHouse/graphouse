@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.retention;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
@@ -33,8 +34,12 @@ public class MetricRetention {
         return pattern.matcher(name).matches();
     }
 
-    public Integer getStepSize(int ageSeconds) {
-        return ranges.get(ageSeconds);
+    public int getStepSize(int ageSeconds) {
+        Integer step = ranges.get(ageSeconds);
+        Preconditions.checkNotNull(
+            step, "Could find retention step for age " + ageSeconds + ", values: " + ranges.toString()
+        );
+        return step;
     }
 
     public static MetricDataRetentionBuilder newBuilder(String pattern, String function) {
