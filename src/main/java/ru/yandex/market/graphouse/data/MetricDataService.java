@@ -143,6 +143,9 @@ public class MetricDataService {
         }
 
         private void endMetric() throws IOException {
+            if (currentMetric == null) {
+                return;
+            }
             fillNulls(end);
             jsonWriter.endArray().endObject();
             currentMetric = null;

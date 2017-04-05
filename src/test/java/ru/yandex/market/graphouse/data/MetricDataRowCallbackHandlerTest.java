@@ -44,6 +44,7 @@ public class MetricDataRowCallbackHandlerTest {
         expected.add("name1", createMetric(100, 280, 60, 33.33, 42.0, Double.NaN));
         expected.add("name2", createMetric(100, 280, 60, Double.NaN, 32.0, 77.7));
 
+
         Assert.assertEquals(expected.toString(), stringWriter.toString());
     }
 
@@ -74,6 +75,28 @@ public class MetricDataRowCallbackHandlerTest {
         expected.add("name1", createMetric(0, 3, 1, 0.0, Double.NaN, 2.0));
 
         Assert.assertEquals(expected.toString(), stringWriter.toString());
+    }
+
+    @Test
+    public void testEmpty() throws Exception {
+        MockResultSet resultSet = new MockResultSet("data");
+
+        StringWriter stringWriter = new StringWriter();
+        JsonWriter jsonWriter = new JsonWriter(stringWriter);
+        jsonWriter.beginObject();
+
+        MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
+            jsonWriter, 0, 3, 1
+        );
+
+        while (resultSet.next()) {
+            handler.processRow(resultSet);
+        }
+        handler.finish();
+        jsonWriter.endObject();
+
+        Assert.assertEquals("{}", stringWriter.toString());
+
     }
 
 
