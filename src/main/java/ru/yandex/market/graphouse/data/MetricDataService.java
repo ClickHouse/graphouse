@@ -17,7 +17,6 @@ import java.io.PrintWriter;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -71,8 +70,14 @@ public class MetricDataService {
             jsonWriter, startTimeSeconds, endTimeSeconds, stepSeconds
         );
         clickHouseJdbcTemplate.query(
-            createQuery(metrics, function, startTimeSeconds, endTimeSeconds, stepSeconds),
-            handler
+            "SELECT metric, ts, " + function + "(value) as value FROM (" +
+                "   SELECT metric, ts, argMax(value, updated) as value FROM " + graphiteTable +
+                "       WHERE metric IN (" + toMetricString(metrics) + ")" +
+                "           AND ts >= ? AND ts < ? AND date >= toDate(?) AND date <= toDate(?)" +
+                "       GROUP BY metric, timestamp as ts" +
+                ") GROUP BY metric, intDiv(toUInt32(ts), ?) * ? as ts ORDER BY metric, ts",
+            handler,
+            startTimeSeconds, endTimeSeconds, startTimeSeconds, endTimeSeconds, stepSeconds, stepSeconds
         );
         handler.finish();
     }
@@ -92,7 +97,6 @@ public class MetricDataService {
             this.start = start;
             this.end = end;
             this.step = step;
-            nextTs = start;
         }
 
         @Override
@@ -105,8 +109,8 @@ public class MetricDataService {
                 fillNulls(ts);
                 if (Double.isFinite(value)) {
                     jsonWriter.beginArray().value(value).value(ts).endArray();
+                    nextTs = ts + step;
                 }
-                nextTs = ts + step;
             } catch (IOException e) {
                 log.error("Failed to read data from CH", e);
                 throw new RuntimeIOException(e);
@@ -151,44 +155,19 @@ public class MetricDataService {
             jsonWriter.name("target").value(metric);
             jsonWriter.name("datapoints").beginArray();
         }
-
-
-    }
-
-    private String createQuery(List<MetricName> metrics, String function,
-                               int startTimeSeconds, int endTimeSeconds, int stepSeconds) {
-
-        StringBuilder builder = new StringBuilder();
-
-        builder.append("SELECT metric, ts, ").append(function).append("(value) as value FROM (\n");
-
-        builder.append("    SELECT metric, ts, argMax(value, updated) as value ");
-        builder.append("FROM ").append(graphiteTable).append(" ");
-        builder.append("WHERE metric IN (").append(toMetricString(metrics)).append(") ");
-        builder.append("AND ts >= ").append(startTimeSeconds).append(" ");
-        builder.append("AND ts < ").append(endTimeSeconds).append(" ");
-        builder.append("AND date >= toDate(").append(startTimeSeconds).append(") ");
-        builder.append("AND date <= toDate(").append(endTimeSeconds).append(") ");
-        builder.append("GROUP BY metric, timestamp as ts\n");
-
-        builder.append(") GROUP BY metric, ");
-        builder.append("intDiv(toUInt32(ts), ").append(stepSeconds).append(") * ").append(stepSeconds).append(" as ts");
-        builder.append(" ORDER BY metric, ts");
-        return builder.toString();
     }
 
     private static String toMetricString(List<MetricName> metrics) {
-        return metrics.stream().map(MetricName::getName).collect(Collectors.joining("','", "'", "'"));
+        return metrics.stream()
+            .map(MetricName::getName)
+            .collect(Collectors.joining("','", "'", "'"));
     }
 
-
     private int selectStep(List<MetricName> metrics, int startTimeSeconds) {
-        int ageSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()) - startTimeSeconds;
-        int step = 1;
-        for (MetricName metric : metrics) {
-            step = Math.max(metric.getRetention().getStepSize(ageSeconds), step);
-        }
-        return step;
+        return metrics.stream()
+            .mapToInt(m -> m.getRetention().getStepSize(startTimeSeconds))
+            .max()
+            .orElse(1);
     }
 
     private ListMultimap<String, MetricName> getFunctionToMetrics(List<String> metricStrings) throws IOException {

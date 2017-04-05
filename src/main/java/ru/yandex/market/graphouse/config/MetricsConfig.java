@@ -31,7 +31,7 @@ public class MetricsConfig {
     @Value("${graphouse.clickhouse.data-table}")
     private String graphiteDataTable;
 
-    @Value("${graphouse.clickhouse.retention_config}")
+    @Value("${graphouse.clickhouse.retention-config}")
     private String retentionConfig;
 
     @Bean
