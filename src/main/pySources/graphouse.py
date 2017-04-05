@@ -14,7 +14,7 @@ graphouse_url = getattr(settings, 'GRAPHOUSE_URL', 'http://localhost:2005')
 
 class GraphouseFinder(object):
 
-    def find_nodes(self, query, req_key):
+    def find_nodes(self, query):
         request = requests.get('%s/search?%s' % (graphouse_url, urllib.urlencode({'query': query.pattern})))
         request.raise_for_status()
         result = request.text.split('\n')
@@ -25,14 +25,14 @@ class GraphouseFinder(object):
             if metric.endswith('.'):
                 yield BranchNode(metric[:-1])
             else:
-                yield LeafNode(metric, GraphouseReader(metric, req_key))
+                yield LeafNode(metric, GraphouseReader(metric))
 
 
 # Data reader
 class GraphouseReader(object):
     __slots__ = ('path', 'nodes', 'reqkey')
 
-    def __init__(self, path, reqkey=''):
+    def __init__(self, path, reqkey='empty'):
         self.nodes = [self]
         self.path = None
 
@@ -110,5 +110,5 @@ class GraphouseReader(object):
 
         return time_infos, points
 
-
+import graphite.readers
 graphite.readers.MultiReader = GraphouseReader
