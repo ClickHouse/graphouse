@@ -47,11 +47,11 @@ public class MetricDataService {
         ListMultimap<String, MetricName> functionToMetrics = getFunctionToMetrics(metricStrings);
 
 
-        jsonWriter.beginArray();
+        jsonWriter.beginObject();
         for (String function : functionToMetrics.keySet()) {
             appendData(functionToMetrics.get(function), function, startTimeSeconds, endTimeSeconds, jsonWriter);
         }
-        jsonWriter.endArray();
+        jsonWriter.endObject();
     }
 
     private void appendData(List<MetricName> metrics, String function,
@@ -108,7 +108,7 @@ public class MetricDataService {
                 checkNewMetric(metric);
                 fillNulls(ts);
                 if (Double.isFinite(value)) {
-                    jsonWriter.beginArray().value(value).value(ts).endArray();
+                    jsonWriter.value(value);
                     nextTs = ts + step;
                 }
             } catch (IOException e) {
@@ -128,7 +128,7 @@ public class MetricDataService {
 
         private void fillNulls(int max) throws IOException {
             for (; nextTs < max; nextTs += step) {
-                jsonWriter.beginArray().nullValue().value(nextTs).endArray();
+                jsonWriter.nullValue();
             }
         }
 
@@ -143,7 +143,7 @@ public class MetricDataService {
         }
 
         private void endMetric() throws IOException {
-            fillNulls(end + 1);
+            fillNulls(end);
             jsonWriter.endArray().endObject();
             currentMetric = null;
         }
@@ -151,9 +151,11 @@ public class MetricDataService {
         private void startMetric(String metric) throws IOException {
             nextTs = start;
             currentMetric = metric;
-            jsonWriter.beginObject();
-            jsonWriter.name("target").value(metric);
-            jsonWriter.name("datapoints").beginArray();
+            jsonWriter.name(metric).beginObject();
+            jsonWriter.name("start").value(start);
+            jsonWriter.name("end").value(end);
+            jsonWriter.name("step").value(step);
+            jsonWriter.name("points").beginArray();
         }
     }
 

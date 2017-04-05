@@ -27,10 +27,10 @@ public class MetricDataRowCallbackHandlerTest {
 
         StringWriter stringWriter = new StringWriter();
         JsonWriter jsonWriter = new JsonWriter(stringWriter);
-        jsonWriter.beginArray();
+        jsonWriter.beginObject();
 
         MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
-            jsonWriter, 100, 221, 60
+            jsonWriter, 100, 280, 60
         );
 
         while (resultSet.next()) {
@@ -38,51 +38,65 @@ public class MetricDataRowCallbackHandlerTest {
         }
         handler.finish();
 
-        jsonWriter.endArray();
+        jsonWriter.endObject();
 
+        JsonObject expected = new JsonObject();
+        expected.add("name1", createMetric(100, 280, 60, 33.33, 42.0, Double.NaN));
+        expected.add("name2", createMetric(100, 280, 60, Double.NaN, 32.0, 77.7));
 
-        Assert.assertEquals(getExpected().toString(), stringWriter.toString());
-
-        System.out.println();
-
-
+        Assert.assertEquals(expected.toString(), stringWriter.toString());
     }
 
-    private JsonArray getExpected() {
-        JsonArray expected = new JsonArray();
-        JsonObject metric1 = new JsonObject();
-        metric1.addProperty("target", "name1");
-        JsonArray datapoints1 = new JsonArray();
-        addPoint(datapoints1, 100, 33.33);
-        addPoint(datapoints1, 160, 42.0);
-        addPoint(datapoints1, 220, Double.NaN);
-        metric1.add("datapoints", datapoints1);
-        expected.add(metric1);
+    @Test
+    public void testChNan() throws Exception {
 
+        MockResultSet resultSet = new MockResultSet("data");
+        resultSet.addColumn("metric", new String[]{"name1", "name1", "name1"});
+        resultSet.addColumn("ts", new Integer[]{0, 1, 2});
+        resultSet.addColumn("value", new Double[]{0.0, Double.NaN, 2.0});
 
-        JsonObject metric2 = new JsonObject();
-        metric2.addProperty("target", "name2");
-        JsonArray datapoints2 = new JsonArray();
-        addPoint(datapoints2, 100, Double.NaN);
-        addPoint(datapoints2, 160, 32.0);
-        addPoint(datapoints2, 220, 77.7);
-        metric2.add("datapoints", datapoints2);
-        expected.add(metric2);
+        StringWriter stringWriter = new StringWriter();
+        JsonWriter jsonWriter = new JsonWriter(stringWriter);
+        jsonWriter.beginObject();
 
-        return expected;
+        MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
+            jsonWriter, 0, 3, 1
+        );
 
-
-    }
-
-    private void addPoint(JsonArray datapoints, int ts, double value) {
-        JsonArray point = new JsonArray();
-        if (Double.isFinite(value)) {
-            point.add(new JsonPrimitive(value));
-        } else {
-            point.add(JsonNull.INSTANCE);
+        while (resultSet.next()) {
+            handler.processRow(resultSet);
         }
-        point.add(new JsonPrimitive(ts));
-        datapoints.add(point);
+        handler.finish();
+
+        jsonWriter.endObject();
+
+        JsonObject expected = new JsonObject();
+        expected.add("name1", createMetric(0, 3, 1, 0.0, Double.NaN, 2.0));
+
+        Assert.assertEquals(expected.toString(), stringWriter.toString());
     }
+
+
+    private JsonObject createMetric(int start, int end, int step, double... values) {
+        JsonObject metric = new JsonObject();
+        metric.addProperty("start", start);
+        metric.addProperty("end", end);
+        metric.addProperty("step", step);
+        metric.add("points", createPoints(values));
+        return metric;
+    }
+
+    private JsonArray createPoints(double... values) {
+        JsonArray points = new JsonArray();
+        for (double value : values) {
+            if (Double.isFinite(value)) {
+                points.add(new JsonPrimitive(value));
+            } else {
+                points.add(JsonNull.INSTANCE);
+            }
+        }
+        return points;
+    }
+
 
 }
