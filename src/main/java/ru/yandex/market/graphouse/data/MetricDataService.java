@@ -109,8 +109,8 @@ public class MetricDataService {
                 fillNulls(ts);
                 if (Double.isFinite(value)) {
                     jsonWriter.beginArray().value(value).value(ts).endArray();
+                    nextTs = ts + step;
                 }
-                nextTs = ts + step;
             } catch (IOException e) {
                 log.error("Failed to read data from CH", e);
                 throw new RuntimeIOException(e);
