@@ -16,6 +16,7 @@ import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.search.tree.DirContent;
 import ru.yandex.market.graphouse.search.tree.DirContentBatcher;
 import ru.yandex.market.graphouse.search.tree.InMemoryMetricDir;
@@ -64,11 +65,12 @@ public class MetricSearch implements InitializingBean, Runnable {
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final Monitoring monitoring;
     private final MetricValidator metricValidator;
+    private final RetentionProvider retentionProvider;
+
 
     private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
     private MetricTree metricTree;
     private final Queue<MetricDescription> updateQueue = new ConcurrentLinkedQueue<>();
-
 
     private int lastUpdatedTimestampSeconds = 0;
 
@@ -106,10 +108,12 @@ public class MetricSearch implements InitializingBean, Runnable {
     private DirContentBatcher dirContentBatcher;
 
 
-    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring, MetricValidator metricValidator) {
+    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring,
+                        MetricValidator metricValidator, RetentionProvider retentionProvider) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
         this.metricValidator = metricValidator;
+        this.retentionProvider = retentionProvider;
     }
 
     @Override
@@ -144,7 +148,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 }
             });
 
-        metricTree = new MetricTree(metricDirFactory);
+        metricTree = new MetricTree(metricDirFactory, retentionProvider);
 
         new Thread(this, "MetricSearch thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -153,7 +157,6 @@ public class MetricSearch implements InitializingBean, Runnable {
             log.info("Metric search stopped");
         }));
     }
-
 
     private void saveMetrics(List<MetricDescription> metrics) {
         if (metrics.isEmpty()) {
@@ -241,7 +244,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 if (isDir) {
                     dirs.put(name, metricDirFactory.createMetricDir(dir, name, status));
                 } else {
-                    metrics.put(name, new MetricName(dir, name, status));
+                    metrics.put(name, new MetricName(dir, name, status, retentionProvider));
                 }
             },
             dirName, MetricStatus.AUTO_HIDDEN.name()
@@ -290,7 +293,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 currentDirs.put(name, metricDirFactory.createMetricDir(currentDir, name, status));
                 dirCount++;
             } else {
-                currentMetrics.put(name, new MetricName(currentDir, name, status));
+                currentMetrics.put(name, new MetricName(currentDir, name, status, retentionProvider));
                 metricCount++;
             }
         }

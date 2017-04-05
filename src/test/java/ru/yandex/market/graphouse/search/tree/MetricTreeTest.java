@@ -2,11 +2,9 @@ package ru.yandex.market.graphouse.search.tree;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import org.junit.Assert;
 import org.junit.Test;
+import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
 import ru.yandex.market.graphouse.search.MetricStatus;
-import ru.yandex.market.graphouse.search.tree.InMemoryMetricDir;
-import ru.yandex.market.graphouse.search.tree.MetricTree;
 import ru.yandex.market.graphouse.utils.AppendableWrapper;
 
 import java.io.IOException;
@@ -24,7 +22,7 @@ import static org.junit.Assert.assertTrue;
 
 public class MetricTreeTest {
 
-    private MetricTree tree = new MetricTree(InMemoryMetricDir::new);
+    private MetricTree tree = new MetricTree(InMemoryMetricDir::new, new DefaultRetentionProvider());
 
     public static Pattern createPattern(final String globPattern) {
         String result = globPattern.replace("*", "[-_0-9a-zA-Z]*");
@@ -100,7 +98,7 @@ public class MetricTreeTest {
 
     @Test
     public void testStatusesWorkflow() throws Exception {
-        Assert.assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x1").getStatus());
+        assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x1").getStatus());
         assertEquals(MetricStatus.SIMPLE, tree.add("five_sec.int_8742.x1").getStatus());
 
         // BAN -> APPROVED

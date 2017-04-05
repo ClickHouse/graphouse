@@ -1,6 +1,8 @@
 package ru.yandex.market.graphouse.search.tree;
 
 import ru.yandex.market.graphouse.search.MetricStatus;
+import ru.yandex.market.graphouse.retention.MetricRetention;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -8,8 +10,15 @@ import ru.yandex.market.graphouse.search.MetricStatus;
  */
 public class MetricName extends MetricBase {
 
-    public MetricName(MetricDir parent, String name, MetricStatus status) {
+    private final MetricRetention retention;
+
+    public MetricName(MetricDir parent, String name, MetricStatus status, RetentionProvider retentionProvider) {
+        this(parent, name, status, retentionProvider.getRetention(parent.getName() + name));
+    }
+
+    public MetricName(MetricDir parent, String name, MetricStatus status, MetricRetention retention) {
         super(parent, name, status);
+        this.retention = retention;
     }
 
     @Override
@@ -19,6 +28,10 @@ public class MetricName extends MetricBase {
 
     @Override
     public String getName() {
-        return parent.isRoot() ? name : parent.toString() + name;
+        return parent.isRoot() ? name : parent.getName() + name;
+    }
+
+    public MetricRetention getRetention() {
+        return retention;
     }
 }

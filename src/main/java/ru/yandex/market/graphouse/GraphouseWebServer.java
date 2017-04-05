@@ -23,11 +23,11 @@ public class GraphouseWebServer {
 
     private static final Logger log = LogManager.getLogger();
 
-    @Value("${graphouse.server.port}")
-    private int metricSearchPort = 7000;
+    @Value("${graphouse.http.port}")
+    private int httpPort;
 
-    @Value("${graphouse.search.threads}")
-    private int threadCount = 20;
+    @Value("${graphouse.http.threads}")
+    private int threadCount;
 
     private final MetricSearchServlet metricSearchServlet;
     private final MonitoringServlet monitoringServlet;
@@ -43,9 +43,11 @@ public class GraphouseWebServer {
     }
 
     private void startServer() throws Exception {
+
+        log.info("Starting http server on port " + httpPort);
         Server server = new Server(new QueuedThreadPool(threadCount));
         ServerConnector serverConnector = new ServerConnector(server);
-        serverConnector.setPort(metricSearchPort);
+        serverConnector.setPort(httpPort);
         server.setConnectors(new Connector[]{serverConnector});
         ServletContextHandler context = new ServletContextHandler();
         context.setContextPath("/");
@@ -70,5 +72,7 @@ public class GraphouseWebServer {
         handlers.setHandlers(new Handler[]{context, new DefaultHandler()});
         server.setHandler(handlers);
         server.start();
+
+        log.info("Web server started on port " + httpPort);
     }
 }

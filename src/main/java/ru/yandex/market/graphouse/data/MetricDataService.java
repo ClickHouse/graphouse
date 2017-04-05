@@ -1,87 +1,188 @@
 package ru.yandex.market.graphouse.data;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ListMultimap;
+import com.google.gson.stream.JsonWriter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.eclipse.jetty.io.RuntimeIOException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
+import ru.yandex.market.graphouse.search.MetricSearch;
+import ru.yandex.market.graphouse.search.tree.MetricName;
 
 import java.io.IOException;
-import java.io.Writer;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.PrintWriter;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * @author Vlad Vinogradov <a href="mailto:vladvin@yandex-team.ru"></a>
- * @date 31.10.16
+ * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
+ * @date 03/04/2017
  */
-
 public class MetricDataService {
 
     private static final Logger log = LogManager.getLogger();
 
-    @Value("${graphouse.clickhouse.data-table}")
-    private String graphiteTable;
+    private final MetricSearch metricSearch;
 
-    private final NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate;
+    private final JdbcTemplate clickHouseJdbcTemplate;
 
-    public MetricDataService(NamedParameterJdbcTemplate clickHouseNamedJdbcTemplate) {
-        this.clickHouseNamedJdbcTemplate = clickHouseNamedJdbcTemplate;
+    private final String graphiteTable;
+
+    public MetricDataService(MetricSearch metricSearch, JdbcTemplate clickHouseJdbcTemplate, String graphiteTable) {
+        this.metricSearch = metricSearch;
+        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
+        this.graphiteTable = graphiteTable;
     }
 
-    private String buildQuery(MetricDataParameters parameters) {
 
-        final StringBuilder sqlBuilder = new StringBuilder();
+    public void getData(List<String> metricStrings, int startTimeSeconds, int endTimeSeconds,
+                        PrintWriter writer) throws Exception {
 
-        sqlBuilder.append("SELECT metric, kvantT, argMax(value, updated) as value FROM ").append(graphiteTable).append("\n");
+        JsonWriter jsonWriter = new JsonWriter(writer);
+        ListMultimap<String, MetricName> functionToMetrics = getFunctionToMetrics(metricStrings);
 
-        final String metricNames = parameters.getMetrics().stream().collect(Collectors.joining("', '", "'", "'"));
-        sqlBuilder.append("WHERE metric IN ( ").append(metricNames).append(" ) \n");
 
-        sqlBuilder
-            .append("AND kvantT >= :startTime AND kvantT <= :endTime \n")
-            .append("AND date >= toDate(toDateTime( :startTime )) AND date <= toDate(toDateTime( :endTime )) \n")
-            .append("GROUP BY metric, intDiv(toUInt32(timestamp), :step ) * :step as kvantT \n")
-            .append("ORDER BY metric, kvantT \n");
-
-        return sqlBuilder.toString();
+        jsonWriter.beginArray();
+        for (String function : functionToMetrics.keySet()) {
+            appendData(functionToMetrics.get(function), function, startTimeSeconds, endTimeSeconds, jsonWriter);
+        }
+        jsonWriter.endArray();
     }
 
-    public void writeData(MetricDataParameters parameters, Writer resp) throws IOException {
-        final long startTime = System.nanoTime();
+    private void appendData(List<MetricName> metrics, String function,
+                            int startTimeSeconds, int endTimeSeconds, JsonWriter jsonWriter) {
 
-        final String query = buildQuery(parameters);
+        int timeSeconds = endTimeSeconds - startTimeSeconds;
+        int stepSeconds = selectStep(metrics, startTimeSeconds);
 
-        log.debug("Request = \n" + query);
 
-        final Map<String, Object> queryParams = new HashMap<>();
-        queryParams.put("startTime", parameters.getStartTimeSeconds());
-        queryParams.put("endTime", parameters.getEndTimeSeconds());
-        queryParams.put("step", parameters.getMetricStep().getStepSizeInSeconds());
+        int dataPoints = timeSeconds / stepSeconds;
 
-        final MetricDataResult dataResult = new MetricDataResult(parameters, resp);
+        startTimeSeconds = startTimeSeconds / stepSeconds * stepSeconds;
+        endTimeSeconds = startTimeSeconds + (dataPoints * stepSeconds);
 
-        try {
-            clickHouseNamedJdbcTemplate.query(
-                query,
-                queryParams,
-                rs -> {
-                    try {
-                        dataResult.appendData(rs.getString(1), rs.getLong(2), rs.getFloat(3));
-                    } catch (IOException e){
-                        log.error("Can't write values to json");
-                        throw new RuntimeException(e);
-                    }
-                }
-            );
-        } catch (RuntimeException e) {
-            log.error("Data request failed", e);
-            throw e;
+        MetricDataRowCallbackHandler handler = new MetricDataRowCallbackHandler(
+            jsonWriter, startTimeSeconds, endTimeSeconds, stepSeconds
+        );
+        clickHouseJdbcTemplate.query(
+            "SELECT metric, ts, " + function + "(value) as value FROM (" +
+                "   SELECT metric, ts, argMax(value, updated) as value FROM " + graphiteTable +
+                "       WHERE metric IN (" + toMetricString(metrics) + ")" +
+                "           AND ts >= ? AND ts < ? AND date >= toDate(?) AND date <= toDate(?)" +
+                "       GROUP BY metric, timestamp as ts" +
+                ") GROUP BY metric, intDiv(toUInt32(ts), ?) * ? as ts ORDER BY metric, ts",
+            handler,
+            startTimeSeconds, endTimeSeconds, startTimeSeconds, endTimeSeconds, stepSeconds, stepSeconds
+        );
+        handler.finish();
+    }
+
+    @VisibleForTesting
+    protected static class MetricDataRowCallbackHandler implements RowCallbackHandler {
+        private final JsonWriter jsonWriter;
+        private final int start;
+        private final int end;
+        private final int step;
+
+        private String currentMetric = null;
+        private int nextTs;
+
+        public MetricDataRowCallbackHandler(JsonWriter jsonWriter, int start, int end, int step) {
+            this.jsonWriter = jsonWriter;
+            this.start = start;
+            this.end = end;
+            this.step = step;
         }
 
-        dataResult.flush();
+        @Override
+        public void processRow(ResultSet rs) throws SQLException {
+            try {
+                String metric = rs.getString("metric");
+                int ts = rs.getInt("ts");
+                double value = rs.getDouble("value");
+                checkNewMetric(metric);
+                fillNulls(ts);
+                if (Double.isFinite(value)) {
+                    jsonWriter.beginArray().value(value).value(ts).endArray();
+                    nextTs = ts + step;
+                }
+            } catch (IOException e) {
+                log.error("Failed to read data from CH", e);
+                throw new RuntimeIOException(e);
+            }
+        }
 
-        log.debug(String.format("graphouse_time:[%s] full = %s", parameters.getReqKey(), System.nanoTime() - startTime));
+        public void finish() {
+            try {
+                endMetric();
+            } catch (IOException e) {
+                log.error("Failed to read data from CH", e);
+                throw new RuntimeIOException(e);
+            }
+        }
+
+        private void fillNulls(int max) throws IOException {
+            for (; nextTs < max; nextTs += step) {
+                jsonWriter.beginArray().nullValue().value(nextTs).endArray();
+            }
+        }
+
+        private void checkNewMetric(String metric) throws IOException {
+            if (metric.equals(currentMetric)) {
+                return;
+            }
+            if (currentMetric != null) {
+                endMetric();
+            }
+            startMetric(metric);
+        }
+
+        private void endMetric() throws IOException {
+            fillNulls(end + 1);
+            jsonWriter.endArray().endObject();
+            currentMetric = null;
+        }
+
+        private void startMetric(String metric) throws IOException {
+            nextTs = start;
+            currentMetric = metric;
+            jsonWriter.beginObject();
+            jsonWriter.name("target").value(metric);
+            jsonWriter.name("datapoints").beginArray();
+        }
     }
+
+    private static String toMetricString(List<MetricName> metrics) {
+        return metrics.stream()
+            .map(MetricName::getName)
+            .collect(Collectors.joining("','", "'", "'"));
+    }
+
+    private int selectStep(List<MetricName> metrics, int startTimeSeconds) {
+        return metrics.stream()
+            .mapToInt(m -> m.getRetention().getStepSize(startTimeSeconds))
+            .max()
+            .orElse(1);
+    }
+
+    private ListMultimap<String, MetricName> getFunctionToMetrics(List<String> metricStrings) throws IOException {
+        ListMultimap<String, MetricName> functionToMetrics = ArrayListMultimap.create();
+
+        for (String metricString : metricStrings) {
+            metricSearch.search(metricString, metric -> {
+                if (metric instanceof MetricName) {
+                    MetricName metricName = (MetricName) metric;
+                    functionToMetrics.put(metricName.getRetention().getFunction(), metricName);
+                }
+            });
+        }
+        return functionToMetrics;
+    }
+
+
 }

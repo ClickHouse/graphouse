@@ -4,6 +4,7 @@ import ru.yandex.market.graphouse.search.tree.MetricDescription;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,7 +23,7 @@ public class AppendableList implements AppendableResult {
 
     public List<MetricDescription> getSortedList() {
         return data.stream()
-            .sorted((md, comp) -> md.getName().compareTo(comp.getName()))
+            .sorted(Comparator.comparing(MetricDescription::getName))
             .collect(Collectors.toList());
     }
 

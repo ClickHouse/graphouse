@@ -25,14 +25,14 @@ public class MetricServer implements InitializingBean {
 
     private static final Logger log = LogManager.getLogger();
 
-    @Value("${graphouse.search.port}")
-    private int port = 2024;
+    @Value("${graphouse.cacher.port}")
+    private int port;
 
-    @Value("${graphouse.server.socket-timeout-millis}")
-    private int socketTimeoutMillis = 50_000;
+    @Value("${graphouse.cacher.socket-timeout-millis}")
+    private int socketTimeoutMillis;
 
-    @Value("${graphouse.server.threads}")
-    private int threadCount = 20;
+    @Value("${graphouse.cacher.threads}")
+    private int threadCount;
 
     private ServerSocket serverSocket;
     private ExecutorService executorService;
@@ -67,7 +67,7 @@ public class MetricServer implements InitializingBean {
                 log.info("Metric server stopped");
             }
         }));
-        log.info("Metric server started");
+        log.info("Metric server started on port " + port);
     }
 
     private class MetricServerWorker implements Runnable {

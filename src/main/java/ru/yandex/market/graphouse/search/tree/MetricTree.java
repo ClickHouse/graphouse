@@ -5,6 +5,7 @@ import com.google.common.base.CharMatcher;
 import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.search.MetricPath;
 import ru.yandex.market.graphouse.search.MetricStatus;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 
 import java.io.IOException;
@@ -27,9 +28,11 @@ public class MetricTree {
     private final MetricDir root = new InMemoryMetricDir(null, "", MetricStatus.SIMPLE);
 
     private final MetricDirFactory metricDirFactory;
+    private final RetentionProvider retentionProvider;
 
-    public MetricTree(MetricDirFactory metricDirFactory) {
+    public MetricTree(MetricDirFactory metricDirFactory, RetentionProvider retentionProvider) {
         this.metricDirFactory = metricDirFactory;
+        this.retentionProvider = retentionProvider;
     }
 
     public void search(String query, AppendableResult result) throws IOException {
@@ -188,7 +191,7 @@ public class MetricTree {
                 if (isDir) {
                     metricBase = dir.getOrCreateDir(level, status, metricDirFactory);
                 } else {
-                    metricBase = dir.getOrCreateMetric(level, status);
+                    metricBase = dir.getOrCreateMetric(level, status, retentionProvider);
                 }
                 metricBase.setStatus(selectStatus(metricBase.getStatus(), status));
                 return metricBase;

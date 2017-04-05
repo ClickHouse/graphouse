@@ -21,4 +21,5 @@ public interface MetricDescription {
     int getLevel();
 
     boolean isRoot();
+
 }

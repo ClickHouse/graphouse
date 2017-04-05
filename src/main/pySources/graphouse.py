@@ -140,8 +140,8 @@ class GraphouseReader(object):
             query = urllib.urlencode(
                 {
                     'metrics': ','.join(paths),
-                    'startSecond': start_time,
-                    'endSecond': end_time,
+                    'start': start_time,
+                    'end': end_time,
                     'reqKey': self.reqkey
                 })
             request_url = graphouse_url + "/metricData"
@@ -159,7 +159,7 @@ class GraphouseReader(object):
         response = json.loads(request.text)
         profilingTime['parse'] = time.time()
 
-        result = [(node, (response.get("timeInfo"), response.get("data").get(node.path))) for node in self.nodes]
+        result = [(node, (response.get(node.path).get("timeInfo"), response.get(node.path).get("data"))) for node in self.nodes]
         profilingTime['convert'] = time.time()
 
         log.info('DEBUG:graphouse_time:[%s] full = %s fetch = %s, parse = %s, convert = %s' % (
