@@ -97,7 +97,6 @@ public class MetricDataService {
             this.start = start;
             this.end = end;
             this.step = step;
-            nextTs = start;
         }
 
         @Override
