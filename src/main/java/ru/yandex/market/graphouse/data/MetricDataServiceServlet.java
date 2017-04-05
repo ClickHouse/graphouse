@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.data;
 
+import com.google.common.base.Stopwatch;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -36,6 +37,9 @@ public class MetricDataServiceServlet extends HttpServlet {
     }
 
     private void getData(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+
+        Stopwatch stopwatch = Stopwatch.createStarted();
+
         final String metricsString = req.getParameter("metrics");
 
         if (metricsString == null || metricsString.isEmpty()) {
@@ -68,6 +72,14 @@ public class MetricDataServiceServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             e.printStackTrace(resp.getWriter());
             return;
+        }
+        stopwatch.stop();
+        if (log.isDebugEnabled()) {
+            log.debug(
+                "Metric data request processed in " + stopwatch.toString() +
+                    ". Start=" + startTimeSeconds + ", end=" + endTimeSeconds +
+                    ", metrics (" + metrics.size() + "): " + metrics.toString()
+            );
         }
         resp.setStatus(HttpServletResponse.SC_OK);
     }
