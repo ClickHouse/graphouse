@@ -1,5 +1,5 @@
+-Xms256m
 -Xmx4g
--Xms4g
 -Xss2m
 -XX:StringTableSize=10000000
 -XX:+UseG1GC
