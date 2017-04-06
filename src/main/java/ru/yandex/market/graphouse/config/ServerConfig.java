@@ -43,8 +43,7 @@ public class ServerConfig {
     @Bean(initMethod = "startServer")
     public GraphouseWebServer graphouseWebServer() {
 
-        final MetricSearchServlet metricSearchServlet = new MetricSearchServlet();
-        metricSearchServlet.setMetricSearch(metricSearch);
+        final MetricSearchServlet metricSearchServlet = new MetricSearchServlet(metricSearch, allowColdRun);
 
         final MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, metricSearch, allowColdRun);
 

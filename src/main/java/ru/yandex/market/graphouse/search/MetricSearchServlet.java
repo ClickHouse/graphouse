@@ -20,10 +20,22 @@ import java.io.Writer;
 public class MetricSearchServlet extends HttpServlet {
 
     private static final Logger log = LogManager.getLogger();
-    private MetricSearch metricSearch;
+    private final MetricSearch metricSearch;
+    private final boolean allowColdRun;
+
+    public MetricSearchServlet(MetricSearch metricSearch, boolean allowColdRun) {
+        this.metricSearch = metricSearch;
+        this.allowColdRun = allowColdRun;
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        if (!allowColdRun && !metricSearch.isMetricTreeLoaded()){
+            resp.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            resp.getWriter().println("Metric tree not loaded\n");
+            resp.getWriter().println("Loading status: " + metricSearch.getMetricSearchUnit().toString());
+            return;
+        }
         switch (req.getRequestURI()) {
             case "/search":
                 search(req, resp);
@@ -100,10 +112,5 @@ public class MetricSearchServlet extends HttpServlet {
             return;
         }
         metricSearch.search(query, writer);
-    }
-
-    @Resource
-    public void setMetricSearch(MetricSearch metricSearch) {
-        this.metricSearch = metricSearch;
     }
 }

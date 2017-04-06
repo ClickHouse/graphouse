@@ -68,7 +68,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private final RetentionProvider retentionProvider;
 
 
-    private MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
+    private final MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
     private MetricTree metricTree;
     private final Queue<MetricDescription> updateQueue = new ConcurrentLinkedQueue<>();
 
@@ -538,5 +538,9 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public boolean isMetricTreeLoaded() {
         return lastUpdatedTimestampSeconds != 0;
+    }
+
+    public MonitoringUnit getMetricSearchUnit() {
+        return metricSearchUnit;
     }
 }
