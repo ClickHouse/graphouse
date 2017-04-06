@@ -14,16 +14,15 @@ All parameters can be viewed in [graphouse-default.properties](../src/main/resou
 
 Metric cacher
 -------------
-Graphouse support [graphite plaintext protocol](http://graphite.readthedocs.io/en/latest/feeding-carbon.html#the-plaintext-protocol).
+Graphouse support [graphite plaintext protocol](http://graphite.readthedocs.io/en/latest/feeding-carbon.html#the-plaintext-protocol)
 
 ```properties
-
 graphouse.cacher.port=2003
 graphouse.cacher.threads=100
 graphouse.cacher.socket-timeout-millis=42000
 
-graphouse.cacher.cache-size=6000000
-graphouse.cacher.batch-size=3000000
+graphouse.cacher.cache-size=2000000
+graphouse.cacher.batch-size=1000000
 graphouse.cacher.writers-count=2
 graphouse.cacher.flush-interval-seconds=5
 ```
