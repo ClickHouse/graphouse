@@ -24,12 +24,11 @@ PID_FILE=/var/run/$SERVICE.pid
 case "$1" in
   start)
     log_begin_msg "Starting $DAEMON..."
-    chown $SERVICE:nogroup /var/run/$SERVICE
- 
-    if start-stop-daemon --quiet --stop --signal 0 --pidfile $PID_FILE 2>/dev/null 1>/dev/null; then
+
+    if start-stop-daemon --quiet --stop --signal 0 --pidfile $PID_FILE 1>$SHELL_LOG 2>&1; then
       log_failure_msg "$DAEMON already running"
     else
-      /sbin/start-stop-daemon --start --exec $GRAPHOUSE_ROOT/bin/graphouse --make-pidfile --pidfile $PID_FILE --background --no-close --chuid $USER
+      /sbin/start-stop-daemon --start --exec $GRAPHOUSE_ROOT/bin/graphouse --make-pidfile --pidfile $PID_FILE --background --no-close --chuid $USER 1>$SHELL_LOG 2>&1
       log_end_msg $?
     fi
     PID=$(<$PID_FILE)
@@ -37,7 +36,7 @@ case "$1" in
  
   stop)
     log_begin_msg "Stopping $DAEMON..."
-    start-stop-daemon --quiet --oknodo --retry=TERM/15/KILL/5 --stop --pidfile $PID_FILE 1>/dev/null 2>&1
+    start-stop-daemon --quiet --oknodo --retry=TERM/15/KILL/5 --stop --pidfile $PID_FILE 1>$SHELL_LOG 2>&1
     log_end_msg $?
     rm -f $PID_FILE 2>/dev/null
   ;;

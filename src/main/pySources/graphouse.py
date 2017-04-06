@@ -1,111 +1,39 @@
-import itertools
 import json
-import re
 import time
 import traceback
 import urllib
-
 import requests
-
-from django.conf import settings
-
-from graphite.conductor import Conductor
-from graphite.logger import log
-
-try:
-    from graphite_api.intervals import Interval, IntervalSet
-    from graphite_api.node import LeafNode, BranchNode
-except ImportError:
-    from graphite.intervals import Interval, IntervalSet
-    from graphite.node import LeafNode, BranchNode
-
 import graphite.readers
 
-conductor = Conductor()
+from django.conf import settings
+from graphite.intervals import IntervalSet, Interval
+from graphite.logger import log
+from graphite.node import LeafNode, BranchNode
 
-graphouse_url = getattr(settings, 'GRAPHOUSE_URL', 'http://localhost:7000')
-
-def conductor_glob(queries):
-    result = set()
-    for query in queries:
-        parts = query.split('.')
-        for (index, part) in enumerate(parts):
-            if conductor.CONDUCTOR_EXPR_RE.match(part):
-                hosts = conductor.expandExpression(part)
-                hosts = [host.replace('.', '_') for host in hosts]
-
-                if len(hosts) > 0:
-                    parts[index] = hosts
-                else:
-                    parts[index] = [part]
-            else:
-                parts[index] = [part]
-        result.update(['.'.join(p) for p in itertools.product(*parts)])
-    return list(result)
+graphouse_url = getattr(settings, 'GRAPHOUSE_URL', 'http://localhost:2005')
 
 
-# Load metrics
 class GraphouseFinder(object):
 
-    # Need check. Maybe this method is deprecated
-    def prepare_queries(self, pattern):
-        queries = self.expand_braces(pattern)
-        queries = conductor_glob(queries)
-
-        return queries
-
-
-    def _expand_braces_part(self, part, braces_re):
-        match = braces_re.search(part)
-        if not match:
-            return [part]
-
-        result = set()
-
-        start_pos, end_pos = match.span(1)
-        for item in match.group(1).strip('{}').split(','):
-            result.update(self._expand_braces_part(part[:start_pos] + item + part[end_pos:], braces_re))
-
-        return list(result)
-
-    def expand_braces(self, query):
-        braces_re = re.compile('({[^{},]*,[^{}]*})')
-
-        parts = query.split('.')
-        for (index, part) in enumerate(parts):
-            parts[index] = self._expand_braces_part(part, braces_re)
-
-        result = set(['.'.join(p) for p in itertools.product(*parts)])
-        return list(result)
-
-    """
-    Graphite method
-    Find metrics in database and build metrics tree.
-    """
-    def find_nodes(self, query, req_key):
-
-        result = []
-        for query in self.prepare_queries(query.pattern):
-            request = requests.get('%s/search?%s' % (graphouse_url, urllib.urlencode({'query': query})))
-            request.raise_for_status()
-
-            result += request.text.split('\n')
+    def find_nodes(self, query):
+        request = requests.get('%s/search?%s' % (graphouse_url, urllib.urlencode({'query': query.pattern})))
+        request.raise_for_status()
+        result = request.text.split('\n')
 
         for metric in result:
             if not metric:
                 continue
-
             if metric.endswith('.'):
                 yield BranchNode(metric[:-1])
             else:
-                yield LeafNode(metric, GraphouseReader(metric, req_key))
+                yield LeafNode(metric, GraphouseReader(metric))
 
 
 # Data reader
 class GraphouseReader(object):
     __slots__ = ('path', 'nodes', 'reqkey')
 
-    def __init__(self, path, reqkey=''):
+    def __init__(self, path, reqkey='empty'):
         self.nodes = [self]
         self.path = None
 
@@ -152,14 +80,25 @@ class GraphouseReader(object):
             request.raise_for_status()
         except Exception as e:
             log.info("Failed to fetch data, got exception:\n %s" % traceback.format_exc())
-            return []
+            raise e
 
         profilingTime['fetch'] = time.time()
 
-        response = json.loads(request.text)
+        metrics_object = json.loads(request.text)
         profilingTime['parse'] = time.time()
 
-        result = [(node, (response.get(node.path).get("timeInfo"), response.get(node.path).get("data"))) for node in self.nodes]
+        time_infos = []
+        points = []
+
+        for node in self.nodes:
+            metric_object = metrics_object.get(node.path)
+            if metric_object is None:
+                time_infos += (0, 0, 1)
+                points += []
+            else:
+                time_infos += (metric_object.get("start"), metric_object.get("end"), metric_object.get("step"))
+                points += metric_object.get("points")
+
         profilingTime['convert'] = time.time()
 
         log.info('DEBUG:graphouse_time:[%s] full = %s fetch = %s, parse = %s, convert = %s' % (
@@ -170,13 +109,6 @@ class GraphouseReader(object):
             profilingTime['convert'] - profilingTime['parse']
         ))
 
-        if len(result[0]) == 0:
-            return []
-
-        if self.path:
-            return result[0][1]
-
-        return result
-
+        return time_infos, points
 
 graphite.readers.MultiReader = GraphouseReader

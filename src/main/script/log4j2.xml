@@ -4,8 +4,8 @@
         <Async name="ASYNC">
             <AppenderRef ref="MAIN"/>
         </Async>
-        <RollingFile name="MAIN" fileName="$app.home/log/graphouse.log"
-                     filePattern="$app.home/log/graphouse-%d{yyyy-MM-dd}.log.gz">
+        <RollingFile name="MAIN" fileName="${sys:app.home}/log/graphouse.log"
+                     filePattern="${sys:app.home}/log/graphouse-%d{yyyy-MM-dd}.log.gz">
             <PatternLayout pattern="%d %-5p [%c{1} %t] %m%n"/>
             <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
             <DefaultRolloverStrategy max="14"/>
