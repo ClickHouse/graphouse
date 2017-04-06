@@ -10,7 +10,7 @@ import java.util.List;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 04/04/2017
  */
-public class ClickHouseRetentionProvider extends AbstractRetentionsProvider {
+public class ClickHouseRetentionProvider extends AbstractRetentionProvider {
 
     private static final Logger log = LogManager.getLogger();
 
