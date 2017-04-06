@@ -2,8 +2,9 @@ import json
 import time
 import traceback
 import urllib
-
 import requests
+import graphite.readers
+
 from django.conf import settings
 from graphite.intervals import IntervalSet, Interval
 from graphite.logger import log
@@ -110,5 +111,4 @@ class GraphouseReader(object):
 
         return time_infos, points
 
-import graphite.readers
 graphite.readers.MultiReader = GraphouseReader
