@@ -155,7 +155,7 @@ CREATE TABLE graphite.metrics ( date Date DEFAULT toDate(0),  name String,  leve
 CREATE TABLE graphite.data ( metric String,  value Float64,  timestamp UInt32,  date Date,  updated UInt32) ENGINE = GraphiteMergeTree(date, (metric, timestamp), 8192, 'graphite_rollup');
 ```
 
-**Notice**: If you don't ClickHouse to rollup data, you can use ReplacingMergeTree instead of GraphiteMergeTree.
+**Notice**: If you don't want ClickHouse to rollup data, you can use ReplacingMergeTree instead of GraphiteMergeTree.
 ```sql
 CREATE TABLE graphite.data ( metric String,  value Float64,  timestamp UInt32,  date Date,  updated UInt32) ENGINE = ReplacingMergeTree(date, (metric, timestamp), 8192, updated)
 ```
