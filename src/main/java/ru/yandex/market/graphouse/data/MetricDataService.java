@@ -17,6 +17,7 @@ import java.io.PrintWriter;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -169,8 +170,9 @@ public class MetricDataService {
     }
 
     private int selectStep(List<MetricName> metrics, int startTimeSeconds) {
+        int ageSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()) - startTimeSeconds;
         return metrics.stream()
-            .mapToInt(m -> m.getRetention().getStepSize(startTimeSeconds))
+            .mapToInt(m -> m.getRetention().getStepSize(ageSeconds))
             .max()
             .orElse(1);
     }

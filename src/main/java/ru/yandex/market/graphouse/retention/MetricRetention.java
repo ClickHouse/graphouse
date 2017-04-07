@@ -35,7 +35,7 @@ public class MetricRetention {
     }
 
     public int getStepSize(int ageSeconds) {
-        Integer step = ranges.get(ageSeconds);
+        Integer step = ranges.get(Math.max(ageSeconds, 0));
         Preconditions.checkNotNull(
             step, "Could find retention step for age " + ageSeconds + ", values: " + ranges.toString()
         );
