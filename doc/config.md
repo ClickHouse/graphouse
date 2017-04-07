@@ -5,7 +5,7 @@ Configuration files
 -------------------
 
 Default configuration provided in `graphouse.properties` file, `/etc/graphouse` dir in deb package.
-You can either edit this file, or and add local-application.properties with the necessary parameters.
+You can either edit this file, or add local-application.properties with necessary parameters.
 
 Java VM options provided in `graphouse.vmoptions` file.
 

@@ -4,10 +4,10 @@ Installation guide
 ClickHouse
 ----------
 
-- Install ClickHouse. [See doc.](https://clickhouse.yandex/reference_en.html#Installation)
+- [Install ClickHouse.](https://clickhouse.yandex/reference_en.html#Installation)
 
 - Create rollup config `/etc/clickhouse-server/conf.d/graphite_rollup.xml`.
-Notice **graphite_rollup** tag name. It will be used later.
+Pay attention to **graphite_rollup** tag name. The name is used below.
 
 ```xml
 <yandex>
@@ -159,7 +159,7 @@ CREATE TABLE graphite.data ( metric String,  value Float64,  timestamp UInt32,  
 ```sql
 CREATE TABLE graphite.data ( metric String,  value Float64,  timestamp UInt32,  date Date,  updated UInt32) ENGINE = ReplacingMergeTree(date, (metric, timestamp), 8192, updated)
 ```
-But you still need to describe the rules for the rotation, that would Graphouse knew metric step.
+But you still need to describe the rules for the rotation, so that Graphouse knows its metrics retention.
 
 
 Graphouse
@@ -175,8 +175,8 @@ See [Configuration](config.md) for more details.
 Graphite-web
 ------------
 - Install [graphite-web](http://graphite.readthedocs.io/en/latest/), if you don't have it already. You don't need carbon or whisper, Graphouse and ClickHouse completely replace them.
-- Add graphouse plugin `/opt/graphouse/bin/graphouse.py` to you graphite webapp root dir.
-For example if you dir is `/opt/graphite/webapp/graphite/` use command below
+- Add graphouse plugin `/opt/graphouse/bin/graphouse.py` to your graphite webapp root dir.
+For example, if you dir is `/opt/graphite/webapp/graphite/` use command below
 ```bash
 sudo ln -fs /opt/graphouse/bin/graphouse.py /opt/graphite/webapp/graphite/graphouse.py
 ```
