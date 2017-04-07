@@ -7,6 +7,8 @@ Graphouse allows you to use ClickHouse as a Graphite storage.
 
 [Configuration](doc/config.md)
 
+[Build](doc/build.md)
+
 Overview
 --------
 Comparing with [common graphite architecture](https://github.com/graphite-project/graphite-web#overview) .
