@@ -12,6 +12,13 @@ Java VM options provided in `graphouse.vmoptions` file.
 All parameters can be viewed in [graphouse-default.properties](../src/main/resources/graphouse-default.properties)
 
 
+Java Options (graphouse.vmoptions)
+----------------------------------
+By default, Graphouse is configured with 256Mb Xms (startup memory) and 4Gb Xmx (max memory usage).
+If you have a huge metric tree (>1 million metrics), it is recommended to increase Xmx.
+Also it is better to set Xms equal to Xmx (in this case Graphouse will allocate all allowed memory to startup).
+
+
 Metric cacher
 -------------
 Graphouse support [graphite plaintext protocol](http://graphite.readthedocs.io/en/latest/feeding-carbon.html#the-plaintext-protocol)
