@@ -6,10 +6,10 @@ import java.util.List;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 04/04/2017
  */
-public class AbstractRetentionsProvider implements RetentionProvider{
+public class AbstractRetentionProvider implements RetentionProvider{
     private final List<MetricRetention> retentions;
 
-    public AbstractRetentionsProvider(List<MetricRetention> retentions) {
+    public AbstractRetentionProvider(List<MetricRetention> retentions) {
         this.retentions = retentions;
     }
 

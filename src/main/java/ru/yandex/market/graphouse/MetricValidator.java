@@ -16,10 +16,10 @@ public class MetricValidator {
     @Value("${graphouse.metric-validation.max-length}")
     private int maxMetricLength = 200;
 
-    @Value("${graphouse.metric-validation.min-dots}")
+    @Value("${graphouse.metric-validation.min-levels}")
     private int minDots = 2;
 
-    @Value("${graphouse.metric-validation.max-dots}")
+    @Value("${graphouse.metric-validation.max-levels}")
     private int maxDots = 15;
 
     @Value("${graphouse.metric-validation.regexp}")
