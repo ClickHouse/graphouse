@@ -1,8 +1,9 @@
 Source: graphouse
 Priority: optional
-Maintainer: Dmitry Andreev <andreevdm@yandex-team.ru>
+Maintainer: Dmitry Andreev <AndreevDm@yandex-team.ru>
 Build-Depends: debhelper (>= 8.0.0)
 Standards-Version: 3.9.4
+Section: libdevel
 
 Package: graphouse
 Architecture: all
