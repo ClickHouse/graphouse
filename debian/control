@@ -1,6 +1,7 @@
 Source: graphouse
 Priority: optional
 Maintainer: Dmitry Andreev <AndreevDm@yandex-team.ru>
+Homepage: https://github.com/yandex/graphouse
 Build-Depends: debhelper (>= 8.0.0)
 Standards-Version: 3.9.4
 Section: libdevel
