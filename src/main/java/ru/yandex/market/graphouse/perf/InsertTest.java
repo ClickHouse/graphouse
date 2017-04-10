@@ -82,7 +82,7 @@ public class InsertTest extends AbstractScheduledService {
         double metricsPerSeconds = (args.threadCount * args.metricPerThread) / args.sendIntervalSeconds;
         log.info(
             "Thread count: " + args.threadCount + ", metric per thread: " + args.metricPerThread +
-                ", send interval: " + TimeUnit.MILLISECONDS.toSeconds(sendIntervalMillis) + " seconds." +
+                ", send interval: " + TimeUnit.MILLISECONDS.toSeconds(sendIntervalMillis) + " seconds. " +
                 "Metrics per second: " + metricsPerSeconds + "."
         );
     }

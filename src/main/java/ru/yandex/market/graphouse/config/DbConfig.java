@@ -41,6 +41,9 @@ public class DbConfig {
     @Value("${graphouse.autohide.clickhouse.query-timeout-seconds}")
     private int clickhouseAutohideQueryTimeoutSeconds;
 
+    @Value("${graphouse.clickhouse.compress}")
+    private boolean compress;
+
     @Bean
     public ClickHouseDataSource clickHouseDataSource() {
         final String url = "jdbc:clickhouse://" + clickhouseHost + ":" + clickhousePort + "/" + clickhouseDatabase;
@@ -49,8 +52,8 @@ public class DbConfig {
         clickHouseProperties.setSocketTimeout((int) TimeUnit.SECONDS.toMillis(clickhouseSocketTimeoutSeconds));
         clickHouseProperties.setUser(clickhouseUsername);
         clickHouseProperties.setPassword(clickhousePassword);
-        clickHouseProperties.setDecompress(true);
-        clickHouseProperties.setDecompress(true);
+        clickHouseProperties.setDecompress(compress);
+        clickHouseProperties.setDecompress(compress);
         return new ClickHouseDataSource(url, clickHouseProperties);
     }
 
