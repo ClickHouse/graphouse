@@ -12,6 +12,10 @@ Pay attention to **graphite_rollup** tag name. The name is used below.
 ```xml
 <yandex>
 <graphite_rollup>
+    <path_column_name>metric</path_column_name>
+    <time_column_name>timestamp</time_column_name>
+    <value_column_name>value</value_column_name>
+    <version_column_name>updated</version_column_name>
 	<pattern>
 		<regexp>^five_sec</regexp>
 		<function>any</function>
