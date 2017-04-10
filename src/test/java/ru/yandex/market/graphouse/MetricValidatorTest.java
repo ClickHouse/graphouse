@@ -29,6 +29,7 @@ public class MetricValidatorTest {
         invalid("one_min..x", true);
         invalid("one_min.x.x.d.d.d.d.d.d.x.x.x.x.d.x.d.d", true);
         invalid("ten_min.fdsfdsfs.fdsfsfsd", true);
+        invalid("haggar.test1m.agent.24.metrics.194", false);
     }
 
     private void valid(String metric, boolean allowDirs) {

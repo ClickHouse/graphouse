@@ -31,6 +31,7 @@ dependencies {
     compile 'commons-dbcp:commons-dbcp:1.4'
     compile 'org.eclipse.jetty:jetty-server:9.2.10.v20150310'
     compile 'org.eclipse.jetty:jetty-servlet:9.2.10.v20150310'
+    compile 'com.beust:jcommander:1.60'
 
     testCompile group: 'junit', name: 'junit', version: '4.8.1'
     testCompile group: 'com.mockrunner', name: 'mockrunner-jdbc', version: '1.1.2'
@@ -45,6 +46,24 @@ project.sourceSets {
 }
 
 mainClassName = 'ru.yandex.market.graphouse.GraphouseMain'
+
+task insertPerfTest(type: CreateStartScripts) {
+    mainClassName = 'ru.yandex.market.graphouse.perf.InsertTest'
+    applicationName = 'inputPerfTest'
+    outputDir = new File(project.buildDir, 'scripts')
+    classpath = jar.outputs.files + project.configurations.runtime
+    applicationDefaultJvmArgs = [
+        '-Xmx1g',
+    ]
+    doLast {
+        delete windowsScript
+    }
+}
+
+applicationDistribution.into("bin") {
+    from(insertPerfTest)
+    fileMode = 0755
+}
 
 distributions {
     main {
