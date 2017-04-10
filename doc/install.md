@@ -1,4 +1,4 @@
-Installation guide
+Installation Guide
 ==================
 
 ClickHouse
@@ -159,11 +159,11 @@ CREATE TABLE graphite.metrics ( date Date DEFAULT toDate(0),  name String,  leve
 CREATE TABLE graphite.data ( metric String,  value Float64,  timestamp UInt32,  date Date,  updated UInt32) ENGINE = GraphiteMergeTree(date, (metric, timestamp), 8192, 'graphite_rollup');
 ```
 
-**Notice**: If you don't want ClickHouse to rollup data, you can use ReplacingMergeTree instead of GraphiteMergeTree.
+**Notice**: If you don't want ClickHouse to roll up data, you can use ReplacingMergeTree instead of GraphiteMergeTree.
 ```sql
 CREATE TABLE graphite.data ( metric String,  value Float64,  timestamp UInt32,  date Date,  updated UInt32) ENGINE = ReplacingMergeTree(date, (metric, timestamp), 8192, updated)
 ```
-But you still need to describe the rules for the rotation, so that Graphouse knows its metrics retention.
+Though it's better to describe the rotation rules, so that Graphouse knows its metrics retention.
 
 
 Graphouse
@@ -171,17 +171,17 @@ Graphouse
 - Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/reference_en.html#Installing)
 - [Install JDK8.](https://tecadmin.net/install-oracle-java-8-ubuntu-via-ppa/)
 - Install Graphouse `sudo agt-get install graphouse`
-- Set `graphouse.clickhouse.retention-config` property in graphouse config /etc/graphouse/graphouse.properties. You can skip this step, then [default config](../src/main/java/ru/yandex/market/graphouse/retention/DefaultRetentionProvider.java#L29) will be used
-- Start graphouse `sudo /etc/init.d/graphouse start`
+- Set `graphouse.clickhouse.retention-config` property in Graphouse config `/etc/graphouse/graphouse.properties`. You can skip this step. If so, [default config](../src/main/java/ru/yandex/market/graphouse/retention/DefaultRetentionProvider.java#L29) will be used
+- Start Graphouse `sudo /etc/init.d/graphouse start`
 
-If you have any problems check graphouse log dir for details `/var/log/graphouse`.
+If you have any problems check Graphouse log dir for details `/var/log/graphouse/`.
 See [Configuration](config.md) for more details.
 
 
 Graphite-web
 ------------
 - Install [graphite-web](http://graphite.readthedocs.io/en/latest/), if you don't have it already. You don't need carbon or whisper, Graphouse and ClickHouse completely replace them.
-- Add graphouse plugin `/opt/graphouse/bin/graphouse.py` to your graphite webapp root dir.
+- Add Graphouse plugin `/opt/graphouse/bin/graphouse.py` to your Graphite webapp root dir.
 For example, if you dir is `/opt/graphite/webapp/graphite/` use command below
 ```bash
 sudo ln -fs /opt/graphouse/bin/graphouse.py /opt/graphite/webapp/graphite/graphouse.py
