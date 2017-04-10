@@ -11,8 +11,8 @@ Graphouse allows you to use ClickHouse as a Graphite storage.
 
 Overview
 --------
-Graphouse includes:
-- Tpc server to receive metrics with [Graphite plaintext protocol](http://graphite.readthedocs.io/en/latest/feeding-carbon.html#the-plaintext-protocol).
+Graphouse provides:
+- Tcp server to receive metrics with [Graphite plaintext protocol](http://graphite.readthedocs.io/en/latest/feeding-carbon.html#the-plaintext-protocol).
 - Http api for metric search and data retrieval (with graphite-web python module).
 - Http api for metric tree management.
 
