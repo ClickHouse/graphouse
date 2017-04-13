@@ -55,9 +55,7 @@ public class InsertTest extends AbstractScheduledService {
 
         @Parameter(names = {"-h", "--help"}, help = true)
         private boolean help;
-
     }
-
 
     public static void main(String[] args) throws InterruptedException {
         PerfArgs perfArgs = new PerfArgs();
@@ -102,15 +100,13 @@ public class InsertTest extends AbstractScheduledService {
         return new Socket(args.host, args.port);
     }
 
-
     private class SendWorker implements Runnable {
 
         private final String prefix;
         private final int timestamp;
         private final int count;
 
-
-        public SendWorker(String prefix, int timestamp, int count) {
+            public SendWorker(String prefix, int timestamp, int count) {
             this.prefix = prefix;
             this.timestamp = timestamp;
             this.count = count;
