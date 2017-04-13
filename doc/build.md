@@ -1,4 +1,4 @@
-Build and run
+Build and Run
 =============
 To build just run `./gradlew build`.
 

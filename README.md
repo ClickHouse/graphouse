@@ -17,3 +17,8 @@ Comparing Graphouse with [common Graphite architecture](https://github.com/graph
 
 
 ![arch_overview](doc/img/arch_overview.png)
+
+Contacts
+--------
+If you have any questions, feel free to join our Telegram chat
+https://t.me/graphouse
