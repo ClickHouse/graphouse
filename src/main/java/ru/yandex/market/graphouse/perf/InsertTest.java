@@ -137,7 +137,7 @@ public class InsertTest extends AbstractScheduledService {
             }
             long unknownCount = latch.getCount();
             long totalSend = totalSendsMetrics.get();
-            long totalFailed = failedToSend.get();
+            long totalFailed = totalFailedMetrics.get();
 
             Date date = new Date(timestampSeconds * 1000L);
             double errorPercent = failedToSend.get() * 100.0 / (failedToSend.get() + sendMetrics.get());

@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.cacher;
 
+import com.google.common.base.Stopwatch;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
@@ -23,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -41,19 +43,29 @@ public class MetricCacher implements Runnable, InitializingBean {
     @Value("${graphouse.cacher.cache-size}")
     private int cacheSize = 1_000_000;
 
-    @Value("${graphouse.cacher.batch-size}")
-    private int batchSize = 1_000_000;
+    @Value("${graphouse.cacher.min-batch-size}")
+    private int minBatchSize = 10_000;
 
-    @Value("${graphouse.cacher.writers-count}")
-    private int writersCount = 2;
+    @Value("${graphouse.cacher.max-batch-size}")
+    private int maxBatchSize = 500_000;
+
+    @Value("${graphouse.cacher.min-batch-time-seconds}")
+    private int minBatchTimeSeconds = 1;
+
+    @Value("${graphouse.cacher.max-batch-time-seconds}")
+    private int maxBatchTimeSeconds = 5;
+
+    @Value("${ggraphouse.cacher.max-output-threads}")
+    private int maxOutputThreads = 2;
 
     @Value("${graphouse.cacher.flush-interval-seconds}")
     private int flushIntervalSeconds = 5;
 
-    private MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue", 2, TimeUnit.MINUTES);
+    private final AtomicLong lastBatchTimeMillis = new AtomicLong(System.currentTimeMillis());
+    private final MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue", 2, TimeUnit.MINUTES);
     private final Semaphore semaphore = new Semaphore(0, false);
     private BlockingQueue<Metric> metricQueue;
-    private AtomicInteger activeWriters = new AtomicInteger(0);
+    private final AtomicInteger activeWriters = new AtomicInteger(0);
 
 
     private ExecutorService executorService;
@@ -67,7 +79,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     public void afterPropertiesSet() throws Exception {
         metricQueue = new ArrayBlockingQueue<>(cacheSize);
         semaphore.release(cacheSize);
-        executorService = Executors.newFixedThreadPool(writersCount);
+        executorService = Executors.newFixedThreadPool(maxOutputThreads);
         monitoring.addUnit(metricCacherQueryUnit);
         new Thread(this, "Metric cacher thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
@@ -108,11 +120,25 @@ public class MetricCacher implements Runnable, InitializingBean {
     public void run() {
         while (!Thread.interrupted()) {
             try {
-                Thread.sleep(TimeUnit.SECONDS.toMillis(flushIntervalSeconds));
+                Thread.sleep(1);
                 createBatches();
             } catch (InterruptedException ignored) {
             }
         }
+    }
+
+    private boolean needBatch() {
+        if (metricQueue.size() >= maxBatchSize) {
+            return true;
+        }
+        long secondsPassed = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - lastBatchTimeMillis.get());
+        if (secondsPassed >= maxBatchTimeSeconds) {
+            return true;
+        }
+        if (metricQueue.size() >= minBatchSize && secondsPassed >= minBatchTimeSeconds) {
+            return true;
+        }
+        return false;
     }
 
     private void createBatches() {
@@ -122,21 +148,22 @@ public class MetricCacher implements Runnable, InitializingBean {
         }
         int queueSize = cacheSize - semaphore.availablePermits();
         double queueOccupancyPercent = queueSize * 100.0 / cacheSize;
-        log.info(
-            "Metric queue size: " + queueSize + "(" + queueOccupancyPercent + "%)" +
-                ", active writers: " + activeWriters.get()
-        );
         queueSizeMonitoring(queueOccupancyPercent);
-        while (activeWriters.get() < writersCount) {
+        while (needBatch() && activeWriters.get() < maxOutputThreads) {
+            log.info(
+                "Metric queue size: " + queueSize + "(" + queueOccupancyPercent + "%)" +
+                    ", active writers: " + activeWriters.get()
+            );
+            Stopwatch stopwatch = Stopwatch.createStarted();
             List<Metric> metrics = createBatch();
+            stopwatch.stop();
             if (metrics.isEmpty()) {
                 return;
             }
+            log.info("Time to create bath with size " + metrics.size() + ": " + stopwatch.toString());
             executorService.submit(new ClickhouseWriterWorker(metrics));
             activeWriters.incrementAndGet();
-            if (metrics.size() < batchSize) {
-                return; //Не набрали полный батч, значит больше и не надо
-            }
+            lastBatchTimeMillis.set(System.currentTimeMillis());
         }
     }
 
@@ -151,8 +178,8 @@ public class MetricCacher implements Runnable, InitializingBean {
     }
 
     private List<Metric> createBatch() {
-        List<Metric> metrics = new ArrayList<>(Math.min(batchSize, metricQueue.size()));
-        for (int i = 0; i < batchSize; i++) {
+        List<Metric> metrics = new ArrayList<>(Math.min(maxBatchSize, metricQueue.size()));
+        for (int i = 0; i < maxBatchSize; i++) {
             Metric metric = metricQueue.poll();
             if (metric == null) {
                 break;
@@ -219,19 +246,4 @@ public class MetricCacher implements Runnable, InitializingBean {
         }
     }
 
-    public void setCacheSize(int cacheSize) {
-        this.cacheSize = cacheSize;
-    }
-
-    public void setBatchSize(int batchSize) {
-        this.batchSize = batchSize;
-    }
-
-    public void setWritersCount(int writersCount) {
-        this.writersCount = writersCount;
-    }
-
-    public void setFlushIntervalSeconds(int flushIntervalSeconds) {
-        this.flushIntervalSeconds = flushIntervalSeconds;
-    }
 }
