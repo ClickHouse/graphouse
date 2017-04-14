@@ -9,10 +9,14 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Date;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -27,6 +31,9 @@ public class InsertTest extends AbstractScheduledService {
     private final int sendIntervalMillis;
 
     private final ScheduledExecutorService executorService;
+
+    private final AtomicLong totalSendsMetrics = new AtomicLong();
+    private final AtomicLong totalFailedMetrics = new AtomicLong();
 
     @Override
     protected Scheduler scheduler() {
@@ -53,6 +60,9 @@ public class InsertTest extends AbstractScheduledService {
         @Parameter(names = "--interval", description = "Send interval in seconds")
         private Integer sendIntervalSeconds = 10;
 
+        @Parameter(names = "--timeout", description = "Send timeout in seconds")
+        private Integer sendTimeoutSeconds = 30;
+
         @Parameter(names = {"-h", "--help"}, help = true)
         private boolean help;
     }
@@ -75,7 +85,9 @@ public class InsertTest extends AbstractScheduledService {
         this.args = args;
         sendIntervalMillis = (int) TimeUnit.SECONDS.toMillis(args.sendIntervalSeconds);
 
-        executorService = Executors.newScheduledThreadPool(args.threadCount);
+        executorService = Executors.newScheduledThreadPool(
+            args.threadCount * (args.sendTimeoutSeconds / args.sendIntervalSeconds)
+        );
         log.info("Creating graphite insert perf test for " + args.host + ":" + args.port);
         double metricsPerSeconds = (args.threadCount * args.metricPerThread) / args.sendIntervalSeconds;
         log.info(
@@ -88,16 +100,70 @@ public class InsertTest extends AbstractScheduledService {
     @Override
     protected void runOneIteration() throws Exception {
         int timestampSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
+        Counter counter = new Counter(timestampSeconds);
         for (int i = 1; i <= args.threadCount; i++) {
             String prefix = args.metricPrefix + "thread" + i + ".";
-            SendWorker worker = new SendWorker(prefix, timestampSeconds, args.metricPerThread);
+            SendWorker worker = new SendWorker(prefix, timestampSeconds, args.metricPerThread, counter);
             int delayMillis = ThreadLocalRandom.current().nextInt(sendIntervalMillis);
             executorService.schedule(worker, delayMillis, TimeUnit.MILLISECONDS);
         }
+        executorService.execute(counter);
     }
 
     private Socket createSocket() throws IOException {
-        return new Socket(args.host, args.port);
+        Socket socket = new Socket(args.host, args.port);
+        socket.setSoTimeout((int) TimeUnit.SECONDS.toMillis(args.sendTimeoutSeconds));
+        return socket;
+    }
+
+    private class Counter implements Runnable {
+
+        private final int timestampSeconds;
+        private final CountDownLatch latch;
+        private final AtomicInteger sendMetrics = new AtomicInteger();
+        private final AtomicInteger failedToSend = new AtomicInteger();
+
+        public Counter(int timestampSeconds) {
+            latch = new CountDownLatch(args.threadCount);
+            this.timestampSeconds = timestampSeconds;
+        }
+
+        @Override
+        public void run() {
+            try {
+                latch.await(args.sendIntervalSeconds + args.sendTimeoutSeconds * 2, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                log.error("Interrupted", e);
+            }
+            long unknownCount = latch.getCount();
+            long totalSend = totalSendsMetrics.get();
+            long totalFailed = failedToSend.get();
+
+            Date date = new Date(timestampSeconds * 1000L);
+            double errorPercent = failedToSend.get() * 100.0 / (failedToSend.get() + sendMetrics.get());
+            double totalErrorPercent = totalFailed * 100.0 / (totalSend + totalFailed);
+            log.info(
+                "Finished sending metrics for timestamp " + timestampSeconds + " (" + date + "). " +
+                    "Send " + sendMetrics.get() + " (" + totalSend + " total), " +
+                    "failed to send " + failedToSend.get() + " (" + totalFailed + " total), " +
+                    "errors " + errorPercent + "% (" + totalErrorPercent + "% total)"
+            );
+            if (unknownCount > 0) {
+                log.warn("Failed to get info for " + unknownCount + " threads. Timestamp " + timestampSeconds);
+            }
+        }
+
+        public void onSuccess(int count) {
+            sendMetrics.addAndGet(count);
+            totalSendsMetrics.addAndGet(count);
+            latch.countDown();
+        }
+
+        public void onFail(int count) {
+            failedToSend.addAndGet(count);
+            totalFailedMetrics.addAndGet(count);
+            latch.countDown();
+        }
     }
 
     private class SendWorker implements Runnable {
@@ -105,11 +171,13 @@ public class InsertTest extends AbstractScheduledService {
         private final String prefix;
         private final int timestamp;
         private final int count;
+        private final Counter counter;
 
-            public SendWorker(String prefix, int timestamp, int count) {
+        public SendWorker(String prefix, int timestamp, int count, Counter counter) {
             this.prefix = prefix;
             this.timestamp = timestamp;
             this.count = count;
+            this.counter = counter;
         }
 
         @Override
@@ -122,8 +190,10 @@ public class InsertTest extends AbstractScheduledService {
                         writer.println(line);
                     }
                 }
-            } catch (IOException e) {
-                log.error("Exception", e);
+                counter.onSuccess(count);
+            } catch (Exception e) {
+                log.warn("Failed to send " + count + " metrics " + e.getMessage());
+                counter.onFail(count);
             }
         }
     }
