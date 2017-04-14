@@ -34,6 +34,22 @@ public class MetricsConfig {
     @Value("${graphouse.clickhouse.retention-config}")
     private String retentionConfig;
 
+
+    @Value("${graphouse.metric-validation.min-length}")
+    private int minMetricLength;
+
+    @Value("${graphouse.metric-validation.max-length}")
+    private int maxMetricLength;
+
+    @Value("${graphouse.metric-validation.min-levels}")
+    private int minDots;
+
+    @Value("${graphouse.metric-validation.max-levels}")
+    private int maxDots;
+
+    @Value("${graphouse.metric-validation.regexp}")
+    private String metricRegexp;
+
     @Bean
     public MetricSearch metricSearch() {
         return new MetricSearch(clickHouseJdbcTemplate, monitoring, metricValidator(), retentionProvider());
@@ -55,7 +71,7 @@ public class MetricsConfig {
 
     @Bean
     public MetricValidator metricValidator() {
-        return new MetricValidator();
+        return new MetricValidator(metricRegexp, minMetricLength, maxMetricLength, minDots, maxDots);
     }
 
     @Bean
