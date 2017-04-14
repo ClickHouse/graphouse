@@ -58,9 +58,6 @@ public class MetricCacher implements Runnable, InitializingBean {
     @Value("${graphouse.cacher.max-output-threads}")
     private int maxOutputThreads = 2;
 
-    @Value("${graphouse.cacher.flush-interval-seconds}")
-    private int flushIntervalSeconds = 5;
-
     private final AtomicLong lastBatchTimeMillis = new AtomicLong(System.currentTimeMillis());
     private final MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue", 2, TimeUnit.MINUTES);
     private final Semaphore semaphore = new Semaphore(0, false);
