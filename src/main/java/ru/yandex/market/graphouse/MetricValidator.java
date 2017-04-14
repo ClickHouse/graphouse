@@ -1,7 +1,5 @@
 package ru.yandex.market.graphouse;
 
-import org.springframework.beans.factory.annotation.Value;
-
 import java.util.regex.Pattern;
 
 /**
@@ -10,24 +8,23 @@ import java.util.regex.Pattern;
  */
 public class MetricValidator {
 
-    @Value("${graphouse.metric-validation.min-length}")
-    private int minMetricLength = 10;
+    private final Pattern metricPattern;
 
-    @Value("${graphouse.metric-validation.max-length}")
-    private int maxMetricLength = 200;
+    private final int minMetricLength;
 
-    @Value("${graphouse.metric-validation.min-levels}")
-    private int minDots = 2;
+    private final int maxMetricLength;
 
-    @Value("${graphouse.metric-validation.max-levels}")
-    private int maxDots = 15;
+    private final int minDots;
 
-    @Value("${graphouse.metric-validation.regexp}")
-    private String metricRegexp = "^(one_sec|five_sec|one_min|five_min|one_hour|one_day)\\.[-_0-9a-zA-Z\\.]*$";
+    private final int maxDots;
 
-    private Pattern metricPattern = Pattern.compile(metricRegexp);
-
-    public static final MetricValidator DEFAULT = new MetricValidator();
+    public MetricValidator(String metricRegexp, int minMetricLength, int maxMetricLength, int minDots, int maxDots) {
+        this.minMetricLength = minMetricLength;
+        this.maxMetricLength = maxMetricLength;
+        this.minDots = minDots;
+        this.maxDots = maxDots;
+        metricPattern = Pattern.compile(metricRegexp);
+    }
 
     public boolean validate(String name, boolean allowDirs) {
         boolean isDir = MetricUtil.isDir(name);
