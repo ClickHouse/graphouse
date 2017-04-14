@@ -55,7 +55,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     @Value("${graphouse.cacher.max-batch-time-seconds}")
     private int maxBatchTimeSeconds = 5;
 
-    @Value("${ggraphouse.cacher.max-output-threads}")
+    @Value("${graphouse.cacher.max-output-threads}")
     private int maxOutputThreads = 2;
 
     @Value("${graphouse.cacher.flush-interval-seconds}")
