@@ -12,6 +12,10 @@ Pay attention to **graphite_rollup** tag name. The name is used below.
 ```xml
 <yandex>
 <graphite_rollup>
+    <path_column_name>metric</path_column_name>
+    <time_column_name>timestamp</time_column_name>
+    <value_column_name>value</value_column_name>
+    <version_column_name>updated</version_column_name>
 	<pattern>
 		<regexp>^five_sec</regexp>
 		<function>any</function>
@@ -166,7 +170,7 @@ Graphouse
 ---------
 - Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/reference_en.html#Installing)
 - [Install JDK8.](https://tecadmin.net/install-oracle-java-8-ubuntu-via-ppa/)
-- Install `sudo agt-get install graphouse`
+- Install Graphouse `sudo agt-get install graphouse`
 - Set `graphouse.clickhouse.retention-config` property in graphouse config /etc/graphouse/graphouse.properties. You can skip this step, then [default config](../src/main/java/ru/yandex/market/graphouse/retention/DefaultRetentionProvider.java#L29) will be used
 - Start graphouse `sudo /etc/init.d/graphouse start`
 
