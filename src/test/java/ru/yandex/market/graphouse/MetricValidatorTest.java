@@ -9,6 +9,7 @@ import org.junit.Test;
  */
 public class MetricValidatorTest {
 
+    public static final MetricValidator VALIDATOR = new MetricValidator("[-_0-9a-zA-Z\\\\.]*$", 5, 500, 2, 20);
 
     @Test
     public void testValidate() throws Exception {
@@ -27,17 +28,17 @@ public class MetricValidatorTest {
         valid("one_min.fdsfdsfs.fdsfsfsd.", true);
         invalid(".one_min.fdsfdsfs.fdsfsfsd", true);
         invalid("one_min..x", true);
-        invalid("one_min.x.x.d.d.d.d.d.d.x.x.x.x.d.x.d.d", true);
-        invalid("ten_min.fdsfdsfs.fdsfsfsd", true);
-        invalid("haggar.test1m.agent.24.metrics.194", false);
+        invalid("one_min.x.x.d.d.d.d.d.d.x.x.x.x.d.x.d.d.x.d.d.d.d.d.d.x.x.x.x.d.x.d.d", true);
+        invalid("nameadsfdsfdsfdsfsd", true);
+        invalid("a.b", true);
     }
 
     private void valid(String metric, boolean allowDirs) {
-        Assert.assertTrue("Must be valid: " + metric, MetricValidator.DEFAULT.validate(metric, allowDirs));
+        Assert.assertTrue("Must be valid: " + metric, VALIDATOR.validate(metric, allowDirs));
     }
 
     private void invalid(String metric, boolean allowDirs) {
-        Assert.assertFalse("Must be invalid: " + metric, MetricValidator.DEFAULT.validate(metric, allowDirs));
+        Assert.assertFalse("Must be invalid: " + metric, VALIDATOR.validate(metric, allowDirs));
     }
 
 
