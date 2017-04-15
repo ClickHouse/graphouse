@@ -64,7 +64,6 @@ public class MetricCacher implements Runnable, InitializingBean {
     private BlockingQueue<Metric> metricQueue;
     private final AtomicInteger activeWriters = new AtomicInteger(0);
 
-
     private ExecutorService executorService;
 
     public MetricCacher(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring) {
@@ -79,28 +78,25 @@ public class MetricCacher implements Runnable, InitializingBean {
         executorService = Executors.newFixedThreadPool(maxOutputThreads);
         monitoring.addUnit(metricCacherQueryUnit);
         new Thread(this, "Metric cacher thread").start();
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            @Override
-            public void run() {
-                log.info("Shutting down metric cacher. Saving all cached metrics...");
-                while (!metricQueue.isEmpty()) {
-                    log.info(metricQueue.size() + " metrics remaining");
-                    createBatches();
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException ignored) {
-                    }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Shutting down metric cacher. Saving all cached metrics...");
+            while (!metricQueue.isEmpty()) {
+                log.info(metricQueue.size() + " metrics remaining");
+                createBatches();
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ignored) {
                 }
-                executorService.shutdown();
-                while (!executorService.isTerminated()) {
-                    log.info("Awaiting save completion");
-                    try {
-                        executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
-                    } catch (InterruptedException ignored) {
-                    }
-                }
-                log.info("Metric cacher stopped");
             }
+            executorService.shutdown();
+            while (!executorService.isTerminated()) {
+                log.info("Awaiting save completion");
+                try {
+                    executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException ignored) {
+                }
+            }
+            log.info("Metric cacher stopped");
         }));
     }
 
@@ -147,10 +143,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         double queueOccupancyPercent = queueSize * 100.0 / cacheSize;
         queueSizeMonitoring(queueOccupancyPercent);
         while (needBatch() && activeWriters.get() < maxOutputThreads) {
-            log.info(
-                "Metric queue size: " + queueSize + "(" + queueOccupancyPercent + "%)" +
-                    ", active writers: " + activeWriters.get()
-            );
+
             Stopwatch stopwatch = Stopwatch.createStarted();
             List<Metric> metrics = createBatch();
             stopwatch.stop();
@@ -161,6 +154,10 @@ public class MetricCacher implements Runnable, InitializingBean {
             executorService.submit(new ClickhouseWriterWorker(metrics));
             activeWriters.incrementAndGet();
             lastBatchTimeMillis.set(System.currentTimeMillis());
+            log.info(
+                "Metric queue size: " + queueSize + "(" + queueOccupancyPercent + "%)" +
+                    ", active writers: " + activeWriters.get()
+            );
         }
     }
 
@@ -175,14 +172,9 @@ public class MetricCacher implements Runnable, InitializingBean {
     }
 
     private List<Metric> createBatch() {
-        List<Metric> metrics = new ArrayList<>(Math.min(maxBatchSize, metricQueue.size()));
-        for (int i = 0; i < maxBatchSize; i++) {
-            Metric metric = metricQueue.poll();
-            if (metric == null) {
-                break;
-            }
-            metrics.add(metric);
-        }
+        int batchSize = Math.min(maxBatchSize, metricQueue.size());
+        List<Metric> metrics = new ArrayList<>(batchSize);
+        metricQueue.drainTo(metrics, maxBatchSize);
         return metrics;
     }
 
