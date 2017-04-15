@@ -465,6 +465,10 @@ public class MetricSearch implements InitializingBean, Runnable {
         lastUpdatedTimestampSeconds = timeSeconds;
     }
 
+    public MetricDescription maybeFindMetric(String[] levels) {
+        return metricTree.maybeFindMetric(levels);
+    }
+
     public MetricDescription add(String metric) {
         long currentTimeMillis = System.currentTimeMillis();
         MetricDescription metricDescription = metricTree.add(metric);

@@ -156,7 +156,7 @@ public class InsertTest extends AbstractScheduledService {
                     "Send " + sendMetrics.get() + " (" + totalSend + " total), " +
                     "failed to send " + failedToSend.get() + " (" + totalFailed + " total), " +
                     "errors " + errorPercent + "% (" + totalErrorPercent + "% total). " +
-                    "Total send time " + sendTimeMillis + " ms, avg " + sendTimePerThread + " pet thread."
+                    "Total send time " + sendTimeMillis + " ms, avg " + sendTimePerThread + "ms pee thread."
             );
             if (unknownThreadsCount > 0) {
                 log.warn("Failed to get info for " + unknownThreadsCount + " threads. Timestamp " + timestampSeconds);

@@ -38,6 +38,22 @@ public class InMemoryMetricDir extends MetricDir {
     }
 
     @Override
+    public MetricDir maybeGetDir(String name) {
+        if (dirs == null){
+            return null;
+        }
+        return dirs.get(name);
+    }
+
+    @Override
+    public MetricName maybeGetMetric(String name) {
+        if (metrics == null){
+            return null;
+        }
+        return metrics.get(name);
+    }
+
+    @Override
     public Map<String, MetricName> getMetrics() {
         initMetrics();
         return metrics;

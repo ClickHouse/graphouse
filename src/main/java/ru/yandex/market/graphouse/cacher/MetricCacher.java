@@ -144,7 +144,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         double queueOccupancyPercent = queueSize * 100.0 / cacheSize;
         queueSizeMonitoring(queueOccupancyPercent);
         int createdBatches = 0;
-        int metircsInBatches = 0;
+        int metricsInBatches = 0;
         Stopwatch stopwatch = Stopwatch.createStarted();
         while (needBatch() && activeWriters.get() < maxOutputThreads) {
             List<Metric> metrics = createBatch();
@@ -152,7 +152,7 @@ public class MetricCacher implements Runnable, InitializingBean {
                 continue;
             }
             createdBatches++;
-            metircsInBatches += metrics.size();
+            metricsInBatches += metrics.size();
             executorService.submit(new ClickhouseWriterWorker(metrics));
             activeWriters.incrementAndGet();
             activeOutputMetrics.addAndGet(metrics.size());
@@ -162,7 +162,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         if (createdBatches > 0) {
             log.info(
                 "Created " + createdBatches + " output worker(s) (" + activeWriters.get() + " total) " +
-                    "for " + metircsInBatches + " metrics (" + activeOutputMetrics.get() + " total in processing) " +
+                    "for " + metricsInBatches + " metrics (" + activeOutputMetrics.get() + " total in processing) " +
                     "in " + stopwatch.toString() + ". " +
                     "Metric queue size: " + queueSize + " (" + queueOccupancyPercent + "%)");
         }

@@ -3,9 +3,9 @@ package ru.yandex.market.graphouse.search.tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import ru.yandex.market.graphouse.MetricUtil;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.search.MetricPath;
 import ru.yandex.market.graphouse.search.MetricStatus;
-import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 
 import java.io.IOException;
@@ -162,6 +162,29 @@ public class MetricTree {
 
     public MetricDescription add(String metric) {
         return modify(metric, MetricStatus.SIMPLE);
+    }
+
+    /**
+     * Try to find metric description. Fast. Can return null, even if metric exists
+     *
+     * @param levels
+     * @return Metric description if it exists and loaded it the tree, otherwise null
+     */
+    public MetricDescription maybeFindMetric(String[] levels) {
+        MetricDir dir = root;
+        for (int i = 0; i < levels.length; i++) {
+            String level = levels[i];
+            boolean isDirLevel = (i < levels.length - 1);
+            if (isDirLevel) {
+                dir = dir.maybeGetDir(level);
+                if (dir == null || dir.getStatus() == MetricStatus.BAN) {
+                    return null;
+                }
+            } else {
+                return dir.maybeGetMetric(level);
+            }
+        }
+        throw new IllegalStateException();
     }
 
 

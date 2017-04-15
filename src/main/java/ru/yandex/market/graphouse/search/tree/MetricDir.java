@@ -42,6 +42,10 @@ public abstract class MetricDir extends MetricBase {
 
     public abstract int loadedDirCount();
 
+    public abstract MetricDir maybeGetDir(String name);
+
+    public abstract MetricName maybeGetMetric(String name);
+
     public MetricDir getOrCreateDir(String name, MetricStatus status, MetricDirFactory metricDirFactory) {
         Map<String, MetricDir> dirs = getDirs();
         MetricDir dir = dirs.get(name);

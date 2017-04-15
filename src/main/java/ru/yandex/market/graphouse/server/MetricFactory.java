@@ -2,9 +2,11 @@ package ru.yandex.market.graphouse.server;
 
 import org.springframework.beans.factory.annotation.Value;
 import ru.yandex.market.graphouse.Metric;
-import ru.yandex.market.graphouse.search.tree.MetricDescription;
+import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.search.MetricSearch;
+import ru.yandex.market.graphouse.search.MetricStatus;
+import ru.yandex.market.graphouse.search.tree.MetricDescription;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,10 +51,22 @@ public class MetricFactory {
         if (splits.length != 3) {
             return null;
         }
-        String name = splits[0];
-        if (!metricValidator.validate(name, false)) {
+        String name = processName(splits[0]);
+        String[] nameSplits = MetricUtil.splitToLevels(name);
+        //Trying to fast find metric in tree. In success we can skip validation;
+        MetricDescription metric = metricSearch.maybeFindMetric(nameSplits);
+        if (metric == null) {
+            if (!metricValidator.validate(name, false)) {
+                return null;
+            }
+            metric = metricSearch.add(name);
+        } else if (metric.getStatus() == MetricStatus.AUTO_HIDDEN || metric.getStatus() == MetricStatus.HIDDEN) {
+            metric = metricSearch.add(name);
+        }
+        if (metric.getStatus() == MetricStatus.BAN) {
             return null;
         }
+
         try {
             double value = Double.parseDouble(splits[1]);
             if (!Double.isFinite(value)) {
@@ -63,13 +77,7 @@ public class MetricFactory {
                 return null;
             }
             Date date = new Date(TimeUnit.SECONDS.toMillis(timeSeconds));
-            name = processName(name);
-            MetricDescription metricDescription = metricSearch.add(name);
-            if (metricDescription != null) {
-                return new Metric(metricDescription, date, value, updated);
-            } else {
-                return null;
-            }
+            return new Metric(metric, date, value, updated);
         } catch (NumberFormatException e) {
             return null;
         }
