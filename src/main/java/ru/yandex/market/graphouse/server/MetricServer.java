@@ -13,6 +13,8 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +35,10 @@ public class MetricServer implements InitializingBean {
 
     @Value("${graphouse.cacher.threads}")
     private int threadCount;
+
+    @Value("${graphouse.cacher.read-batch-size}")
+    private int readBatchSize;
+
 
     private ServerSocket serverSocket;
     private ExecutorService executorService;
@@ -72,6 +78,8 @@ public class MetricServer implements InitializingBean {
 
     private class MetricServerWorker implements Runnable {
 
+        private final List<Metric> metrics = new ArrayList<>(readBatchSize);
+
         @Override
         public void run() {
             while (!Thread.interrupted() && !serverSocket.isClosed()) {
@@ -85,6 +93,7 @@ public class MetricServer implements InitializingBean {
         }
 
         private void read() throws IOException {
+            metrics.clear();
             Socket socket = serverSocket.accept();
             try {
                 socket.setSoTimeout(socketTimeoutMillis);
@@ -95,7 +104,11 @@ public class MetricServer implements InitializingBean {
                     int updated = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()));
                     Metric metric = metricFactory.createMetric(line, updated);
                     if (metric != null) {
-                        metricCacher.submitMetric(metric);
+                        metrics.add(metric);
+                        if (metrics.size() >= readBatchSize) {
+                            metricCacher.submitMetrics(metrics);
+                            metrics.clear();
+                        }
                     }
                 }
             } catch (SocketTimeoutException e) {
@@ -103,6 +116,8 @@ public class MetricServer implements InitializingBean {
             } finally {
                 socket.close();
             }
+            metricCacher.submitMetrics(metrics);
+            metrics.clear();
         }
     }
 

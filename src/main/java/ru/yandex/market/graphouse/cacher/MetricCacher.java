@@ -110,6 +110,18 @@ public class MetricCacher implements Runnable, InitializingBean {
         }
     }
 
+    public void submitMetrics(List<Metric> metrics) {
+        if (metrics.isEmpty()) {
+            return;
+        }
+        try {
+            semaphore.acquire(metrics.size());
+            metricQueue.addAll(metrics);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public void run() {
         while (!Thread.interrupted()) {
