@@ -63,6 +63,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private final Semaphore semaphore = new Semaphore(0, false);
     private BlockingQueue<Metric> metricQueue;
     private final AtomicInteger activeWriters = new AtomicInteger(0);
+    private final AtomicInteger activeOutputMetrics = new AtomicInteger(0);
 
     private ExecutorService executorService;
 
@@ -142,23 +143,30 @@ public class MetricCacher implements Runnable, InitializingBean {
         int queueSize = cacheSize - semaphore.availablePermits();
         double queueOccupancyPercent = queueSize * 100.0 / cacheSize;
         queueSizeMonitoring(queueOccupancyPercent);
+        int createdBatches = 0;
+        int metircsInBatches = 0;
+        Stopwatch stopwatch = Stopwatch.createStarted();
         while (needBatch() && activeWriters.get() < maxOutputThreads) {
-
-            Stopwatch stopwatch = Stopwatch.createStarted();
             List<Metric> metrics = createBatch();
-            stopwatch.stop();
             if (metrics.isEmpty()) {
-                return;
+                continue;
             }
-            log.info("Time to create bath with size " + metrics.size() + ": " + stopwatch.toString());
+            createdBatches++;
+            metircsInBatches += metrics.size();
             executorService.submit(new ClickhouseWriterWorker(metrics));
             activeWriters.incrementAndGet();
+            activeOutputMetrics.addAndGet(metrics.size());
             lastBatchTimeMillis.set(System.currentTimeMillis());
-            log.info(
-                "Metric queue size: " + queueSize + "(" + queueOccupancyPercent + "%)" +
-                    ", active writers: " + activeWriters.get()
-            );
         }
+        stopwatch.stop();
+        if (createdBatches > 0) {
+            log.info(
+                "Created" + createdBatches + " output threads (" + activeWriters.get() + " total) " +
+                    "for " + metircsInBatches + " metrics (" + activeOutputMetrics.get() + " total) " +
+                    "in " + stopwatch.toString() + " " +
+                    "Metric queue size: " + queueSize + "(" + queueOccupancyPercent + "%)");
+        }
+
     }
 
     private void queueSizeMonitoring(double queueOccupancyPercent) {
@@ -208,6 +216,7 @@ public class MetricCacher implements Runnable, InitializingBean {
                     }
                 }
             }
+            activeOutputMetrics.addAndGet(-metrics.size());
             activeWriters.decrementAndGet();
         }
 
