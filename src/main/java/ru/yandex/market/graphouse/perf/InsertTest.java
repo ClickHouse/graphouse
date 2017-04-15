@@ -156,7 +156,7 @@ public class InsertTest extends AbstractScheduledService {
                     "Send " + sendMetrics.get() + " (" + totalSend + " total), " +
                     "failed to send " + failedToSend.get() + " (" + totalFailed + " total), " +
                     "errors " + errorPercent + "% (" + totalErrorPercent + "% total). " +
-                    "Total send time " + sendTimeMillis + " ms, avg " + sendTimePerThread + "ms pee thread."
+                    "Total send time " + sendTimeMillis + " ms, avg " + sendTimePerThread + " ms per thread."
             );
             if (unknownThreadsCount > 0) {
                 log.warn("Failed to get info for " + unknownThreadsCount + " threads. Timestamp " + timestampSeconds);
@@ -207,17 +207,18 @@ public class InsertTest extends AbstractScheduledService {
             }
             Stopwatch stopwatch = Stopwatch.createStarted();
             try (Socket socket = createSocket()) {
-                BufferedOutputStream outputStream = new BufferedOutputStream(socket.getOutputStream());
-                for (int i = 1; i <= count; i++) {
-                    if (counter.isOutdated()) {
-                        log.info(
-                            "Stopping metric send for timestamp " + timestamp + " cause outdated. " +
-                                "Sent " + i + "metrics, " + (count - i) + " left."
-                        );
+                try (BufferedOutputStream outputStream = new BufferedOutputStream(socket.getOutputStream())) {
+                    for (int i = 1; i <= count; i++) {
+                        if (counter.isOutdated()) {
+                            log.info(
+                                "Stopping metric send for timestamp " + timestamp + " cause outdated. " +
+                                    "Sent " + i + "metrics, " + (count - i) + " left."
+                            );
+                        }
+                        double value = ThreadLocalRandom.current().nextDouble(1000);
+                        String line = prefix + "metric" + i + " " + value + " " + timestamp + "\n";
+                        outputStream.write(line.getBytes());
                     }
-                    double value = ThreadLocalRandom.current().nextDouble(1000);
-                    String line = prefix + "metric" + i + " " + value + " " + timestamp + "\n";
-                    outputStream.write(line.getBytes());
                 }
                 stopwatch.stop();
                 counter.onSuccess(count, stopwatch.elapsed(TimeUnit.NANOSECONDS));
