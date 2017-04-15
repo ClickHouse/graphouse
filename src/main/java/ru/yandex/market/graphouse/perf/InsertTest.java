@@ -114,6 +114,7 @@ public class InsertTest extends AbstractScheduledService {
     private Socket createSocket() throws IOException {
         Socket socket = new Socket(args.host, args.port);
         socket.setSoTimeout((int) TimeUnit.SECONDS.toMillis(args.sendTimeoutSeconds));
+        socket.setTcpNoDelay(true);
         return socket;
     }
 
@@ -149,12 +150,13 @@ public class InsertTest extends AbstractScheduledService {
             double errorPercent = failedToSend.get() * 100.0 / (failedToSend.get() + sendMetrics.get());
             double totalErrorPercent = totalFailed * 100.0 / (totalSend + totalFailed);
             long sendTimeMillis = TimeUnit.NANOSECONDS.toMillis(timeNanos.get());
+            double sendTimePerThread = (double) sendTimeMillis / (args.threadCount - unknownThreadsCount);
             log.info(
                 "Finished sending metrics for timestamp " + timestampSeconds + " (" + date + "). " +
                     "Send " + sendMetrics.get() + " (" + totalSend + " total), " +
                     "failed to send " + failedToSend.get() + " (" + totalFailed + " total), " +
                     "errors " + errorPercent + "% (" + totalErrorPercent + "% total). " +
-                    "Total (cpu) send time " + sendTimeMillis + " ms."
+                    "Total send time " + sendTimeMillis + " ms, avg " + sendTimePerThread + " pet thread."
             );
             if (unknownThreadsCount > 0) {
                 log.warn("Failed to get info for " + unknownThreadsCount + " threads. Timestamp " + timestampSeconds);
