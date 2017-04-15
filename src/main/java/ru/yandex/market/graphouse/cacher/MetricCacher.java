@@ -161,10 +161,10 @@ public class MetricCacher implements Runnable, InitializingBean {
         stopwatch.stop();
         if (createdBatches > 0) {
             log.info(
-                "Created" + createdBatches + " output threads (" + activeWriters.get() + " total) " +
-                    "for " + metircsInBatches + " metrics (" + activeOutputMetrics.get() + " total) " +
-                    "in " + stopwatch.toString() + " " +
-                    "Metric queue size: " + queueSize + "(" + queueOccupancyPercent + "%)");
+                "Created " + createdBatches + " output worker(s) (" + activeWriters.get() + " total) " +
+                    "for " + metircsInBatches + " metrics (" + activeOutputMetrics.get() + " total in processing) " +
+                    "in " + stopwatch.toString() + ". " +
+                    "Metric queue size: " + queueSize + " (" + queueOccupancyPercent + "%)");
         }
 
     }

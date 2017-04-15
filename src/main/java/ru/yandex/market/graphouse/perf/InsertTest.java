@@ -2,12 +2,13 @@ package ru.yandex.market.graphouse.perf;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;
@@ -122,6 +123,8 @@ public class InsertTest extends AbstractScheduledService {
         private final CountDownLatch latch;
         private final AtomicInteger sendMetrics = new AtomicInteger();
         private final AtomicInteger failedToSend = new AtomicInteger();
+        private final AtomicLong timeNanos = new AtomicLong();
+        boolean actual = true;
 
         public Counter(int timestampSeconds) {
             latch = new CountDownLatch(args.threadCount);
@@ -135,34 +138,48 @@ public class InsertTest extends AbstractScheduledService {
             } catch (InterruptedException e) {
                 log.error("Interrupted", e);
             }
-            long unknownCount = latch.getCount();
+            actual = false;
+            int unknownThreadsCount = (int) latch.getCount();
+            int unknownMetricsCount = args.metricPerThread * unknownThreadsCount;
             long totalSend = totalSendsMetrics.get();
-            long totalFailed = totalFailedMetrics.get();
+            long totalFailed = totalFailedMetrics.addAndGet(unknownMetricsCount);
+            failedToSend.addAndGet(unknownMetricsCount);
 
             Date date = new Date(timestampSeconds * 1000L);
             double errorPercent = failedToSend.get() * 100.0 / (failedToSend.get() + sendMetrics.get());
             double totalErrorPercent = totalFailed * 100.0 / (totalSend + totalFailed);
+            long sendTimeMillis = TimeUnit.NANOSECONDS.toMillis(timeNanos.get());
             log.info(
                 "Finished sending metrics for timestamp " + timestampSeconds + " (" + date + "). " +
                     "Send " + sendMetrics.get() + " (" + totalSend + " total), " +
                     "failed to send " + failedToSend.get() + " (" + totalFailed + " total), " +
-                    "errors " + errorPercent + "% (" + totalErrorPercent + "% total)"
+                    "errors " + errorPercent + "% (" + totalErrorPercent + "% total). " +
+                    "Total (cpu) send time " + sendTimeMillis + " ms."
             );
-            if (unknownCount > 0) {
-                log.warn("Failed to get info for " + unknownCount + " threads. Timestamp " + timestampSeconds);
+            if (unknownThreadsCount > 0) {
+                log.warn("Failed to get info for " + unknownThreadsCount + " threads. Timestamp " + timestampSeconds);
             }
         }
 
-        public void onSuccess(int count) {
-            sendMetrics.addAndGet(count);
-            totalSendsMetrics.addAndGet(count);
-            latch.countDown();
+        public void onSuccess(int count, long elapsedNanos) {
+            if (actual) {
+                sendMetrics.addAndGet(count);
+                totalSendsMetrics.addAndGet(count);
+                latch.countDown();
+                timeNanos.addAndGet(elapsedNanos);
+            }
         }
 
         public void onFail(int count) {
-            failedToSend.addAndGet(count);
-            totalFailedMetrics.addAndGet(count);
-            latch.countDown();
+            if (actual) {
+                failedToSend.addAndGet(count);
+                totalFailedMetrics.addAndGet(count);
+                latch.countDown();
+            }
+        }
+
+        public boolean isOutdated() {
+            return !actual;
         }
     }
 
@@ -182,15 +199,26 @@ public class InsertTest extends AbstractScheduledService {
 
         @Override
         public void run() {
+            if (counter.isOutdated()) {
+                log.info("Thread for timestamp " + toString() + " is outdated, not running");
+                return;
+            }
+            Stopwatch stopwatch = Stopwatch.createStarted();
             try (Socket socket = createSocket()) {
-                try (PrintWriter writer = new PrintWriter(socket.getOutputStream())) {
-                    for (int i = 1; i <= count; i++) {
-                        double value = ThreadLocalRandom.current().nextDouble(1000);
-                        String line = prefix + "metric" + i + " " + value + " " + timestamp;
-                        writer.println(line);
+                BufferedOutputStream outputStream = new BufferedOutputStream(socket.getOutputStream());
+                for (int i = 1; i <= count; i++) {
+                    if (counter.isOutdated()) {
+                        log.info(
+                            "Stopping metric send for timestamp " + timestamp + " cause outdated. " +
+                                "Sent " + i + "metrics, " + (count - i) + " left."
+                        );
                     }
+                    double value = ThreadLocalRandom.current().nextDouble(1000);
+                    String line = prefix + "metric" + i + " " + value + " " + timestamp + "\n";
+                    outputStream.write(line.getBytes());
                 }
-                counter.onSuccess(count);
+                stopwatch.stop();
+                counter.onSuccess(count, stopwatch.elapsed(TimeUnit.NANOSECONDS));
             } catch (Exception e) {
                 log.warn("Failed to send " + count + " metrics " + e.getMessage());
                 counter.onFail(count);
