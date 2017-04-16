@@ -613,14 +613,18 @@ public class ClickHouseStatementImpl implements ClickHouseStatement {
 
     public void sendStream(InputStream content, String table) throws ClickHouseException {
         String query = "INSERT INTO " + table;
-        sendStream(new InputStreamEntity(content, -1), query);
+        sendStream(new InputStreamEntity(content, -1), query, "TabSeparated");
     }
 
     public void sendStream(HttpEntity content, String sql) throws ClickHouseException {
+        sendStream(content, sql, "TabSeparated");
+    }
+
+    public void sendStream(HttpEntity content, String sql, String format) throws ClickHouseException {
         // echo -ne '10\n11\n12\n' | POST 'http://localhost:8123/?query=INSERT INTO t '
         HttpEntity entity = null;
         try {
-            URI uri = buildRequestUri(sql, null, null, false);
+            URI uri = buildRequestUri(sql + " FORMAT " + format, null, null, false);
 
             HttpPost httpPost = new HttpPost(uri);
             if (properties.isDecompress()) {

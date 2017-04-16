@@ -239,7 +239,8 @@ public class MetricCacher implements Runnable, InitializingBean {
                     ClickHouseStatementImpl statement = (ClickHouseStatementImpl) stmt;
                     statement.sendStream(
                         httpEntity,
-                        "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated) FORMAT RowBinary"
+                        "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated)",
+                        "RowBinary"
                     );
                     return null;
                 }
