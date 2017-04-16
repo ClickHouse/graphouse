@@ -101,8 +101,8 @@ public class MetricServer implements InitializingBean {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    int updated = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()));
-                    Metric metric = metricFactory.createMetric(line, updated);
+                    int updatedSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()));
+                    Metric metric = metricFactory.createMetric(line, updatedSeconds);
                     if (metric != null) {
                         metrics.add(metric);
                         if (metrics.size() >= readBatchSize) {

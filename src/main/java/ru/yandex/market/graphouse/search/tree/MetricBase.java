@@ -1,6 +1,10 @@
 package ru.yandex.market.graphouse.search.tree;
 
+import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.search.MetricStatus;
+
+import java.io.DataOutput;
+import java.io.IOException;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -25,6 +29,29 @@ public abstract class MetricBase implements MetricDescription {
 
     public boolean isRoot() {
         return parent == null;
+    }
+
+    @Override
+    public void writeName(DataOutput out) throws IOException {
+        if (!parent.isRoot()) {
+            parent.writeName(out);
+        }
+        out.write(name.getBytes());
+        if (isDir()) {
+            out.write(MetricUtil.LEVEL_SPLITTER);
+        }
+    }
+
+    @Override
+    public int getNameLength() {
+        int length = name.length();
+        if (isDir()) {
+            length++;
+        }
+        if (!parent.isRoot()) {
+            length += parent.getNameLength();
+        }
+        return length;
     }
 
     @Override
@@ -67,4 +94,4 @@ public abstract class MetricBase implements MetricDescription {
         return parent;
     }
 
-   }
+}
