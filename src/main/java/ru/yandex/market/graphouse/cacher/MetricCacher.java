@@ -40,7 +40,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     @Value("${graphouse.clickhouse.data-table}")
     private String graphiteTable;
 
-    @Value("${graphouse.cacher.cache-size}")
+    @Value("${graphouse.cacher.queue-size}")
     private int cacheSize = 1_000_000;
 
     @Value("${graphouse.cacher.min-batch-size}")
