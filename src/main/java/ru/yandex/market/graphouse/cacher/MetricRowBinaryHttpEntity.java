@@ -15,6 +15,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
+ * Write in ClickHouse in a fast RowBinary format
+ * See https://clickhouse.yandex/reference_en.html#RowBinary for details
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 16/04/2017
  */
@@ -31,6 +33,7 @@ public class MetricRowBinaryHttpEntity extends AbstractHttpEntity {
     @VisibleForTesting
     protected MetricRowBinaryHttpEntity(List<Metric> metrics, LocalDate localDate) {
         this.metrics = metrics;
+        //Optimization. Assume that all metrics are today and precalc day number.
         currentDay = (short) Short.toUnsignedInt((short) localDate.toEpochDay());
         todayStartSeconds = (int) localDate.atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
         todayEndSeconds = (int) localDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toEpochSecond();

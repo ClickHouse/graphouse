@@ -1,6 +1,7 @@
 package ru.yandex.market.graphouse.cacher;
 
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
@@ -12,12 +13,19 @@ import ru.yandex.market.graphouse.search.tree.MetricName;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.TimeZone;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 16/04/2017
  */
 public class MetricRowBinaryHttpEntityTest {
+
+    @Before
+    public void setUp() throws Exception {
+        TimeZone.setDefault(TimeZone.getTimeZone("Europe/Moscow"));
+    }
+
     @Test
     public void testTimeZones() {
         MetricRowBinaryHttpEntity entity = new MetricRowBinaryHttpEntity(null);
