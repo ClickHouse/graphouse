@@ -172,16 +172,16 @@ public class MetricTree {
      */
     public MetricDescription maybeFindMetric(String[] levels) {
         MetricDir dir = root;
+        int lastLevel = levels.length - 1;
         for (int i = 0; i < levels.length; i++) {
             String level = levels[i];
-            boolean isDirLevel = (i < levels.length - 1);
-            if (isDirLevel) {
+            if (i == lastLevel) {
+                return dir.maybeGetMetric(level);
+            } else {
                 dir = dir.maybeGetDir(level);
                 if (dir == null || dir.getStatus() == MetricStatus.BAN) {
                     return null;
                 }
-            } else {
-                return dir.maybeGetMetric(level);
             }
         }
         throw new IllegalStateException();

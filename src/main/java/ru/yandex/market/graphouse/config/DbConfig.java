@@ -52,7 +52,7 @@ public class DbConfig {
         clickHouseProperties.setSocketTimeout((int) TimeUnit.SECONDS.toMillis(clickhouseSocketTimeoutSeconds));
         clickHouseProperties.setUser(clickhouseUsername);
         clickHouseProperties.setPassword(clickhousePassword);
-        clickHouseProperties.setDecompress(compress);
+        clickHouseProperties.setCompress(compress);
         clickHouseProperties.setDecompress(compress);
         return new ClickHouseDataSource(url, clickHouseProperties);
     }

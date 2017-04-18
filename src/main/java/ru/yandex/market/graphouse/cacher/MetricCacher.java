@@ -192,7 +192,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private List<Metric> createBatch() {
         int batchSize = Math.min(maxBatchSize, metricQueue.size());
         List<Metric> metrics = new ArrayList<>(batchSize);
-        metricQueue.drainTo(metrics, maxBatchSize);
+        metricQueue.drainTo(metrics, batchSize);
         return metrics;
     }
 

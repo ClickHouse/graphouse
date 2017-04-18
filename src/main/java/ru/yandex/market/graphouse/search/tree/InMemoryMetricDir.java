@@ -39,10 +39,7 @@ public class InMemoryMetricDir extends MetricDir {
 
     @Override
     public MetricDir maybeGetDir(String name) {
-        if (dirs == null){
-            return null;
-        }
-        return dirs.get(name);
+        return dirs == null ? null : dirs.get(name);
     }
 
     @Override

@@ -86,9 +86,7 @@ public class InsertTest extends AbstractScheduledService {
         this.args = args;
         sendIntervalMillis = (int) TimeUnit.SECONDS.toMillis(args.sendIntervalSeconds);
 
-        executorService = Executors.newScheduledThreadPool(
-            args.threadCount * (args.sendTimeoutSeconds / args.sendIntervalSeconds)
-        );
+        executorService = Executors.newScheduledThreadPool(args.threadCount);
         log.info("Creating graphite insert perf test for " + args.host + ":" + args.port);
         double metricsPerSeconds = (args.threadCount * args.metricPerThread) / args.sendIntervalSeconds;
         log.info(
@@ -125,7 +123,7 @@ public class InsertTest extends AbstractScheduledService {
         private final AtomicInteger sendMetrics = new AtomicInteger();
         private final AtomicInteger failedToSend = new AtomicInteger();
         private final AtomicLong timeNanos = new AtomicLong();
-        boolean actual = true;
+        private volatile boolean actual = true;
 
         public Counter(int timestampSeconds) {
             latch = new CountDownLatch(args.threadCount);
@@ -214,6 +212,7 @@ public class InsertTest extends AbstractScheduledService {
                                 "Stopping metric send for timestamp " + timestamp + " cause outdated. " +
                                     "Sent " + i + "metrics, " + (count - i) + " left."
                             );
+                            return;
                         }
                         double value = ThreadLocalRandom.current().nextDouble(1000);
                         String line = prefix + "metric" + i + " " + value + " " + timestamp + "\n";
