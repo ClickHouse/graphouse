@@ -5,16 +5,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.StatementCallback;
+import ru.yandex.clickhouse.ClickHouseStatementImpl;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
 
 import java.io.IOException;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -234,25 +232,21 @@ public class MetricCacher implements Runnable, InitializingBean {
 
         private void saveMetrics() throws IOException {
 
-            clickHouseJdbcTemplate.batchUpdate(
-                "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated) VALUES (?, ?, ?, ?, ?)",
-                new BatchPreparedStatementSetter() {
-                    @Override
-                    public void setValues(PreparedStatement ps, int i) throws SQLException {
-                        Metric metric = metrics.get(i);
-                        ps.setString(1, metric.getMetricDescription().getName());
-                        ps.setDouble(2, metric.getValue());
-                        ps.setInt(3, metric.getTimeSeconds());
-                        ps.setDate(4, new Date(metric.getTime().getTime()));
-                        ps.setInt(5, metric.getUpdated());
-                    }
+            MetricRowBinaryHttpEntity httpEntity = new MetricRowBinaryHttpEntity(metrics);
+            clickHouseJdbcTemplate.execute(
+                (StatementCallback<Void>) stmt -> {
 
-                    @Override
-                    public int getBatchSize() {
-                        return metrics.size();
-                    }
+                    ClickHouseStatementImpl statement = (ClickHouseStatementImpl) stmt;
+                    statement.sendStream(
+                        httpEntity,
+                        "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated)",
+                        "RowBinary"
+                    );
+                    return null;
                 }
+
             );
+
         }
     }
 

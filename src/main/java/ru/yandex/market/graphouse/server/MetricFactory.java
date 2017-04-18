@@ -10,9 +10,7 @@ import ru.yandex.market.graphouse.search.tree.MetricDescription;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -40,12 +38,12 @@ public class MetricFactory {
     /**
      * Валидирует метрику и в случае успеха создаёт или обновляет текущую.
      *
-     * @param line    через пробел название метрики, значение, метка времени
-     * @param updated
+     * @param line           через пробел название метрики, значение, метка времени
+     * @param updatedSeconds
      * @return созданную или обновленную метрику,
      * <code>null</code> если название метрики или значение не валидны, метрика забанена
      */
-    public Metric createMetric(String line, int updated) {
+    public Metric createMetric(String line, int updatedSeconds) {
 
         String[] splits = line.split(" ");
         if (splits.length != 3) {
@@ -76,8 +74,7 @@ public class MetricFactory {
             if (timeSeconds <= 0) {
                 return null;
             }
-            Date date = new Date(TimeUnit.SECONDS.toMillis(timeSeconds));
-            return new Metric(metric, date, value, updated);
+            return new Metric(metric, timeSeconds, value, updatedSeconds);
         } catch (NumberFormatException e) {
             return null;
         }
