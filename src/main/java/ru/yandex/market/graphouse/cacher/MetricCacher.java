@@ -39,7 +39,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private String graphiteTable;
 
     @Value("${graphouse.cacher.queue-size}")
-    private int cacheSize = 1_000_000;
+    private int queueSize = 1_000_000;
 
     @Value("${graphouse.cacher.min-batch-size}")
     private int minBatchSize = 10_000;
@@ -72,16 +72,16 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        metricQueue = new ArrayBlockingQueue<>(cacheSize);
-        semaphore.release(cacheSize);
+        metricQueue = new ArrayBlockingQueue<>(queueSize);
+        semaphore.release(queueSize);
         executorService = Executors.newFixedThreadPool(maxOutputThreads);
         monitoring.addUnit(metricCacherQueryUnit);
         new Thread(this, "Metric cacher thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down metric cacher. Saving all cached metrics...");
-            while (!metricQueue.isEmpty()) {
-                log.info(metricQueue.size() + " metrics remaining");
-                createBatches();
+            while (!(metricQueue.isEmpty() && (activeOutputMetrics.get() == 0))) {
+                log.info((metricQueue.size() + activeOutputMetrics.get()) + " metrics remaining");
+                createBatches(true);
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException ignored) {
@@ -125,7 +125,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         while (!Thread.interrupted()) {
             try {
                 Thread.sleep(1);
-                createBatches();
+                createBatches(false);
             } catch (InterruptedException ignored) {
             }
         }
@@ -145,18 +145,18 @@ public class MetricCacher implements Runnable, InitializingBean {
         return false;
     }
 
-    private void createBatches() {
+    private void createBatches(boolean force) {
         if (metricQueue.isEmpty()) {
             metricCacherQueryUnit.ok();
             return;
         }
-        int queueSize = cacheSize - semaphore.availablePermits();
-        double queueOccupancyPercent = queueSize * 100.0 / cacheSize;
+        int queueSize = this.queueSize - semaphore.availablePermits();
+        double queueOccupancyPercent = queueSize * 100.0 / this.queueSize;
         queueSizeMonitoring(queueOccupancyPercent);
         int createdBatches = 0;
         int metricsInBatches = 0;
         Stopwatch stopwatch = Stopwatch.createStarted();
-        while (needBatch() && activeWriters.get() < maxOutputThreads) {
+        while ((needBatch() || force) && activeWriters.get() < maxOutputThreads) {
             List<Metric> metrics = createBatch();
             if (metrics.isEmpty()) {
                 continue;
