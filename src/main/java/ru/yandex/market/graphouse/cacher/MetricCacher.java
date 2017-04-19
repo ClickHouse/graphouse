@@ -1,19 +1,18 @@
 package ru.yandex.market.graphouse.cacher;
 
+import com.google.common.base.Stopwatch;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.StatementCallback;
+import ru.yandex.clickhouse.ClickHouseStatementImpl;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
 
 import java.io.IOException;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -23,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -38,23 +38,30 @@ public class MetricCacher implements Runnable, InitializingBean {
     @Value("${graphouse.clickhouse.data-table}")
     private String graphiteTable;
 
-    @Value("${graphouse.cacher.cache-size}")
-    private int cacheSize = 1_000_000;
+    @Value("${graphouse.cacher.queue-size}")
+    private int queueSize = 1_000_000;
 
-    @Value("${graphouse.cacher.batch-size}")
-    private int batchSize = 1_000_000;
+    @Value("${graphouse.cacher.min-batch-size}")
+    private int minBatchSize = 10_000;
 
-    @Value("${graphouse.cacher.writers-count}")
-    private int writersCount = 2;
+    @Value("${graphouse.cacher.max-batch-size}")
+    private int maxBatchSize = 500_000;
 
-    @Value("${graphouse.cacher.flush-interval-seconds}")
-    private int flushIntervalSeconds = 5;
+    @Value("${graphouse.cacher.min-batch-time-seconds}")
+    private int minBatchTimeSeconds = 1;
 
-    private MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue", 2, TimeUnit.MINUTES);
+    @Value("${graphouse.cacher.max-batch-time-seconds}")
+    private int maxBatchTimeSeconds = 5;
+
+    @Value("${graphouse.cacher.max-output-threads}")
+    private int maxOutputThreads = 2;
+
+    private final AtomicLong lastBatchTimeMillis = new AtomicLong(System.currentTimeMillis());
+    private final MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue", 2, TimeUnit.MINUTES);
     private final Semaphore semaphore = new Semaphore(0, false);
     private BlockingQueue<Metric> metricQueue;
-    private AtomicInteger activeWriters = new AtomicInteger(0);
-
+    private final AtomicInteger activeWriters = new AtomicInteger(0);
+    private final AtomicInteger activeOutputMetrics = new AtomicInteger(0);
 
     private ExecutorService executorService;
 
@@ -65,33 +72,30 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        metricQueue = new ArrayBlockingQueue<>(cacheSize);
-        semaphore.release(cacheSize);
-        executorService = Executors.newFixedThreadPool(writersCount);
+        metricQueue = new ArrayBlockingQueue<>(queueSize);
+        semaphore.release(queueSize);
+        executorService = Executors.newFixedThreadPool(maxOutputThreads);
         monitoring.addUnit(metricCacherQueryUnit);
         new Thread(this, "Metric cacher thread").start();
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            @Override
-            public void run() {
-                log.info("Shutting down metric cacher. Saving all cached metrics...");
-                while (!metricQueue.isEmpty()) {
-                    log.info(metricQueue.size() + " metrics remaining");
-                    createBatches();
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException ignored) {
-                    }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Shutting down metric cacher. Saving all cached metrics...");
+            while (!(metricQueue.isEmpty() && (activeOutputMetrics.get() == 0))) {
+                log.info((metricQueue.size() + activeOutputMetrics.get()) + " metrics remaining");
+                createBatches(true);
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ignored) {
                 }
-                executorService.shutdown();
-                while (!executorService.isTerminated()) {
-                    log.info("Awaiting save completion");
-                    try {
-                        executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
-                    } catch (InterruptedException ignored) {
-                    }
-                }
-                log.info("Metric cacher stopped");
             }
+            executorService.shutdown();
+            while (!executorService.isTerminated()) {
+                log.info("Awaiting save completion");
+                try {
+                    executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException ignored) {
+                }
+            }
+            log.info("Metric cacher stopped");
         }));
     }
 
@@ -104,40 +108,75 @@ public class MetricCacher implements Runnable, InitializingBean {
         }
     }
 
+    public void submitMetrics(List<Metric> metrics) {
+        if (metrics.isEmpty()) {
+            return;
+        }
+        try {
+            semaphore.acquire(metrics.size());
+            metricQueue.addAll(metrics);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public void run() {
         while (!Thread.interrupted()) {
             try {
-                Thread.sleep(TimeUnit.SECONDS.toMillis(flushIntervalSeconds));
-                createBatches();
+                Thread.sleep(1);
+                createBatches(false);
             } catch (InterruptedException ignored) {
             }
         }
     }
 
-    private void createBatches() {
+    private boolean needBatch() {
+        if (metricQueue.size() >= maxBatchSize) {
+            return true;
+        }
+        long secondsPassed = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - lastBatchTimeMillis.get());
+        if (secondsPassed >= maxBatchTimeSeconds) {
+            return true;
+        }
+        if (metricQueue.size() >= minBatchSize && secondsPassed >= minBatchTimeSeconds) {
+            return true;
+        }
+        return false;
+    }
+
+    private void createBatches(boolean force) {
         if (metricQueue.isEmpty()) {
             metricCacherQueryUnit.ok();
             return;
         }
-        int queueSize = cacheSize - semaphore.availablePermits();
-        double queueOccupancyPercent = queueSize * 100.0 / cacheSize;
-        log.info(
-            "Metric queue size: " + queueSize + "(" + queueOccupancyPercent + "%)" +
-                ", active writers: " + activeWriters.get()
-        );
+        int queueSize = this.queueSize - semaphore.availablePermits();
+        double queueOccupancyPercent = queueSize * 100.0 / this.queueSize;
         queueSizeMonitoring(queueOccupancyPercent);
-        while (activeWriters.get() < writersCount) {
+        int createdBatches = 0;
+        int metricsInBatches = 0;
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        while ((needBatch() || force) && activeWriters.get() < maxOutputThreads) {
             List<Metric> metrics = createBatch();
             if (metrics.isEmpty()) {
-                return;
+                continue;
             }
+            createdBatches++;
+            metricsInBatches += metrics.size();
             executorService.submit(new ClickhouseWriterWorker(metrics));
             activeWriters.incrementAndGet();
-            if (metrics.size() < batchSize) {
-                return; //Не набрали полный батч, значит больше и не надо
-            }
+            activeOutputMetrics.addAndGet(metrics.size());
+            lastBatchTimeMillis.set(System.currentTimeMillis());
         }
+        stopwatch.stop();
+        if (createdBatches > 0) {
+            log.info(
+                "Created " + createdBatches + " output worker(s) (" + activeWriters.get() + " total) " +
+                    "for " + metricsInBatches + " metrics (" + activeOutputMetrics.get() + " total in processing) " +
+                    "in " + stopwatch.toString() + ". " +
+                    "Metric queue size: " + queueSize + " (" + queueOccupancyPercent + "%)");
+        }
+
     }
 
     private void queueSizeMonitoring(double queueOccupancyPercent) {
@@ -151,14 +190,9 @@ public class MetricCacher implements Runnable, InitializingBean {
     }
 
     private List<Metric> createBatch() {
-        List<Metric> metrics = new ArrayList<>(Math.min(batchSize, metricQueue.size()));
-        for (int i = 0; i < batchSize; i++) {
-            Metric metric = metricQueue.poll();
-            if (metric == null) {
-                break;
-            }
-            metrics.add(metric);
-        }
+        int batchSize = Math.min(maxBatchSize, metricQueue.size());
+        List<Metric> metrics = new ArrayList<>(batchSize);
+        metricQueue.drainTo(metrics, batchSize);
         return metrics;
     }
 
@@ -192,46 +226,28 @@ public class MetricCacher implements Runnable, InitializingBean {
                     }
                 }
             }
+            activeOutputMetrics.addAndGet(-metrics.size());
             activeWriters.decrementAndGet();
         }
 
         private void saveMetrics() throws IOException {
 
-            clickHouseJdbcTemplate.batchUpdate(
-                "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated) VALUES (?, ?, ?, ?, ?)",
-                new BatchPreparedStatementSetter() {
-                    @Override
-                    public void setValues(PreparedStatement ps, int i) throws SQLException {
-                        Metric metric = metrics.get(i);
-                        ps.setString(1, metric.getMetricDescription().getName());
-                        ps.setDouble(2, metric.getValue());
-                        ps.setInt(3, metric.getTimeSeconds());
-                        ps.setDate(4, new Date(metric.getTime().getTime()));
-                        ps.setInt(5, metric.getUpdated());
-                    }
+            MetricRowBinaryHttpEntity httpEntity = new MetricRowBinaryHttpEntity(metrics);
+            clickHouseJdbcTemplate.execute(
+                (StatementCallback<Void>) stmt -> {
 
-                    @Override
-                    public int getBatchSize() {
-                        return metrics.size();
-                    }
+                    ClickHouseStatementImpl statement = (ClickHouseStatementImpl) stmt;
+                    statement.sendStream(
+                        httpEntity,
+                        "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated)",
+                        "RowBinary"
+                    );
+                    return null;
                 }
+
             );
+
         }
     }
 
-    public void setCacheSize(int cacheSize) {
-        this.cacheSize = cacheSize;
-    }
-
-    public void setBatchSize(int batchSize) {
-        this.batchSize = batchSize;
-    }
-
-    public void setWritersCount(int writersCount) {
-        this.writersCount = writersCount;
-    }
-
-    public void setFlushIntervalSeconds(int flushIntervalSeconds) {
-        this.flushIntervalSeconds = flushIntervalSeconds;
-    }
 }

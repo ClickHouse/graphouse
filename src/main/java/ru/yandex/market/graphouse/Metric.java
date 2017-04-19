@@ -10,34 +10,31 @@ import java.util.Date;
  */
 public class Metric {
     private final MetricDescription metricDescription;
-    private final Date time;
+    private final int timestampSeconds;
     private final double value;
-    private final int updated;
+    private final int updatedSeconds;
 
-    public Metric(MetricDescription metricDescription, Date time, double value, int updated) {
+    public Metric(MetricDescription metricDescription, int timestampSeconds, double value, int updatedSeconds) {
         this.metricDescription = metricDescription;
-        this.time = time;
+        this.timestampSeconds = timestampSeconds;
         this.value = value;
-        this.updated = updated;
+        this.updatedSeconds = updatedSeconds;
     }
 
     public MetricDescription getMetricDescription() {
         return metricDescription;
     }
 
-    public Date getTime() {
-        return time;
-    }
 
-    public int getTimeSeconds() {
-        return (int) (time.getTime() / 1000);
+    public int getTimestampSeconds() {
+        return timestampSeconds;
     }
 
     public double getValue() {
         return value;
     }
 
-    public int getUpdated() {
-        return updated;
+    public int getUpdatedSeconds() {
+        return updatedSeconds;
     }
 }

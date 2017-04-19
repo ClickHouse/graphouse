@@ -20,7 +20,7 @@ version = '1.1-SNAPSHOT'
 sourceCompatibility = 1.8
 
 dependencies {
-    compile 'ru.yandex.clickhouse:clickhouse-jdbc:0.1.17'
+    compile 'ru.yandex.clickhouse:clickhouse-jdbc:0.1.19'
     compile 'com.google.guava:guava:21.0'
     compile 'com.google.code.gson:gson:2.3.1'
     compile 'org.springframework:spring-jdbc:4.1.6.RELEASE'
@@ -31,6 +31,7 @@ dependencies {
     compile 'commons-dbcp:commons-dbcp:1.4'
     compile 'org.eclipse.jetty:jetty-server:9.2.10.v20150310'
     compile 'org.eclipse.jetty:jetty-servlet:9.2.10.v20150310'
+    compile 'com.beust:jcommander:1.60'
 
     testCompile group: 'junit', name: 'junit', version: '4.8.1'
     testCompile group: 'com.mockrunner', name: 'mockrunner-jdbc', version: '1.1.2'
@@ -45,6 +46,24 @@ project.sourceSets {
 }
 
 mainClassName = 'ru.yandex.market.graphouse.GraphouseMain'
+
+task insertPerfTest(type: CreateStartScripts) {
+    mainClassName = 'ru.yandex.market.graphouse.perf.InsertTest'
+    applicationName = 'inputPerfTest'
+    outputDir = new File(project.buildDir, 'scripts')
+    classpath = jar.outputs.files + project.configurations.runtime
+    applicationDefaultJvmArgs = [
+        '-Xmx1g',
+    ]
+    doLast {
+        delete windowsScript
+    }
+}
+
+applicationDistribution.into("bin") {
+    from(insertPerfTest)
+    fileMode = 0755
+}
 
 distributions {
     main {
@@ -79,7 +98,8 @@ applicationDefaultJvmArgs = [
     '-Dapp.home=GRAPHOUSE_APP_HOME',
     '-Dlog4j.configurationFile=GRAPHOUSE_APP_HOME/conf/log4j2.xml',
     '-verbose:gc', '-XX:+PrintGC', '-XX:+PrintGCDetails', '-XX:+PrintGCTimeStamps', '-XX:+PrintGCDateStamps',
-    '-XX:+UseGCLogFileRotation', '-XX:NumberOfGCLogFiles=7', '-Xloggc:GRAPHOUSE_APP_HOME/log/graphouse.gc.log',
+    '-XX:+UseGCLogFileRotation', '-XX:NumberOfGCLogFiles=7', '-XX:GCLogFileSize=50M',
+    '-Xloggc:GRAPHOUSE_APP_HOME/log/graphouse.gc.log',
     '-XX:+HeapDumpOnOutOfMemoryError', '-XX:HeapDumpPath=GRAPHOUSE_APP_HOME/log/',
     '-showversion', '-server', '-XX:+UseCompressedOops',
     '-Dsun.net.inetaddr.ttl=60', '-Dsun.net.inetaddr.negative.ttl=0'

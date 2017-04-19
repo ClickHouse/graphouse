@@ -1,9 +1,11 @@
 package ru.yandex.market.graphouse.search.tree;
 
 import ru.yandex.market.graphouse.MetricUtil;
-import ru.yandex.market.graphouse.search.MetricStatus;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
+import ru.yandex.market.graphouse.search.MetricStatus;
 
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.Map;
 
 /**
@@ -41,6 +43,10 @@ public abstract class MetricDir extends MetricBase {
     public abstract int loadedMetricCount();
 
     public abstract int loadedDirCount();
+
+    public abstract MetricDir maybeGetDir(String name);
+
+    public abstract MetricName maybeGetMetric(String name);
 
     public MetricDir getOrCreateDir(String name, MetricStatus status, MetricDirFactory metricDirFactory) {
         Map<String, MetricDir> dirs = getDirs();

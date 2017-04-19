@@ -48,6 +48,16 @@ public class LoadableMetricDir extends MetricDir {
     }
 
     @Override
+    public MetricDir maybeGetDir(String name) {
+        return getContentOrEmpty().getDirs().get(name);
+    }
+
+    @Override
+    public MetricName maybeGetMetric(String name) {
+        return getContentOrEmpty().getMetrics().get(name);
+    }
+
+    @Override
     public int loadedMetricCount() {
         DirContent dirContent = getContentOrEmpty();
         int count = dirContent.getMetrics().size();
