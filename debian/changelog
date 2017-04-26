@@ -1,3 +1,15 @@
+graphouse (1.2) unstable; urgency=medium
+
+  * Metric write performance optimizations
+
+ -- Dmitry Andreev <AndreevDm@yandex-team.ru>  Wed, 26 Apr 2017 17:55:00 +0300
+
+graphouse (1.1) unstable; urgency=medium
+
+  * Metric validation fixed
+
+ -- Dmitry Andreev <AndreevDm@yandex-team.ru>  Fri, 14 Apr 2017 21:16:22 +0300
+
 graphouse (1.0) unstable; urgency=medium
 
   * Initial public release
