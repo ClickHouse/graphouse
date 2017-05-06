@@ -80,8 +80,8 @@ public abstract class MetricDir extends MetricBase {
 
 
     /**
-     * Если все метрики в директории скрыты, то пытаемся скрыть её {@link MetricStatus#AUTO_HIDDEN}
-     * Если для директории есть хоть одна открытая метрика, то пытаемся открыть её {@link MetricStatus#SIMPLE}
+     * if all the metrics in the directory are hidden, then we try to hide it {@link MetricStatus#AUTO_HIDDEN}
+     * if there is at least one open metric for the directory, then we try to open it {@link MetricStatus#SIMPLE}
      */
     public void notifyChildStatusChange(MetricBase metricBase, MetricStatus oldStatus) {
         if (isRoot()) {
@@ -90,7 +90,7 @@ public abstract class MetricDir extends MetricBase {
 
         MetricStatus newStatus = metricBase.getStatus();
 
-        //Удаляем из дерева, т.к нет смысла такие хранить
+        // remove from the tree, it does not make sense to store it
         if (newStatus == MetricStatus.AUTO_HIDDEN) {
             if (metricBase.isDir()) {
                 getDirs().remove(metricBase.getName());
@@ -102,8 +102,8 @@ public abstract class MetricDir extends MetricBase {
             return;
         }
 
-        //Если все метрики в директории скрыты, то пытаемся скрыть её {@link MetricStatus#AUTO_HIDDEN}
-        //Если для директории есть хоть одна открытая метрика, то пытаемся открыть её {@link MetricStatus#SIMPLE}
+        // if all the metrics in the directory are hidden, then we try to hide it {@link MetricStatus#AUTO_HIDDEN}
+        // if there is at least one open metric for the directory, then we try to open it {@link MetricStatus#SIMPLE}
         if (newStatus.visible()) {
             setStatus(MetricStatus.SIMPLE);
         } else {

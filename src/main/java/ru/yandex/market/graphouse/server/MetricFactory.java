@@ -36,12 +36,12 @@ public class MetricFactory {
     }
 
     /**
-     * Валидирует метрику и в случае успеха создаёт или обновляет текущую.
+     * Validates the metric and, if successful, creates or updates the current one.
      *
-     * @param line           через пробел название метрики, значение, метка времени
+     * @param line  contains name of the metric, value, timestamp
      * @param updatedSeconds
-     * @return созданную или обновленную метрику,
-     * <code>null</code> если название метрики или значение не валидны, метрика забанена
+     * @return Created or updated metric,
+     * <code>null</code> if the metric name or value is not valid, the metric is banned
      */
     public Metric createMetric(String line, int updatedSeconds) {
 

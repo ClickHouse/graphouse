@@ -189,11 +189,11 @@ public class MetricTree {
 
 
     /**
-     * Создает или изменяет статус метрики или целой директории.
+     * creates or changes the status of a metric or an entire directory.
      *
-     * @param metric если заканчивается на ., то директория
+     * @param metric if ends with ".", then it's a directory
      * @param status
-     * @return null если метрика/директория забанена. Иначе MetricDescription
+     * @return MetricDescription, or <code>null</code> if the metric/directory is banned
      */
     public MetricDescription modify(String metric, MetricStatus status) {
         boolean isDir = MetricUtil.isDir(metric);
