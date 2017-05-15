@@ -12,7 +12,7 @@ import static org.junit.Assert.*;
 public class MetricUtilTest {
     @Test
     public void getLastLevelName() throws Exception {
-        Assert.assertEquals("c", MetricUtil.getLastLevelName("a.b.c"));
+        Assert.assertEquals("b", MetricUtil.getLastLevelName("a.b.c"));
         Assert.assertEquals("c", MetricUtil.getLastLevelName("a.b.c."));
     }
 
