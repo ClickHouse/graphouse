@@ -13,6 +13,7 @@ public class MetricUtilTest {
     @Test
     public void getLastLevelName() throws Exception {
         Assert.assertEquals("c", MetricUtil.getLastLevelName("a.b.c"));
+        Assert.assertEquals("d", MetricUtil.getLastLevelName("a.b.d"));
         Assert.assertEquals("c", MetricUtil.getLastLevelName("a.b.c."));
     }
 
