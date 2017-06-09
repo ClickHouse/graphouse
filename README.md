@@ -1,4 +1,4 @@
-Graphouse allows you to use ClickHouse as a Graphite storage.
+Graphouse allows you to use [ClickHouse](https://github.com/yandex/ClickHouse) as a Graphite storage.
 
 [Installation guide](doc/install.md)
 
