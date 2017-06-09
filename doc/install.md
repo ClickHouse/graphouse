@@ -4,7 +4,7 @@ Installation guide
 ClickHouse
 ----------
 
-- [Install ClickHouse.](https://clickhouse.yandex/reference_en.html#Installation)
+- [Install ClickHouse.](https://clickhouse.yandex/docs/en/getting_started.html#installation)
 
 - Create rollup config `/etc/clickhouse-server/conf.d/graphite_rollup.xml`.
 Pay attention to **graphite_rollup** tag name. The name is used below.
@@ -168,7 +168,7 @@ But you still need to describe the rules for the rotation, so that Graphouse kno
 
 Graphouse
 ---------
-- Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/reference_en.html#Installing)
+- Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/docs/en/getting_started.html#installation)
 - [Install JDK8.](https://tecadmin.net/install-oracle-java-8-ubuntu-via-ppa/)
 - Install Graphouse `sudo agt-get install graphouse`
 - Set `graphouse.clickhouse.retention-config` property in graphouse config /etc/graphouse/graphouse.properties. You can skip this step, then [default config](../src/main/java/ru/yandex/market/graphouse/retention/DefaultRetentionProvider.java#L29) will be used
