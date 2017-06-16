@@ -46,7 +46,7 @@ graphouse.clickhouse.query-timeout-seconds=${GH__CLICKHOUSE__QUERY_TIMEOUT_SECON
 graphouse.clickhouse.retention-config=${GH__CLICKHOUSE__RETENTION_CONFIG:=}
 
 #metric server and cacher
-graphouse.cacher.host=${GH__CACHER__HOST:=localhost}
+graphouse.cacher.host=${GH__CACHER__HOST:=0.0.0.0}
 graphouse.cacher.port=${GH__CACHER__PORT:=2003}
 graphouse.cacher.threads=${GH__CACHER__THREADS:=100}
 graphouse.cacher.socket-timeout-millis=${GH__CACHER__SOCKET_TIMEOUT_MILLIS:=42000}
