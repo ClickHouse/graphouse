@@ -32,8 +32,8 @@ public class MetricServer implements InitializingBean {
     @Value("${graphouse.cacher.port}")
     private int port;
     
-    @Value("${graphouse.cacher.host}")
-    private String host;
+    @Value("${graphouse.cacher.bind-address}")
+    private String bindAddress;
 
     @Value("${graphouse.cacher.socket-timeout-millis}")
     private int socketTimeoutMillis;
@@ -60,7 +60,7 @@ public class MetricServer implements InitializingBean {
     public void afterPropertiesSet() throws Exception {
         log.info("Starting metric server on port: " + port);
         serverSocket = new ServerSocket();
-        SocketAddress socketAddress = new InetSocketAddress(host, port);
+        SocketAddress socketAddress = new InetSocketAddress(bindAddress, port);
         serverSocket.bind(socketAddress);
 
         log.info("Starting " + threadCount + " metric server threads");

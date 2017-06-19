@@ -31,7 +31,7 @@ generate_properties() {
 graphouse.allow-cold-run=${GH__ALLOW_COLD_RUN:=false}
 
 #Clickhouse
-graphouse.clickhouse.host=${GH__CLICKHOUSE__HOST:=localhost}
+graphouse.clickhouse.bind-address=${GH__CLICKHOUSE__BIND_ADDRESS:=::}
 graphouse.clickhouse.port=${GH__CLICKHOUSE__PORT:=8123}
 graphouse.clickhouse.db=${GH__CLICKHOUSE__DB:=graphite}
 graphouse.clickhouse.user=${GH__CLICKHOUSE__USER:=}
@@ -46,7 +46,7 @@ graphouse.clickhouse.query-timeout-seconds=${GH__CLICKHOUSE__QUERY_TIMEOUT_SECON
 graphouse.clickhouse.retention-config=${GH__CLICKHOUSE__RETENTION_CONFIG:=}
 
 #metric server and cacher
-graphouse.cacher.host=${GH__CACHER__HOST:=0.0.0.0}
+graphouse.cacher.host=${GH__CACHER__HOST:=::}
 graphouse.cacher.port=${GH__CACHER__PORT:=2003}
 graphouse.cacher.threads=${GH__CACHER__THREADS:=100}
 graphouse.cacher.socket-timeout-millis=${GH__CACHER__SOCKET_TIMEOUT_MILLIS:=42000}
