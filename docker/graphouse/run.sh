@@ -57,7 +57,7 @@ graphouse.cacher.writers-count=${GH__CACHER__WRITERS_COUNT:=2}
 graphouse.cacher.flush-interval-seconds=${GH__CACHER__FLUSH_INTERVAL_SECONDS:=5}
 
 #Http server (metric search, ping, metricData)
-graphouse.http.host=${GH__HTTP__HOST:=localhost}
+graphouse.http.host=${GH__HTTP__HOST:=::}
 graphouse.http.port=${GH__HTTP__PORT:=2005}
 graphouse.http.threads=${GH__HTTP__THREADS:=25}
 
