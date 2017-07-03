@@ -31,8 +31,8 @@ public class GraphouseWebServer {
 
     private final MetricSearchServlet metricSearchServlet;
     private final MonitoringServlet monitoringServlet;
-
     private final MetricDataServiceServlet metricDataServiceServlet;
+
 
     public GraphouseWebServer(MetricSearchServlet metricSearchServlet,
                               MonitoringServlet monitoringServlet,
