@@ -18,6 +18,7 @@ public class ClickHouseRetentionProvider extends AbstractRetentionProvider {
         super(loadRetentions(clickHouseJdbcTemplate, configName));
     }
 
+
     private static List<MetricRetention> loadRetentions(JdbcTemplate jdbcTemplate, String configName) {
 
         log.info("Loading retentions from ClickHouse, config: " + configName);
@@ -28,7 +29,8 @@ public class ClickHouseRetentionProvider extends AbstractRetentionProvider {
                 "   SELECT * FROM system.graphite_retentions WHERE config_name = ? ORDER BY priority, age" +
                 ") GROUP BY regexp, function, priority, is_default ORDER BY priority",
             (rs, rowNum) -> {
-                String pattern = rs.getString("regexp") + ".*";
+                String regexp = rs.getString("regexp");
+                String pattern = regexp + ".*";
                 String function = rs.getString("function");
                 MetricRetention.MetricDataRetentionBuilder builder = MetricRetention.newBuilder(pattern, function);
                 int[] ages = getIntArray(rs.getString("ages"));

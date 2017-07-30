@@ -11,8 +11,8 @@ import ru.yandex.market.graphouse.render.FunctionContext;
 public class EmptyFunction implements Function {
 
     @Override
-    public DataPoints apply(FunctionContext functionContext) {
-        return functionContext.getDataPoints(0);
+    public DataPoints apply(FunctionContext context) {
+        return context.getDataPoints(0);
     }
 
     @Override

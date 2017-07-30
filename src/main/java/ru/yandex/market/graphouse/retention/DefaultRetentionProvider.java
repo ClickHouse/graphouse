@@ -12,18 +12,27 @@ import java.util.concurrent.TimeUnit;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 03/04/2017
  */
+@SuppressWarnings("checkstyle:magicnumber")
 public class DefaultRetentionProvider extends AbstractRetentionProvider {
 
-    private final static Logger log = LogManager.getLogger();
+    private static final Logger log = LogManager.getLogger();
 
-    private final static int DAY = (int) TimeUnit.DAYS.toSeconds(1);
-    private final static int MONTH = (int) TimeUnit.DAYS.toSeconds(30); //2592000
-    private final static int YEAR = 12 * MONTH; //31104000
+    private static final int DAY = (int) TimeUnit.DAYS.toSeconds(1);
+    private static final int MONTH = (int) TimeUnit.DAYS.toSeconds(30); //2592000
+    private static final int YEAR = 12 * MONTH; //31104000
 
-    private final static List<MetricRetention> RETENTIONS = getDefault();
+    private static final List<MetricRetention> RETENTIONS = getDefault();
 
     public DefaultRetentionProvider() {
-        super(RETENTIONS);
+        super(RETENTIONS, defaultRetention());
+    }
+
+    private static MetricRetention defaultRetention() {
+        return new MetricRetention.MetricDataRetentionBuilder(".*", "avg")
+            .addRetention(0, 60)
+            .addRetention(MONTH, 300)
+            .addRetention(YEAR, 600)
+            .build();
     }
 
     private static List<MetricRetention> getDefault() {
@@ -88,13 +97,7 @@ public class DefaultRetentionProvider extends AbstractRetentionProvider {
                 .build()
         );
 
-        retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder(".*", "avg")
-                .addRetention(0, 60)
-                .addRetention(MONTH, 300)
-                .addRetention(YEAR, 600)
-                .build()
-        );
+        retentions.add(defaultRetention());
 
         return Collections.unmodifiableList(retentions);
     }

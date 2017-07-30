@@ -6,11 +6,17 @@ package ru.yandex.market.graphouse.render;
  */
 public interface Function {
 
-    DataPoints apply(FunctionContext functionContext);
+    default DataPointsParams getDataPointParams(FunctionContext context) {
+        return context.getDataPointsParams();
+    }
+
+    DataPoints apply(FunctionContext context);
 
     Type getType();
 
-    enum Type{
-        DATAPOINTS_WITH_PARAMS;
+    enum Type {
+        DATA,
+        DATAPOINTS_WITH_PARAMS,
+        DATAPOINTS_LIST;
     }
 }

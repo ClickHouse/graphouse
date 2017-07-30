@@ -12,6 +12,7 @@ import java.util.List;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 11/06/2017
  */
+@Deprecated
 public class FunctionContextImpl implements FunctionContext {
 
     private DataPointsParams dataPointsParams;
@@ -42,5 +43,10 @@ public class FunctionContextImpl implements FunctionContext {
     @Override
     public String getStringParam(int index) {
         return null;
+    }
+
+    @Override
+    public List<String> getParams() {
+        return args;
     }
 }

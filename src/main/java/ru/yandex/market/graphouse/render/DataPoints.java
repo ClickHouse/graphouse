@@ -1,7 +1,5 @@
 package ru.yandex.market.graphouse.render;
 
-import ru.yandex.market.graphouse.render.DataPointsParams;
-
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 15/05/2017

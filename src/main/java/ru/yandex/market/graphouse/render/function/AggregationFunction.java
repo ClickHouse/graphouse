@@ -19,8 +19,8 @@ public class AggregationFunction implements Function {
     }
 
     @Override
-    public DataPoints apply(FunctionContext functionContext) {
-        DataPoints dataPoints = functionContext.getDataPoints(0);
+    public DataPoints apply(FunctionContext context) {
+        DataPoints dataPoints = context.getDataPoints(0);
         String query = String.format(
             "SELECT ('%s(' || '%s' || ')') AS name, %s(values) FROM (%s)",
             graphiteName, dataPoints.getName(), clickHouseFunction, dataPoints.getQuery()

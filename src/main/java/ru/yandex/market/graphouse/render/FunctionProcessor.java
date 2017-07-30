@@ -1,12 +1,13 @@
 package ru.yandex.market.graphouse.render;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 import ru.yandex.market.graphouse.render.function.AggregationFunction;
 import ru.yandex.market.graphouse.render.function.EmptyFunction;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,41 +21,13 @@ public class FunctionProcessor {
     private final Map<String, Function> functions = new HashMap<>();
 
     public FunctionProcessor() {
-//        addFunction(
-//            new Function() {
-//                @Override
-//                public void apply(QueryBuilder queryBuilder, String... args) {
-//                    queryBuilder.groupToArrays("avgIf(value, isFinite(value)) > " + args[0]);
-//                }
-//            },
-//            "averageAbove"
-//        );
 
         addFunction(new AggregationFunction("sumSeries", "sum"), "sumSeries", "sum");
         addFunction(new AggregationFunction("avgSeries", "avg"), "avgSeries", "avg");
-//        addFunction(new AliasByNodeFunction(), "aliasByNode");
-
-//        addFunction(
-//            new Function() {
-//                @Override
-//                public void apply(QueryBuilder queryBuilder, String... args) {
-//                    String start = args[1];
-//                    String end = args[2];
-//                    queryBuilder.addMutation(
-//                        "arrayStringConcat(" +
-//                            "   arrayFilter(" +
-//                            "       (level, num) -> (num  BETWEEN " + start + " and " + end + "), " +
-//                            "       splitByChar('.', 'a.b.c.d.e') as tmp1, arrayEnumerate(tmp1)" +
-//                            "   )," +
-//                            " '.'" +
-//                            ") as metric"
-//                    );
-//                }
-//            },
-//            "aliasByNode"
-//        );
-
+        addFunction(new AggregationFunction("minSeries", "min"), "minSeries", "min");
+        addFunction(new AggregationFunction("maxSeries", "max"), "maxSeries", "max");
         addFunction(new EmptyFunction(), "color");
+
     }
 
     private void addFunction(Function function, String... names) {
@@ -64,7 +37,7 @@ public class FunctionProcessor {
     }
 
     //aliasByNode(averageAbove(one_min.market-front.errors-dynamic.5xx-percent.*.*, 0.1), 3, 5)
-    public FunctionWrapper parse(String request) throws RequestParseException {
+    public DataPointsProvider parse(String request, RenderContext context) throws RequestParseException {
         int startBraceIndex = request.indexOf('(');
         int endBraceIndex = request.lastIndexOf(')');
         if (startBraceIndex > 0 ^ endBraceIndex > 0) {
@@ -72,7 +45,7 @@ public class FunctionProcessor {
         }
         boolean hasSubFunction = startBraceIndex > 0 && endBraceIndex > 0;
         if (!hasSubFunction) {
-            return new FunctionWrapper(DataFunction.INSTANCE, new String[]{request});
+            return new QueryDataPointsProvider(request, context);
         }
         String functionName = request.substring(0, startBraceIndex);
         Function function = functions.get(functionName.toLowerCase());
@@ -81,61 +54,30 @@ public class FunctionProcessor {
         }
 
         String argsString = request.substring(startBraceIndex + 1, endBraceIndex).trim();
-        if (!function.hasSeries()) {
-            return new FunctionWrapper(function, splitArgs(argsString));
-        }
-        if (argsString.isEmpty()) {
-            throw new RequestParseException("seriesList not provided for function: " + functionName, request);
-        }
+        List<String> args = splitArgs(argsString);
+        switch (function.getType()) {
+            case DATA:
+                return new FunctionDataPointsProvider(function, context, Collections.emptyList(), args);
+            case DATAPOINTS_WITH_PARAMS:
+                DataPointsProvider subProvider = parse(args.get(0), context);
+                return new FunctionDataPointsProvider(
+                    function, context, Collections.singletonList(subProvider), args.subList(1, args.size())
+                );
+            case DATAPOINTS_LIST:
+                List<DataPointsProvider> subProviders = new ArrayList<>(args.size());
+                for (String arg : args) {
+                    subProviders.add(parse(arg, context));
+                }
+                return new FunctionDataPointsProvider(function, context, subProviders, Collections.emptyList());
+            default:
+                throw new IllegalStateException();
 
-        boolean brace = true;
-        int splitIndex = argsString.lastIndexOf(')');
-        if (splitIndex == -1) {
-            brace = false;
-            splitIndex = argsString.indexOf(',');
         }
-        if (splitIndex == -1) {
-            splitIndex = 0;
-        }
-
-        String subFunctionString = argsString.substring(0, brace ? splitIndex + 1 : splitIndex);
-        FunctionWrapper subFunction = parse(subFunctionString);
-        String[] args = splitArgs(argsString.substring(splitIndex + 2));
-        return new FunctionWrapper(function, args, subFunction);
 
     }
 
-    private String[] splitArgs(String string) {
-        return Iterables.toArray(ARGS_SPLITTER.split(string), String.class);
-    }
-
-    @VisibleForTesting
-    protected static class FunctionWrapper {
-        private final Function function;
-        private final String[] args;
-        private final FunctionWrapper subFunction;
-
-        public FunctionWrapper(Function function, String[] args, FunctionWrapper subFunction) {
-            this.function = function;
-            this.args = args;
-            this.subFunction = subFunction;
-        }
-
-        public FunctionWrapper(Function function, String[] args) {
-            this(function, args, null);
-        }
-
-        public Function getFunction() {
-            return function;
-        }
-
-        public String[] getArgs() {
-            return args;
-        }
-
-        public FunctionWrapper getSubFunction() {
-            return subFunction;
-        }
+    private List<String> splitArgs(String string) {
+        return ARGS_SPLITTER.splitToList(string);
     }
 
 }
