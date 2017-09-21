@@ -196,3 +196,23 @@ STORAGE_FINDERS = (
 - Restart graphite-web
 
 
+Graphite-api
+------------
+[Graphite-API](https://graphite-api.readthedocs.io/en/latest/) is an alternative to Graphite-web, without any built-in dashboard. Its role is solely to fetch metrics from a time-series database (in our case - Graphouse) and rendering graphs or JSON data out of these time series. It is meant to be consumed by any of the numerous Graphite dashboard applications.
+
+- Install [graphite-api](https://github.com/brutasse/graphite-api), if you don't have it already. You don't need carbon or whisper, Graphouse and ClickHouse completely replace them.
+- Add graphouse plugin `/opt/graphouse/bin/graphouse_api.py` to your graphite-api finders dir.
+For example, if you dir is `/usr/local/lib/python3.6/site-packages/graphite_api/finders` use command below
+```bash
+sudo ln -fs /opt/graphouse/bin/graphouse_api.py /usr/local/lib/python3.6/site-packages/graphite_api/finders/graphouse_api.py
+```
+
+- Configure storage finder in your [/etc/graphite-api.yaml](https://graphite-api.readthedocs.io/en/latest/configuration.html#etc-graphite-api-yaml)
+```python
+finders:
+  - graphite_api.finders.graphouse_api.GraphouseFinder 
+graphouse:
+  url: http://localhost:2005
+```
+(do not forget to change graphouse URL if needed)
+- Restart graphite-api
