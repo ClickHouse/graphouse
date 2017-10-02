@@ -5,7 +5,7 @@ configure)
 	USER=graphouse
 	GRAPHOUSE_ROOT=/opt/graphouse
 
-	useradd ${USER} -g nogroup 2>/dev/null && echo "User ${USER} created"
+	useradd ${USER} -r -g nogroup 2>/dev/null && echo "User ${USER} created"
 	chown -R $USER:nogroup $GRAPHOUSE_ROOT
 
 	ln -sf $GRAPHOUSE_ROOT/conf/ /etc/graphouse
