@@ -4,15 +4,17 @@ import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.search.MetricStatus;
 
-import java.io.DataOutput;
-import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 25/01/2017
  */
 public abstract class MetricDir extends MetricBase {
+
+    private AtomicInteger visibleChildren = new AtomicInteger(-1);
+
     public MetricDir(MetricDir parent, String name, MetricStatus status) {
         super(parent, name, status);
     }
@@ -80,8 +82,8 @@ public abstract class MetricDir extends MetricBase {
 
 
     /**
-     * if all the metrics in the directory are hidden, then we try to hide it {@link MetricStatus#AUTO_HIDDEN}
-     * if there is at least one open metric for the directory, then we try to open it {@link MetricStatus#SIMPLE}
+     * if all the metrics in the directory are hidden, then we try to hide it {@link MetricStatus#AUTO_HIDDEN}.
+     * if there is at least one open metric for the directory, then we try to open it {@link MetricStatus#SIMPLE}.
      */
     public void notifyChildStatusChange(MetricBase metricBase, MetricStatus oldStatus) {
         if (isRoot()) {
@@ -98,34 +100,44 @@ public abstract class MetricDir extends MetricBase {
                 getMetrics().remove(metricBase.getName());
             }
         }
+
         if (oldStatus != null && oldStatus.visible() == newStatus.visible()) {
             return;
         }
 
         // if all the metrics in the directory are hidden, then we try to hide it {@link MetricStatus#AUTO_HIDDEN}
         // if there is at least one open metric for the directory, then we try to open it {@link MetricStatus#SIMPLE}
+        initVisibleCounter();
         if (newStatus.visible()) {
             setStatus(MetricStatus.SIMPLE);
+            visibleChildren.getAndIncrement();
         } else {
-            setStatus(hasVisibleChildren() ? MetricStatus.SIMPLE : MetricStatus.AUTO_HIDDEN);
+            visibleChildren.getAndUpdate(operand -> {
+                int count = operand - 1;
+                setStatus(count > 0 ? MetricStatus.SIMPLE : MetricStatus.AUTO_HIDDEN);
+                return count;
+            });
         }
     }
 
-    private boolean hasVisibleChildren() {
-        if (hasDirs()) {
+    private void initVisibleCounter() {
+        visibleChildren.getAndUpdate(operand -> {
+            if (operand >= 0) {
+                return operand;
+            }
+            int count = 0;
             for (MetricDir metricDir : getDirs().values()) {
                 if (metricDir.visible()) {
-                    return true;
+                    count++;
                 }
             }
-        }
-        if (hasMetrics()) {
+
             for (MetricName metricName : getMetrics().values()) {
                 if (metricName.visible()) {
-                    return true;
+                    count++;
                 }
             }
-        }
-        return false;
+            return count;
+        });
     }
 }
