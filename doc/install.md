@@ -170,7 +170,7 @@ Graphouse
 ---------
 - Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/docs/en/getting_started.html#installation)
 - [Install JDK8.](https://tecadmin.net/install-oracle-java-8-ubuntu-via-ppa/)
-- Install Graphouse `sudo agt-get install graphouse`
+- Install Graphouse `sudo apt-get install graphouse`
 - Set `graphouse.clickhouse.retention-config` property in graphouse config /etc/graphouse/graphouse.properties. You can skip this step, then [default config](../src/main/java/ru/yandex/market/graphouse/retention/DefaultRetentionProvider.java#L29) will be used
 - Start graphouse `sudo /etc/init.d/graphouse start`
 
