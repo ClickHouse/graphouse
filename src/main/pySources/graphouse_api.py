@@ -1,22 +1,22 @@
 import json
 import time
 import traceback
-import urllib
+import urllib.parse
 import requests
-import graphite.readers
 
-from django.conf import settings
-from graphite.intervals import IntervalSet, Interval
-from graphite.logger import log
-from graphite.node import LeafNode, BranchNode
+from structlog import get_logger
+from graphite_api.intervals import IntervalSet, Interval
+from graphite_api.node import LeafNode, BranchNode
 
-graphouse_url = getattr(settings, 'GRAPHOUSE_URL', 'http://localhost:2005')
-
+logger = get_logger()
 
 class GraphouseFinder(object):
+    def __init__(self, config):
+        config.setdefault('graphouse', {})
+        self.graphouse_url = config['graphouse'].get('url', 'http://localhost:2005')
 
     def find_nodes(self, query):
-        request = requests.get('%s/search?%s' % (graphouse_url, urllib.urlencode({'query': query.pattern})))
+        request = requests.get('%s/search?%s' % (self.graphouse_url, urllib.parse.urlencode({'query': query.pattern})))
         request.raise_for_status()
         result = request.text.split('\n')
 
@@ -26,16 +26,17 @@ class GraphouseFinder(object):
             if metric.endswith('.'):
                 yield BranchNode(metric[:-1])
             else:
-                yield LeafNode(metric, GraphouseReader(metric))
+                yield LeafNode(metric, GraphouseReader(metric, self.graphouse_url))
 
 
 # Data reader
 class GraphouseReader(object):
-    __slots__ = ('path', 'nodes', 'reqkey')
+    __slots__ = ('path', 'nodes', 'reqkey', 'graphouse_url')
 
-    def __init__(self, path, reqkey='empty'):
+    def __init__(self, path, reqkey='empty', graphouse_url='http://localhost:2005'):
         self.nodes = [self]
         self.path = None
+        self.graphouse_url = graphouse_url
 
         if hasattr(path, '__iter__'):
             self.nodes = path
@@ -65,14 +66,14 @@ class GraphouseReader(object):
         try:
             paths = [node.path.replace('\'', '\\\'') for node in self.nodes]
 
-            query = urllib.urlencode(
+            query = urllib.parse.urlencode(
                 {
                     'metrics': ','.join(paths),
                     'start': start_time,
                     'end': end_time,
                     'reqKey': self.reqkey
                 })
-            request_url = graphouse_url + "/metricData"
+            request_url = self.graphouse_url + "/metricData"
             request = requests.post(request_url, params=query)
 
             log.info('DEBUG:graphouse_data_query: %s parameters %s' % (request_url, query))
@@ -93,8 +94,6 @@ class GraphouseReader(object):
         for node in self.nodes:
             metric_object = metrics_object.get(node.path)
             if metric_object is None:
-                if len(self.nodes) == 1:
-                    return None
                 time_infos += (0, 0, 1)
                 points += []
             else:
@@ -103,7 +102,7 @@ class GraphouseReader(object):
 
         profilingTime['convert'] = time.time()
 
-        log.info('DEBUG:graphouse_time:[%s] full = %s fetch = %s, parse = %s, convert = %s' % (
+        logger.info('DEBUG:graphouse_time:[%s] full = %s fetch = %s, parse = %s, convert = %s' % (
             self.reqkey,
             profilingTime['convert'] - profilingTime['start'],
             profilingTime['fetch'] - profilingTime['start'],
@@ -112,5 +111,3 @@ class GraphouseReader(object):
         ))
 
         return time_infos, points
-
-graphite.readers.MultiReader = GraphouseReader

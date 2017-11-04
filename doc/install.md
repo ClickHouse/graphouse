@@ -4,7 +4,7 @@ Installation guide
 ClickHouse
 ----------
 
-- [Install ClickHouse.](https://clickhouse.yandex/reference_en.html#Installation)
+- [Install ClickHouse.](https://clickhouse.yandex/docs/en/getting_started.html#installation)
 
 - Create rollup config `/etc/clickhouse-server/conf.d/graphite_rollup.xml`.
 Pay attention to **graphite_rollup** tag name. The name is used below.
@@ -168,9 +168,9 @@ But you still need to describe the rules for the rotation, so that Graphouse kno
 
 Graphouse
 ---------
-- Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/reference_en.html#Installing)
+- Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/docs/en/getting_started.html#installation)
 - [Install JDK8.](https://tecadmin.net/install-oracle-java-8-ubuntu-via-ppa/)
-- Install Graphouse `sudo agt-get install graphouse`
+- Install Graphouse `sudo apt-get install graphouse`
 - Set `graphouse.clickhouse.retention-config` property in graphouse config /etc/graphouse/graphouse.properties. You can skip this step, then [default config](../src/main/java/ru/yandex/market/graphouse/retention/DefaultRetentionProvider.java#L29) will be used
 - Start graphouse `sudo /etc/init.d/graphouse start`
 
@@ -196,3 +196,23 @@ STORAGE_FINDERS = (
 - Restart graphite-web
 
 
+Graphite-api
+------------
+[Graphite-API](https://graphite-api.readthedocs.io/en/latest/) is an alternative to Graphite-web, without any built-in dashboard. Its role is solely to fetch metrics from a time-series database (in our case - Graphouse) and rendering graphs or JSON data out of these time series. It is meant to be consumed by any of the numerous Graphite dashboard applications.
+
+- Install [graphite-api](https://github.com/brutasse/graphite-api), if you don't have it already. You don't need carbon or whisper, Graphouse and ClickHouse completely replace them.
+- Add graphouse plugin `/opt/graphouse/bin/graphouse_api.py` to your graphite-api finders dir.
+For example, if you dir is `/usr/local/lib/python3.6/site-packages/graphite_api/finders` use command below
+```bash
+sudo ln -fs /opt/graphouse/bin/graphouse_api.py /usr/local/lib/python3.6/site-packages/graphite_api/finders/graphouse_api.py
+```
+
+- Configure storage finder in your [/etc/graphite-api.yaml](https://graphite-api.readthedocs.io/en/latest/configuration.html#etc-graphite-api-yaml)
+```python
+finders:
+  - graphite_api.finders.graphouse_api.GraphouseFinder 
+graphouse:
+  url: http://localhost:2005
+```
+(do not forget to change graphouse URL if needed)
+- Restart graphite-api
