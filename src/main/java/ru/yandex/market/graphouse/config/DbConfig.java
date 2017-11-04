@@ -50,6 +50,7 @@ public class DbConfig {
 
         final ClickHouseProperties clickHouseProperties = new ClickHouseProperties();
         clickHouseProperties.setSocketTimeout((int) TimeUnit.SECONDS.toMillis(clickhouseSocketTimeoutSeconds));
+
         clickHouseProperties.setUser(clickhouseUsername);
         clickHouseProperties.setPassword(clickhousePassword);
         clickHouseProperties.setCompress(compress);
