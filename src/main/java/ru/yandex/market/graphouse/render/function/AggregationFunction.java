@@ -22,7 +22,7 @@ public class AggregationFunction implements Function {
     public DataPoints apply(FunctionContext context) {
         DataPoints dataPoints = context.getDataPoints(0);
         String query = String.format(
-            "SELECT ('%s(' || '%s' || ')') AS name, %s(values) FROM (%s)",
+            "SELECT ('%s(' || '%s' || ')') AS metric, %sForEach(values) as values FROM (%s) GROUP BY metric",
             graphiteName, dataPoints.getName(), clickHouseFunction, dataPoints.getQuery()
         );
         return new DataPoints("name", query, dataPoints.getParams());

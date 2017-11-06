@@ -29,7 +29,7 @@ public class RenderServlet extends HttpServlet {
         String target = req.getParameter("target");
 
         try {
-            renderService.doWork(
+            renderService.render(
                 1487106000,
                 1487192459,
                 target,

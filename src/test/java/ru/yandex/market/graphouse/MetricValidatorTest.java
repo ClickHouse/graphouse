@@ -31,6 +31,7 @@ public class MetricValidatorTest {
         invalid("one_min.x.x.d.d.d.d.d.d.x.x.x.x.d.x.d.d.x.d.d.d.d.d.d.x.x.x.x.d.x.d.d", true);
         invalid("nameadsfdsfdsfdsfsd", true);
         invalid("a.b", true);
+        valid("dir1.metric1", true);
     }
 
     private void valid(String metric, boolean allowDirs) {

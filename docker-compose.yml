@@ -1,0 +1,14 @@
+version: '3'
+services:
+    graphite-web:
+        build: docker/graphite-web
+        ports:
+          - "80:80"
+    clickhouse-server:
+        image: yandex/clickhouse-server
+        volumes:
+          - "./src/test/data/var-lib-clickhouse:/var/lib/clickhouse"
+          - "./src/test/data/etc-clickhouse-conf:/etc/clickhouse-server/conf.d"
+        ports:
+          - "8123:8123"
+          - "9000:9000"

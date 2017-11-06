@@ -12,7 +12,7 @@ public class RenderContext {
     private final int startTimeSeconds;
     private final int endTimeSeconds;
     private final int maxDataPoints;
-    private final int maxMetricsPerQuery ;
+    private final int maxMetricsPerQuery;
 
     public RenderContext(String table, MetricSearch metricSearch,
                          int startTimeSeconds, int endTimeSeconds, int maxDataPoints, int maxMetricsPerQuery) {

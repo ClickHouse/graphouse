@@ -37,7 +37,7 @@ public class RenderService {
         this.maxMetricsPerQuery = maxMetricsPerQuery;
     }
 
-    public void doWork(int startTimeSeconds, int endTimeSeconds, String target, int maxDataPoints,
+    public void render(int startTimeSeconds, int endTimeSeconds, String target, int maxDataPoints,
                        PrintWriter writer) throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
 
@@ -52,7 +52,7 @@ public class RenderService {
 
         JsonWriter jsonWriter = new JsonWriter(writer);
         jsonWriter.beginArray();
-
+        System.out.println(dataPoints.getQuery());
         jdbcTemplate.query(
             dataPoints.getQuery(),
             rs -> {
@@ -82,7 +82,7 @@ public class RenderService {
         );
         jsonWriter.endArray();
         stopwatch.stop();
-        log.info("Executed in %s: %s", stopwatch.toString(), target);
+        log.info("Executed in {}: {}", stopwatch.toString(), target);
 
     }
 
@@ -91,7 +91,12 @@ public class RenderService {
         List<String> strings = getStringList(string);
         double[] array = new double[strings.size()];
         for (int i = 0; i < strings.size(); i++) {
-            array[i] = Double.parseDouble(strings.get(i));
+            String value = strings.get(i);
+            if (value.equals("inf") || value.equals("nan")) {
+                array[i] = Double.NaN;
+            } else {
+                array[i] = Double.parseDouble(value);
+            }
         }
         return array;
     }

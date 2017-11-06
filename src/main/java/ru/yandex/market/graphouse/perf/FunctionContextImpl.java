@@ -27,7 +27,8 @@ public class FunctionContextImpl implements FunctionContext {
 
     @Override
     public DataPoints getDataPoints(int index, DataPointsParams params) {
-        return subFunctions.get(index).;
+        return null;
+        //        return subFunctions.get(index).;
     }
 
     @Override

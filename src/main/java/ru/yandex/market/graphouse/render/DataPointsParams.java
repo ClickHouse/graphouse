@@ -28,6 +28,6 @@ public class DataPointsParams {
     }
 
     public int getEndTimeSeconds() {
-        return startTimeSeconds + stepSeconds + pointsCount; //TODO check end
+        return startTimeSeconds + (stepSeconds * pointsCount); //TODO check end
     }
 }

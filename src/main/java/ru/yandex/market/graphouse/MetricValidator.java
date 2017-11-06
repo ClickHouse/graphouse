@@ -14,15 +14,15 @@ public class MetricValidator {
 
     private final int maxMetricLength;
 
-    private final int minDots;
+    private final int minLevels;
 
-    private final int maxDots;
+    private final int maxLevels;
 
-    public MetricValidator(String metricRegexp, int minMetricLength, int maxMetricLength, int minDots, int maxDots) {
+    public MetricValidator(String metricRegexp, int minMetricLength, int maxMetricLength, int minLevels, int maxLevels) {
         this.minMetricLength = minMetricLength;
         this.maxMetricLength = maxMetricLength;
-        this.minDots = minDots;
-        this.maxDots = maxDots;
+        this.minLevels = minLevels;
+        this.maxLevels = maxLevels;
         metricPattern = Pattern.compile(metricRegexp);
     }
 
@@ -55,7 +55,7 @@ public class MetricValidator {
             dotCount++;
         }
 
-        if ((!isDir && dotCount < minDots) || dotCount > maxDots) {
+        if ((!isDir && dotCount < minLevels - 1) || dotCount > maxLevels) {
             return false;
         }
         return true;

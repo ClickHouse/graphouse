@@ -23,7 +23,7 @@ public class FunctionProcessor {
     public FunctionProcessor() {
 
         addFunction(new AggregationFunction("sumSeries", "sum"), "sumSeries", "sum");
-        addFunction(new AggregationFunction("avgSeries", "avg"), "avgSeries", "avg");
+        addFunction(new AggregationFunction("averageSeries", "avg"), "averageSeries", "average", "avgSeries", "avg");
         addFunction(new AggregationFunction("minSeries", "min"), "minSeries", "min");
         addFunction(new AggregationFunction("maxSeries", "max"), "maxSeries", "max");
         addFunction(new EmptyFunction(), "color");

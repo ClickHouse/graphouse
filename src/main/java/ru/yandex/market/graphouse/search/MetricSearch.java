@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.search;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -460,7 +461,8 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     }
 
-    public void loadNewMetrics() {
+    @VisibleForTesting
+    public synchronized void loadNewMetrics() {
         int timeSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())) - updateDelaySeconds;
         if (isMetricTreeLoaded()) {
             loadUpdatedMetrics(lastUpdatedTimestampSeconds);

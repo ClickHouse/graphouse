@@ -14,21 +14,21 @@ import java.util.stream.Collectors;
  * @date 17/07/2017
  */
 public class QueryDataPointsProvider implements DataPointsProvider {
-    private final String query;
+    private final String metricsGlob;
     private final RenderContext context;
 //    private final DataPointsParams params;
 //    private final String aggregationFunction;
 
 
-    public QueryDataPointsProvider(String query, RenderContext context) {
-        this.query = query;
+    public QueryDataPointsProvider(String metricsGlob, RenderContext context) {
+        this.metricsGlob = metricsGlob;
         this.context = context;
     }
 
     //TODO
     public DataPointsParams getParams(List<MetricName> metrics) {
-        int timeSeconds = context.getEndTimeSeconds() - context.getStartTimeSeconds();
-        int step = 60; //TODO select step
+        int timeSeconds = context.getEndTimeSeconds() + 1 - context.getStartTimeSeconds();
+        int step = 1; //TODO select step
         int dataPoints = timeSeconds / step;
         if (context.getMaxDataPoints() > 0 && dataPoints < context.getMaxDataPoints()) {
             int valuesPerPoint = (int) Math.ceil((double) dataPoints / context.getMaxDataPoints());
@@ -44,22 +44,21 @@ public class QueryDataPointsProvider implements DataPointsProvider {
         List<MetricName> metrics = getMetrics();
         //TODO agr func
         String clickhouseQuery = buildQuery(context.getTable(), metrics, params, "avg");
-        return new DataPoints("metric", clickhouseQuery, params);
+        return new DataPoints(metricsGlob, clickhouseQuery, params);
     }
 
     public List<MetricName> getMetrics() {
         List<MetricName> metrics = new ArrayList<>();
         try {
             context.getMetricSearch().search(
-                query, metric -> {
+                metricsGlob, metric -> {
                     if (!metric.isDir()) {
                         metrics.add((MetricName) metric);
                         Preconditions.checkArgument(
-                            context.getMaxMetricsPerQuery() > 0 && metrics.size() > context.getMaxMetricsPerQuery(),
+                            context.getMaxMetricsPerQuery() <= 0 || metrics.size() < context.getMaxMetricsPerQuery(),
                             "More than %d metrics found for query: %s",
-                            context.getMaxMetricsPerQuery(), query
+                            context.getMaxMetricsPerQuery(), metricsGlob
                         );
-
                     }
                 }
             );
@@ -74,19 +73,20 @@ public class QueryDataPointsProvider implements DataPointsProvider {
                                     DataPointsParams params, String aggregationFunction) {
 
         return String.format(
-            "SELECT metrics, groupArrayInsertAt(inf, %d)(value, (ts - %d) / %d) AS values FROM (" +
+            "SELECT metric, groupArrayInsertAt(inf, %d)(value, intDiv(ts - %d, %d)) AS values FROM (" +
                 "   SELECT metric, ts, %s(value) as value FROM (" +
                 "       SELECT metric, ts, argMax(value, updated) as value FROM %s " +
-                "           WHERE ts >=%d AND ts < %d AND date >=toDate(%d) AND date <= toDate(%d) " +
+                "           WHERE ts >=%d AND ts < %d " +
+                "               AND date >=toDate(toDateTime(%d)) AND date <= toDate(toDateTime(%d)) " +
                 "               AND metric IN (%s) " +
                 "       GROUP BY metric, timestamp AS ts" +
                 "   ) GROUP BY metric, intDiv(toUInt32(ts), %d) * %d AS ts" +
-                ") ORDER BY ts",
+                ") GROUP BY metric",
             params.getPointsCount(), params.getStartTimeSeconds(), params.getStepSeconds(),
             aggregationFunction, table,
             params.getStartTimeSeconds(), params.getEndTimeSeconds(),
             params.getStartTimeSeconds(), params.getEndTimeSeconds(),
-            metrics.stream().map(MetricName::getName).collect(Collectors.joining(",")),
+            metrics.stream().map(MetricName::getName).collect(Collectors.joining("','", "'", "'")),
             params.getStepSeconds(), params.getStepSeconds()
         );
     }

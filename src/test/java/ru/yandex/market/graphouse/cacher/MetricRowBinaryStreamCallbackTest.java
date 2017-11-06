@@ -3,6 +3,8 @@ package ru.yandex.market.graphouse.cacher;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import ru.yandex.clickhouse.settings.ClickHouseProperties;
+import ru.yandex.clickhouse.util.ClickHouseRowBinaryStream;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
 import ru.yandex.market.graphouse.search.MetricStatus;
@@ -60,10 +62,13 @@ public class MetricRowBinaryStreamCallbackTest {
             1492350000
         );
 
-        MetricRowBinaryStreamCallback entity = new MetricRowBinaryStreamCallback(Collections.singletonList(metric));
+        MetricRowBinaryStreamCallback callback = new MetricRowBinaryStreamCallback(Collections.singletonList(metric));
 
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        entity.writeTo(byteArrayOutputStream);
+        ClickHouseRowBinaryStream rowBinaryStream = new ClickHouseRowBinaryStream(
+            byteArrayOutputStream, null, new ClickHouseProperties()
+        );
+        callback.writeTo(rowBinaryStream);
 
         byte[] actual = byteArrayOutputStream.toByteArray();
 
