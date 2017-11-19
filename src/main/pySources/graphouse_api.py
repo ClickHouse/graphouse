@@ -38,7 +38,14 @@ class GraphouseReader(object):
         self.path = None
         self.graphouse_url = graphouse_url
 
-        if hasattr(path, '__iter__'):
+        try:
+            iterator = iter(theElement)
+        except TypeError:
+            # not iterable
+        else:
+            # iterable
+        
+        if hasattr(path, '__iter__') and type(path) != str:
             self.nodes = path
         else:
             self.path = path
