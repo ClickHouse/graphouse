@@ -76,11 +76,11 @@ class GraphouseReader(object):
             request_url = self.graphouse_url + "/metricData"
             request = requests.post(request_url, params=query)
 
-            log.info('DEBUG:graphouse_data_query: %s parameters %s' % (request_url, query))
+            logger.info('DEBUG:graphouse_data_query: %s parameters %s' % (request_url, query))
 
             request.raise_for_status()
         except Exception as e:
-            log.info("Failed to fetch data, got exception:\n %s" % traceback.format_exc())
+            logger.info("Failed to fetch data, got exception:\n %s" % traceback.format_exc())
             raise e
 
         profilingTime['fetch'] = time.time()
