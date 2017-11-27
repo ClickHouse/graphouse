@@ -38,13 +38,6 @@ class GraphouseReader(object):
         self.path = None
         self.graphouse_url = graphouse_url
 
-        try:
-            iterator = iter(theElement)
-        except TypeError:
-            # not iterable
-        else:
-            # iterable
-        
         if hasattr(path, '__iter__') and type(path) != str:
             self.nodes = path
         else:
@@ -118,3 +111,4 @@ class GraphouseReader(object):
         ))
 
         return time_infos, points
+
