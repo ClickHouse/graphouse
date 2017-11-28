@@ -38,7 +38,7 @@ class GraphouseReader(object):
         self.path = None
         self.graphouse_url = graphouse_url
 
-        if hasattr(path, '__iter__'):
+        if hasattr(path, '__iter__') and type(path) != str:
             self.nodes = path
         else:
             self.path = path
@@ -111,3 +111,4 @@ class GraphouseReader(object):
         ))
 
         return time_infos, points
+
