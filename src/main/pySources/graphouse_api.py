@@ -26,7 +26,7 @@ class GraphouseFinder(object):
             if metric.endswith('.'):
                 yield BranchNode(metric[:-1])
             else:
-                yield LeafNode(metric, GraphouseReader(metric, self.graphouse_url))
+                yield LeafNode(metric, GraphouseReader(metric, graphouse_url=self.graphouse_url))
 
 
 # Data reader
