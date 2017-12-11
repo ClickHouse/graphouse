@@ -60,7 +60,7 @@ class GraphouseReader(object):
     data_points - list of ((end_time - start_time) / time_step) points, loaded from database
     """
 
-    def fetch(self, start_time, end_time):
+    def fetch(self, start_time, end_time, *arg):
         profilingTime = {'start': time.time()}
 
         try:
