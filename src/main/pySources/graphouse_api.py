@@ -26,7 +26,7 @@ class GraphouseFinder(object):
             if metric.endswith('.'):
                 yield BranchNode(metric[:-1])
             else:
-                yield LeafNode(metric, GraphouseReader(metric, self.graphouse_url))
+                yield LeafNode(metric, GraphouseReader(metric, graphouse_url=self.graphouse_url))
 
 
 # Data reader
@@ -60,7 +60,7 @@ class GraphouseReader(object):
     data_points - list of ((end_time - start_time) / time_step) points, loaded from database
     """
 
-    def fetch(self, start_time, end_time):
+    def fetch(self, start_time, end_time, *arg):
         profilingTime = {'start': time.time()}
 
         try:
