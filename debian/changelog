@@ -1,3 +1,9 @@
+graphouse (1.3) unstable; urgency=medium
+
+  * Fix version to the last tag value
+
+ -- Vlad Vinogradov <vladvin@yandex-team.ru>  Mon, 11 Dec 2017 17:48:37 +0300
+
 graphouse (1.2) unstable; urgency=medium
 
   * Metric write performance optimizations
