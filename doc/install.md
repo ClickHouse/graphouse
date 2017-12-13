@@ -171,11 +171,48 @@ Graphouse
 - Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/docs/en/getting_started.html#installation)
 - [Install JDK8.](https://tecadmin.net/install-oracle-java-8-ubuntu-via-ppa/)
 - Install Graphouse `sudo apt-get install graphouse`
-- Set `graphouse.clickhouse.retention-config` property in graphouse config /etc/graphouse/graphouse.properties. You can skip this step, then [default config](../src/main/java/ru/yandex/market/graphouse/retention/DefaultRetentionProvider.java#L29) will be used
+- Set `graphouse.clickhouse.retention-config` property in graphouse config /etc/graphouse/graphouse.properties. You can skip this step, then [default config](../src/main/java/ru/yandex/market/graphouse/retention/DefaultRetentionProvider.java#L29) will be used.
 - Start graphouse `sudo /etc/init.d/graphouse start`
 
 If you have any problems check graphouse log dir for details `/var/log/graphouse`.
 See [Configuration](config.md) for more details.
+
+**Notice** Config name for `graphouse.clickhouse.retention-config` is not a file path, that you have copied `/etc/clickhouse-server/conf.d/graphite_rollup.xml`!
+Yuo should use one of names from system ClickHouse table `system.graphite_retentions` that you may retrieve with query:
+```sql
+SELECT
+    priority,
+    is_default,
+    config_name,
+    regexp,
+    function,
+    groupArray(age) AS ages,
+    groupArray(precision) AS precisions
+FROM
+(
+    SELECT *
+    FROM system.graphite_retentions
+    ORDER BY
+        priority ASC,
+        age ASC
+)
+GROUP BY
+    config_name,
+    regexp,
+    function,
+    priority,
+    is_default
+ORDER BY priority ASC
+```
+
+Basically if you have used XML config from an example above, this name will be `graphite_rollup`, that defined inside `<yandex></yandex>` child elements:
+```xml
+<yandex>
+  <graphite_rollup>
+    ...
+  </graphite_rollup>
+</yandex>
+```
 
 
 Graphite-web
