@@ -58,6 +58,9 @@ public class MetricFactory {
                 return null;
             }
             metric = metricSearch.add(name);
+            if (metric == null){
+                return null;
+            }
         } else if (metric.getStatus() == MetricStatus.AUTO_HIDDEN || metric.getStatus() == MetricStatus.HIDDEN) {
             metric = metricSearch.add(name);
         }
