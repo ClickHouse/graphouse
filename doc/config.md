@@ -24,6 +24,7 @@ Metric cacher
 Graphouse supports [graphite plaintext protocol](http://graphite.readthedocs.io/en/latest/feeding-carbon.html#the-plaintext-protocol)
 
 ```properties
+graphouse.cacher.bind-address=::
 graphouse.cacher.port=2003
 graphouse.cacher.threads=100
 graphouse.cacher.socket-timeout-millis=42000
