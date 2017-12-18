@@ -29,6 +29,9 @@ public class GraphouseWebServer {
     @Value("${graphouse.http.bind-address}")
     private String httpBindAddress;
 
+    @Value("${graphouse.http.max-form-context-size-bytes}")
+    private int maxFormContextSizeBytes;
+
     @Value("${graphouse.http.threads}")
     private int threadCount;
 
@@ -54,6 +57,7 @@ public class GraphouseWebServer {
         serverConnector.setHost(httpBindAddress);
         server.setConnectors(new Connector[]{serverConnector});
         ServletContextHandler context = new ServletContextHandler();
+        context.setMaxFormContentSize(maxFormContextSizeBytes);
         context.setContextPath("/");
 
         ServletHolder metricSearchServletHolder = new ServletHolder(metricSearchServlet);
