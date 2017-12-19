@@ -73,7 +73,7 @@ public class MetricFactory {
             if (!Double.isFinite(value)) {
                 return null;
             }
-            int timeSeconds = Integer.valueOf(splits[2]);
+            int timeSeconds = (int) Math.round(Double.parseDouble(splits[2]));
             if (timeSeconds <= 0) {
                 return null;
             }
