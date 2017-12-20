@@ -72,7 +72,7 @@ public class QueryDataPointsProvider implements DataPointsProvider {
     public static String buildQuery(String table, List<MetricName> metrics,
                                     DataPointsParams params, String aggregationFunction) {
 
-        return String.format(
+        String query = String.format(
             "SELECT metric, groupArrayInsertAt(inf, %d)(value, intDiv(ts - %d, %d)) AS values FROM (" +
                 "   SELECT metric, ts, %s(value) as value FROM (" +
                 "       SELECT metric, ts, argMax(value, updated) as value FROM %s " +
@@ -89,6 +89,8 @@ public class QueryDataPointsProvider implements DataPointsProvider {
             metrics.stream().map(MetricName::getName).collect(Collectors.joining("','", "'", "'")),
             params.getStepSeconds(), params.getStepSeconds()
         );
+        return "SELECT metric, arrayMap(v -> if (isFinite(v), v, null), values) AS values FROM (\n"
+            + query + "\n)";
     }
 
 

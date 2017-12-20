@@ -92,7 +92,7 @@ public class RenderService {
         double[] array = new double[strings.size()];
         for (int i = 0; i < strings.size(); i++) {
             String value = strings.get(i);
-            if (value.equals("inf") || value.equals("nan")) {
+            if (value.equals("inf") || value.equals("nan") || value.equals("NULL")) {
                 array[i] = Double.NaN;
             } else {
                 array[i] = Double.parseDouble(value);

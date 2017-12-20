@@ -102,14 +102,14 @@ public class RenderServiceTest {
 
         newTestBuilder("avgSeries(dir2.metric[1223])")
             .withTimestamps(1, 5)
-            .withExpectedTarget("averageSeries(dir2.metric[123])")
+            .withExpectedTarget("averageSeries(dir2.metric[1223])")
             .withDataPoints(1, 1, 1.5, 4, 5.5, 8, 5)
             .runTest();
 
         newTestBuilder("average(dir2.metric[13])")
             .withTimestamps(3, 5)
             .withExpectedTarget("averageSeries(dir2.metric[13])")
-            .withDataPoints(1, 1, 5.5, NaN)
+            .withDataPoints(3, 1, 5.5, NaN, 5)
             .runTest();
     }
 
