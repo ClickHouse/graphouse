@@ -16,7 +16,7 @@ class GraphouseFinder(object):
         self.graphouse_url = config['graphouse'].get('url', 'http://localhost:2005')
 
     def find_nodes(self, query):
-        request = requests.get('%s/search?%s' % (self.graphouse_url, urllib.parse.urlencode({'query': query.pattern})))
+        request = requests.post('%s/search' % graphouse_url, data={'query': query.pattern})
         request.raise_for_status()
         result = request.text.split('\n')
 
