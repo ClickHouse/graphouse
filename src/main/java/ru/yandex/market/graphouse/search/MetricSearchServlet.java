@@ -27,7 +27,7 @@ public class MetricSearchServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (areMetricsNotReady()) {
+        if (isServerNotReady()) {
             respondMetricsNotLoaded(resp);
             return;
         }
@@ -68,7 +68,7 @@ public class MetricSearchServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (areMetricsNotReady()) {
+        if (isServerNotReady()) {
             respondMetricsNotLoaded(resp);
             return;
         }
@@ -83,7 +83,7 @@ public class MetricSearchServlet extends HttpServlet {
         }
     }
 
-    private boolean areMetricsNotReady() {
+    private boolean isServerNotReady() {
         return !allowColdRun && !metricSearch.isMetricTreeLoaded();
     }
 
