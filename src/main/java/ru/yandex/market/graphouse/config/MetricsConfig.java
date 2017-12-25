@@ -15,7 +15,7 @@ import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.server.MetricFactory;
-import ru.yandex.market.graphouse.statistics.IStatisticsService;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
 
 /**
  * @author Vlad Vinogradov <a href="mailto:vladvin@yandex-team.ru"></a>
@@ -32,7 +32,7 @@ public class MetricsConfig {
     private JdbcTemplate clickHouseJdbcTemplate;
 
     @Autowired
-    private IStatisticsService statisticsService;
+    private StatisticsService statisticsService;
 
     @Value("${graphouse.clickhouse.data-table}")
     private String graphiteDataTable;

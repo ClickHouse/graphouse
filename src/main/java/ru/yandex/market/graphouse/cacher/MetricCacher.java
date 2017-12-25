@@ -11,7 +11,7 @@ import ru.yandex.clickhouse.ClickHouseStatementImpl;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
-import ru.yandex.market.graphouse.statistics.IStatisticsService;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
 import ru.yandex.market.graphouse.statistics.InstantMetric;
 
 import java.io.IOException;
@@ -68,7 +68,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private ExecutorService executorService;
 
     public MetricCacher(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring,
-                        IStatisticsService statisticsService) {
+                        StatisticsService statisticsService) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
 

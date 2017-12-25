@@ -4,7 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import ru.yandex.market.graphouse.statistics.StatisticsFlushFrequencyConfig;
-import ru.yandex.market.graphouse.statistics.StatisticsService;
+import ru.yandex.market.graphouse.statistics.StatisticsServiceImpl;
 
 /**
  * @author Nikolay Firov <a href="mailto:firov@yandex-team.ru"></a>
@@ -24,7 +24,7 @@ public class StatisticsConfig {
     }
 
     @Bean
-    public StatisticsService statisticsService() {
-        return new StatisticsService(numberOfFlushThreads);
+    public StatisticsServiceImpl statisticsService() {
+        return new StatisticsServiceImpl(numberOfFlushThreads);
     }
 }

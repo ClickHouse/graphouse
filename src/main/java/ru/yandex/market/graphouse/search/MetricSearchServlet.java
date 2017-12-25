@@ -3,7 +3,7 @@ package ru.yandex.market.graphouse.search;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import ru.yandex.market.graphouse.statistics.AccumulatedMetric;
-import ru.yandex.market.graphouse.statistics.IStatisticsService;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -20,10 +20,10 @@ public class MetricSearchServlet extends HttpServlet {
 
     private static final Logger log = LogManager.getLogger();
     private final MetricSearch metricSearch;
-    private final IStatisticsService statisticsService;
+    private final StatisticsService statisticsService;
     private final boolean allowColdRun;
 
-    public MetricSearchServlet(MetricSearch metricSearch, IStatisticsService statisticsService, boolean allowColdRun) {
+    public MetricSearchServlet(MetricSearch metricSearch, StatisticsService statisticsService, boolean allowColdRun) {
         this.metricSearch = metricSearch;
         this.statisticsService = statisticsService;
         this.allowColdRun = allowColdRun;

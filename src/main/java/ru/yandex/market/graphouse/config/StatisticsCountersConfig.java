@@ -8,7 +8,7 @@ import ru.yandex.market.graphouse.cacher.MetricCacher;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.statistics.StatisticsCounter;
 import ru.yandex.market.graphouse.statistics.StatisticsFlushFrequencyConfig;
-import ru.yandex.market.graphouse.statistics.StatisticsService;
+import ru.yandex.market.graphouse.statistics.StatisticsServiceImpl;
 
 import javax.annotation.PostConstruct;
 import java.util.List;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @Import({StatisticsConfig.class})
 public class StatisticsCountersConfig {
     @Autowired
-    StatisticsService statisticsService;
+    StatisticsServiceImpl statisticsService;
 
     @Autowired
     StatisticsFlushFrequencyConfig config;

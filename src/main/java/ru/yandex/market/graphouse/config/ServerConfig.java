@@ -14,7 +14,7 @@ import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricSearchServlet;
 import ru.yandex.market.graphouse.server.MetricFactory;
 import ru.yandex.market.graphouse.server.MetricServer;
-import ru.yandex.market.graphouse.statistics.IStatisticsService;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
 
 /**
  * @author Vlad Vinogradov <a href="mailto:vladvin@yandex-team.ru"></a> on 10.01.17
@@ -42,7 +42,7 @@ public class ServerConfig {
     private Monitoring monitoring;
 
     @Autowired
-    private IStatisticsService statisticsService;
+    private StatisticsService statisticsService;
 
     @Bean(initMethod = "startServer")
     public GraphouseWebServer graphouseWebServer() {
