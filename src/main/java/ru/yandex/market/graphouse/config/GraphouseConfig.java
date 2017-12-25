@@ -24,7 +24,8 @@ import ru.yandex.market.graphouse.search.MetricSearch;
     },
     ignoreResourceNotFound = true
 )
-@Import({DbConfig.class, MetricsConfig.class, ServerConfig.class, StatisticsConfig.class})
+@Import({DbConfig.class, MetricsConfig.class, ServerConfig.class,
+    StatisticsConfig.class, StatisticsCountersConfig.class})
 public class GraphouseConfig {
 
     @Autowired

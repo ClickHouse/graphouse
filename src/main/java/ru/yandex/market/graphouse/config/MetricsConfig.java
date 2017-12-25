@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
@@ -14,12 +15,14 @@ import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.server.MetricFactory;
+import ru.yandex.market.graphouse.statistics.IStatisticsService;
 
 /**
  * @author Vlad Vinogradov <a href="mailto:vladvin@yandex-team.ru"></a>
  * @date 10.11.16
  */
 @Configuration
+@Import({StatisticsConfig.class})
 public class MetricsConfig {
 
     @Autowired
@@ -27,6 +30,9 @@ public class MetricsConfig {
 
     @Autowired
     private JdbcTemplate clickHouseJdbcTemplate;
+
+    @Autowired
+    private IStatisticsService statisticsService;
 
     @Value("${graphouse.clickhouse.data-table}")
     private String graphiteDataTable;
@@ -75,7 +81,7 @@ public class MetricsConfig {
 
     @Bean
     public MetricCacher metricCacher() {
-        return new MetricCacher(clickHouseJdbcTemplate, monitoring);
+        return new MetricCacher(clickHouseJdbcTemplate, monitoring, statisticsService);
     }
 
     @Bean

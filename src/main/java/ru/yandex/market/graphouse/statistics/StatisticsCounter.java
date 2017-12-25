@@ -14,6 +14,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * @author Nikolay Firov <a href="mailto:firov@yandex-team.ru"></a>
@@ -28,7 +30,8 @@ public class StatisticsCounter {
     private final MetricCacher metricCacher;
     private final MetricSearch metricSearch;
 
-    private final Map<AccumulatedMetric, MetricDescription> metricsDescriptions = new HashMap<>();
+    private final Map<AccumulatedMetric, MetricDescription> accumulatedMetricsDescriptions = new HashMap<>();
+    private final Map<InstantMetric, MetricDescription> instantMetricsDescriptions = new HashMap<>();
     private final Map<AccumulatedMetric, AtomicDouble> metricsCounters = new HashMap<>();
 
     public StatisticsCounter(String prefix, Integer flushPeriodSeconds,
@@ -44,14 +47,12 @@ public class StatisticsCounter {
     public void initialize() {
         for (AccumulatedMetric metric : AccumulatedMetric.values()) {
             String name = String.format("%s.accumulated.%s", prefix, metric.name().toLowerCase());
-            MetricDescription description = this.metricSearch.add(name);
+            loadMetric(name, description -> accumulatedMetricsDescriptions.put(metric, description));
+        }
 
-            if (description != null) {
-                metricsDescriptions.put(metric, description);
-                log.info("Statistics metric loaded " + name);
-            } else {
-                log.warn("Failed to load metric " + name);
-            }
+        for (InstantMetric metric : InstantMetric.values()) {
+            String name = String.format("%s.instant.%s", prefix, metric.name().toLowerCase());
+            loadMetric(name, description -> instantMetricsDescriptions.put(metric, description));
         }
     }
 
@@ -59,21 +60,56 @@ public class StatisticsCounter {
         this.metricsCounters.get(metric).addAndGet(value);
     }
 
-    public void flush() {
-        List<Metric> metrics = new ArrayList<>(metricsCounters.size());
+    public void flush(Map<InstantMetric, Supplier<Double>> instantMetricsSuppliers) {
+        int timestampSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
 
-        for (Map.Entry<AccumulatedMetric, AtomicDouble> counter : metricsCounters.entrySet()) {
-            Double value = counter.getValue().getAndSet(0);
-            MetricDescription description = metricsDescriptions.get(counter.getKey());
+        List<Metric> metrics = getAccumulatedMetrics(timestampSeconds);
+        metrics.addAll(getInstantMetrics(instantMetricsSuppliers, timestampSeconds));
+
+        this.metricCacher.submitMetrics(metrics);
+    }
+
+    private void loadMetric(String name, Consumer<MetricDescription> save) {
+        MetricDescription description = this.metricSearch.add(name);
+
+        if (description != null) {
+            save.accept(description);
+            log.info("Statistics metric loaded " + name);
+        } else {
+            log.warn("Failed to load metric " + name);
+        }
+    }
+
+    private List<Metric> getInstantMetrics(Map<InstantMetric, Supplier<Double>> instantMetricsSuppliers,
+                                           int timestampSeconds) {
+        List<Metric> metrics = new ArrayList<>(instantMetricsSuppliers.size());
+
+        for (Map.Entry<InstantMetric, Supplier<Double>> entry : instantMetricsSuppliers.entrySet()) {
+            MetricDescription description = this.instantMetricsDescriptions.get(entry.getKey());
             if (description == null) {
                 continue;
             }
 
-            int timestampSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
+            metrics.add(new Metric(description, timestampSeconds, entry.getValue().get(), timestampSeconds));
+        }
+
+        return metrics;
+    }
+
+    private List<Metric> getAccumulatedMetrics(int timestampSeconds) {
+        List<Metric> metrics = new ArrayList<>(this.metricsCounters.size());
+
+        for (Map.Entry<AccumulatedMetric, AtomicDouble> counter : this.metricsCounters.entrySet()) {
+            Double value = counter.getValue().getAndSet(0);
+            MetricDescription description = this.accumulatedMetricsDescriptions.get(counter.getKey());
+            if (description == null) {
+                continue;
+            }
+
             metrics.add(new Metric(description, timestampSeconds, value, timestampSeconds));
         }
 
-        this.metricCacher.submitMetrics(metrics);
+        return metrics;
     }
 
     public int getFlushPeriodSeconds() {
