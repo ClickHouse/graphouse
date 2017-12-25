@@ -34,7 +34,6 @@ public class MetricsConfig {
     @Value("${graphouse.clickhouse.retention-config}")
     private String retentionConfig;
 
-
     @Value("${graphouse.metric-validation.min-length}")
     private int minMetricLength;
 

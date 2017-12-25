@@ -2,16 +2,15 @@ package ru.yandex.market.graphouse.search;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import ru.yandex.market.graphouse.statistics.AccumulatedMetric;
+import ru.yandex.market.graphouse.statistics.IStatisticsService;
 
-import javax.annotation.Resource;
 import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.Writer;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -21,21 +20,26 @@ public class MetricSearchServlet extends HttpServlet {
 
     private static final Logger log = LogManager.getLogger();
     private final MetricSearch metricSearch;
+    private final IStatisticsService statisticsService;
     private final boolean allowColdRun;
 
-    public MetricSearchServlet(MetricSearch metricSearch, boolean allowColdRun) {
+    public MetricSearchServlet(MetricSearch metricSearch, IStatisticsService statisticsService, boolean allowColdRun) {
         this.metricSearch = metricSearch;
+        this.statisticsService = statisticsService;
         this.allowColdRun = allowColdRun;
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!allowColdRun && !metricSearch.isMetricTreeLoaded()){
+        statisticsService.accumulateMetric(AccumulatedMetric.NUMBER_OF_WEB_REQUESTS, 1);
+
+        if (!allowColdRun && !metricSearch.isMetricTreeLoaded()) {
             resp.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             resp.getWriter().println("Metric tree not loaded\n");
             resp.getWriter().println("Loading status: " + metricSearch.getMetricSearchUnit().toString());
             return;
         }
+
         switch (req.getRequestURI()) {
             case "/search":
                 search(req, resp);
