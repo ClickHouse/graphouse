@@ -16,11 +16,11 @@ public class StatisticsFlushFrequencyConfig {
 
         for (String metricConfig : config.split(",")) {
             String[] pair = metricConfig.split(":", 2);
-            metricNameToFlushPeriodInSeconds.put(pair[0], Integer.parseInt(pair[1]));
+            this.metricNameToFlushPeriodInSeconds.put(pair[0], Integer.parseInt(pair[1]));
         }
     }
 
     public Map<String, Integer> getMetricNameToFlushPeriodInSeconds() {
-        return metricNameToFlushPeriodInSeconds;
+        return this.metricNameToFlushPeriodInSeconds;
     }
 }

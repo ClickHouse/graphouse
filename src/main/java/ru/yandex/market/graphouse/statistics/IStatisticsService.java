@@ -7,7 +7,19 @@ import java.util.function.Supplier;
  * @date 25.12.17
  */
 public interface IStatisticsService {
+    /**
+     * Accumulates metric
+     *
+     * @param metric
+     * @param value
+     */
     void accumulateMetric(AccumulatedMetric metric, double value);
 
+    /**
+     * Registers instant metric supplier
+     *
+     * @param metric
+     * @param supplier
+     */
     void registerInstantMetric(InstantMetric metric, Supplier<Double> supplier);
 }

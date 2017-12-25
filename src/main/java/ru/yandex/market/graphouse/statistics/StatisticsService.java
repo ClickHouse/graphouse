@@ -26,7 +26,7 @@ public class StatisticsService implements IStatisticsService {
         this.counters.forEach(StatisticsCounter::initialize);
         this.counters.forEach(counter ->
             this.scheduler.scheduleAtFixedRate(
-                () -> counter.flush(instantMetricsSuppliers), counter.getFlushPeriodSeconds(),
+                () -> counter.flush(this.instantMetricsSuppliers), counter.getFlushPeriodSeconds(),
                 counter.getFlushPeriodSeconds(), TimeUnit.SECONDS
             )
         );
@@ -39,6 +39,6 @@ public class StatisticsService implements IStatisticsService {
 
     @Override
     public void registerInstantMetric(InstantMetric metric, Supplier<Double> supplier) {
-        instantMetricsSuppliers.put(metric, supplier);
+        this.instantMetricsSuppliers.put(metric, supplier);
     }
 }
