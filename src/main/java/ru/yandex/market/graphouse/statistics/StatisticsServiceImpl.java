@@ -14,14 +14,12 @@ import java.util.function.Supplier;
  */
 public class StatisticsServiceImpl implements StatisticsService {
     private List<StatisticsCounter> counters;
-    private final ScheduledExecutorService scheduler;
+    private ScheduledExecutorService scheduler;
     private final Map<InstantMetric, Supplier<Double>> instantMetricsSuppliers = new ConcurrentHashMap<>();
 
-    public StatisticsServiceImpl(int numberOfThreads) {
-        this.scheduler = Executors.newScheduledThreadPool(numberOfThreads);
-    }
-
     public void initialize(List<StatisticsCounter> counters) {
+        this.scheduler = Executors.newScheduledThreadPool(counters.size());
+
         this.counters = counters;
         this.counters.forEach(StatisticsCounter::initialize);
         this.counters.forEach(counter ->

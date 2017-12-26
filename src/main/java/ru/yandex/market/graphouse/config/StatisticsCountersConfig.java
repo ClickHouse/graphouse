@@ -1,7 +1,6 @@
 package ru.yandex.market.graphouse.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
@@ -34,9 +33,6 @@ public class StatisticsCountersConfig {
     @Autowired
     MetricCacher metricCacher;
 
-    @Value("${graphouse.statistics.metric_prefix}")
-    private String metricsPrefix;
-
     @PostConstruct
     public void initialize() {
         List<StatisticsCounter> counters = config.getMetricNameToFlushPeriodInSeconds().entrySet()
@@ -49,7 +45,7 @@ public class StatisticsCountersConfig {
 
     private StatisticsCounter createCounter(Map.Entry<String, Integer> metricToFlushPeriod) {
         return new StatisticsCounter(
-            String.format("%s.%s", metricsPrefix, metricToFlushPeriod.getKey()), metricToFlushPeriod.getValue(),
-            metricSearch, metricCacher);
+            metricToFlushPeriod.getKey(), metricToFlushPeriod.getValue(), metricSearch, metricCacher
+        );
     }
 }

@@ -12,9 +12,6 @@ import ru.yandex.market.graphouse.statistics.StatisticsServiceImpl;
  */
 @Configuration
 public class StatisticsConfig {
-    @Value("${graphouse.statistics.flush.threads}")
-    private int numberOfFlushThreads;
-
     @Value("${graphouse.statistics.metrics_to_flush_frequency}")
     private String metricsFlushFrequency;
 
@@ -25,6 +22,6 @@ public class StatisticsConfig {
 
     @Bean
     public StatisticsServiceImpl statisticsService() {
-        return new StatisticsServiceImpl(numberOfFlushThreads);
+        return new StatisticsServiceImpl();
     }
 }

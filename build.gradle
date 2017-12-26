@@ -40,6 +40,7 @@ dependencies {
 
     testCompile group: 'junit', name: 'junit', version: '4.8.1'
     testCompile group: 'com.mockrunner', name: 'mockrunner-jdbc', version: '1.1.2'
+    testCompile 'org.mockito:mockito-core:2.10.0'
 }
 
 project.sourceSets {

@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.statistics;
 
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AtomicDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,7 +26,7 @@ public class StatisticsCounter {
     private static final Logger log = LogManager.getLogger();
 
     private final String prefix;
-    private final Integer flushPeriodSeconds;
+    private final int flushPeriodSeconds;
 
     private final MetricCacher metricCacher;
     private final MetricSearch metricSearch;
@@ -34,8 +35,10 @@ public class StatisticsCounter {
     private final Map<InstantMetric, MetricDescription> instantMetricsDescriptions = new HashMap<>();
     private final Map<AccumulatedMetric, AtomicDouble> metricsCounters = new HashMap<>();
 
-    public StatisticsCounter(String prefix, Integer flushPeriodSeconds,
+    public StatisticsCounter(String prefix, int flushPeriodSeconds,
                              MetricSearch metricSearch, MetricCacher metricCacher) {
+        Preconditions.checkArgument(flushPeriodSeconds > 0);
+
         this.prefix = prefix;
         this.flushPeriodSeconds = flushPeriodSeconds;
         this.metricCacher = metricCacher;
@@ -62,6 +65,7 @@ public class StatisticsCounter {
 
     public void flush(Map<InstantMetric, Supplier<Double>> instantMetricsSuppliers) {
         int timestampSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
+        timestampSeconds = timestampSeconds / flushPeriodSeconds * flushPeriodSeconds; // rounds up to period
 
         List<Metric> metrics = getAccumulatedMetrics(timestampSeconds);
         metrics.addAll(getInstantMetrics(instantMetricsSuppliers, timestampSeconds));
