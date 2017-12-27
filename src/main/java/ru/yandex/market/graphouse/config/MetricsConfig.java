@@ -57,7 +57,10 @@ public class MetricsConfig {
 
     @Bean
     public MetricSearch metricSearch() {
-        return new MetricSearch(clickHouseJdbcTemplate, monitoring, metricValidator(), retentionProvider());
+        return new MetricSearch(
+            clickHouseJdbcTemplate, monitoring,
+            metricValidator(), retentionProvider(), statisticsService
+        );
     }
 
     @Bean

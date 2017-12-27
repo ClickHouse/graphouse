@@ -11,10 +11,10 @@ import ru.yandex.clickhouse.ClickHouseStatementImpl;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
+import ru.yandex.market.graphouse.statistics.AccumulatedMetric;
 import ru.yandex.market.graphouse.statistics.StatisticsService;
 import ru.yandex.market.graphouse.statistics.InstantMetric;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -36,6 +36,7 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final Monitoring monitoring;
+    private final StatisticsService statisticsService;
 
     @Value("${graphouse.clickhouse.data-table}")
     private String graphiteTable;
@@ -71,9 +72,15 @@ public class MetricCacher implements Runnable, InitializingBean {
                         StatisticsService statisticsService) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
+        this.statisticsService = statisticsService;
 
-        statisticsService.registerInstantMetric(InstantMetric.METRIC_CACHE_QUEUE_SIZE,
-            () -> (double) this.metricQueue.size());
+        statisticsService.registerInstantMetric(
+            InstantMetric.METRIC_CACHE_QUEUE_SIZE, () -> (double) this.metricQueue.size()
+        );
+
+        statisticsService.registerInstantMetric(
+            InstantMetric.METRIC_CACHE_QUEUE_LOAD_PERCENT, this::getQueueOccupancyPercent
+        );
     }
 
     @Override
@@ -109,6 +116,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         try {
             semaphore.acquire();
             metricQueue.put(metric);
+            statisticsService.accumulateMetric(AccumulatedMetric.NUMBER_OF_RECEIVED_METRICS, 1);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -121,6 +129,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         try {
             semaphore.acquire(metrics.size());
             metricQueue.addAll(metrics);
+            statisticsService.accumulateMetric(AccumulatedMetric.NUMBER_OF_RECEIVED_METRICS, metrics.size());
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -151,30 +160,41 @@ public class MetricCacher implements Runnable, InitializingBean {
         return false;
     }
 
+    private double getQueueOccupancyPercent() {
+        int currentQueueSize = this.queueSize - semaphore.availablePermits();
+        return currentQueueSize * 100.0 / this.queueSize;
+    }
+
     private void createBatches(boolean force) {
         if (metricQueue.isEmpty()) {
             metricCacherQueryUnit.ok();
             return;
         }
-        int queueSize = this.queueSize - semaphore.availablePermits();
-        double queueOccupancyPercent = queueSize * 100.0 / this.queueSize;
+
+        double queueOccupancyPercent = getQueueOccupancyPercent();
         queueSizeMonitoring(queueOccupancyPercent);
+
         int createdBatches = 0;
         int metricsInBatches = 0;
         Stopwatch stopwatch = Stopwatch.createStarted();
+
         while ((needBatch() || force) && activeWriters.get() < maxOutputThreads) {
             List<Metric> metrics = createBatch();
             if (metrics.isEmpty()) {
                 continue;
             }
+
             createdBatches++;
             metricsInBatches += metrics.size();
+
             executorService.submit(new ClickhouseWriterWorker(metrics));
             activeWriters.incrementAndGet();
             activeOutputMetrics.addAndGet(metrics.size());
             lastBatchTimeMillis.set(System.currentTimeMillis());
         }
+
         stopwatch.stop();
+
         if (createdBatches > 0) {
             log.info(
                 "Created " + createdBatches + " output worker(s) (" + activeWriters.get() + " total) " +
@@ -203,45 +223,54 @@ public class MetricCacher implements Runnable, InitializingBean {
     }
 
     private class ClickhouseWriterWorker implements Runnable {
+        private List<Metric> metrics;
 
-        private List<Metric> metrics = new ArrayList<>();
-
-        public ClickhouseWriterWorker(List<Metric> metrics) {
+        ClickhouseWriterWorker(List<Metric> metrics) {
             this.metrics = metrics;
         }
 
         @Override
         public void run() {
-            boolean ok = false;
-            while (!ok) {
+            while (!trySaveMetrics()) {
                 try {
-                    long start = System.currentTimeMillis();
-                    saveMetrics();
-                    long processed = System.currentTimeMillis() - start;
-                    log.info("Saved " + metrics.size() + " metrics in " + processed + "ms");
-                    semaphore.release(metrics.size());
-                    ok = true;
-                } catch (Exception e) {
-                    log.error("Failed to save metrics. Waiting 1 second before retry", e);
-                    monitoring.addTemporaryCritical(
-                        "MetricCacherClickhouseOutput", e.getMessage(), 1, TimeUnit.MINUTES
-                    );
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException ignored) {
-                    }
+                    Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+                } catch (InterruptedException ignored) {
                 }
             }
+
             activeOutputMetrics.addAndGet(-metrics.size());
             activeWriters.decrementAndGet();
+            statisticsService.accumulateMetric(AccumulatedMetric.NUMBER_OF_WRITTEN_METRICS, metrics.size());
         }
 
-        private void saveMetrics() throws IOException {
+        private boolean trySaveMetrics() {
+            try {
+                long start = System.currentTimeMillis();
+                saveMetrics();
+                long processed = System.currentTimeMillis() - start;
 
+                semaphore.release(metrics.size());
+
+                log.info(String.format("Saved %d metrics in %d ms", metrics.size(), processed));
+            } catch (Exception e) {
+                log.error("Failed to save metrics. Waiting 1 second before retry", e);
+
+                statisticsService.accumulateMetric(AccumulatedMetric.NUMBER_OF_WRITE_ERRORS, 1);
+
+                monitoring.addTemporaryCritical(
+                    "MetricCacherClickhouseOutput", e.getMessage(), 1, TimeUnit.MINUTES
+                );
+
+                return false;
+            }
+
+            return true;
+        }
+
+        private void saveMetrics() {
             MetricRowBinaryHttpEntity httpEntity = new MetricRowBinaryHttpEntity(metrics);
             clickHouseJdbcTemplate.execute(
                 (StatementCallback<Void>) stmt -> {
-
                     ClickHouseStatementImpl statement = (ClickHouseStatementImpl) stmt;
                     statement.sendStream(
                         httpEntity,
@@ -250,10 +279,7 @@ public class MetricCacher implements Runnable, InitializingBean {
                     );
                     return null;
                 }
-
             );
-
         }
     }
-
 }

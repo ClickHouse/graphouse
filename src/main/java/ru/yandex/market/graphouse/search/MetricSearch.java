@@ -26,6 +26,8 @@ import ru.yandex.market.graphouse.search.tree.MetricDir;
 import ru.yandex.market.graphouse.search.tree.MetricDirFactory;
 import ru.yandex.market.graphouse.search.tree.MetricName;
 import ru.yandex.market.graphouse.search.tree.MetricTree;
+import ru.yandex.market.graphouse.statistics.InstantMetric;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
 import ru.yandex.market.graphouse.utils.AppendableList;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 import ru.yandex.market.graphouse.utils.AppendableWrapper;
@@ -48,6 +50,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -66,7 +69,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private final Monitoring monitoring;
     private final MetricValidator metricValidator;
     private final RetentionProvider retentionProvider;
-
+    private final StatisticsService statisticsService;
 
     private final MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
     private MetricTree metricTree;
@@ -107,13 +110,19 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private DirContentBatcher dirContentBatcher;
 
+    AtomicInteger numberOfLoadedMetrics = new AtomicInteger();
 
     public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring,
-                        MetricValidator metricValidator, RetentionProvider retentionProvider) {
+                        MetricValidator metricValidator, RetentionProvider retentionProvider,
+                        StatisticsService statisticsService) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
         this.metricValidator = metricValidator;
         this.retentionProvider = retentionProvider;
+        this.statisticsService = statisticsService;
+
+        this.statisticsService.registerInstantMetric(InstantMetric.NUMBER_OF_LOADED_METRICS,
+            () -> (double) numberOfLoadedMetrics.get());
     }
 
     @Override
@@ -198,8 +207,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         }
     }
 
-    public Map<MetricDir, DirContent> loadDirsContent(Set<MetricDir> dirs) throws Exception {
-
+    public Map<MetricDir, DirContent> loadDirsContent(Set<MetricDir> dirs) {
         Stopwatch stopwatch = Stopwatch.createStarted();
 
         String dirFilter = dirs.stream().map(MetricDir::getName).collect(Collectors.joining("','", "'", "'"));
@@ -212,18 +220,20 @@ public class MetricSearch implements InitializingBean, Runnable {
             MetricStatus.AUTO_HIDDEN.name()
         );
 
-
         stopwatch.stop();
         log.info(
             "Loaded metrics for " + dirs.size() + " dirs: " + dirs
                 + " (" + metricHandler.getDirCount() + " dirs, "
                 + metricHandler.getMetricCount() + " metrics) in " + stopwatch.toString()
         );
+
+        numberOfLoadedMetrics.addAndGet(metricHandler.getMetricCount());
+
         return metricHandler.getResult();
 
     }
 
-    public DirContent loadDirContent(MetricDir dir) throws Exception {
+    public DirContent loadDirContent(MetricDir dir) {
         ConcurrentMap<String, MetricDir> dirs = new ConcurrentHashMap<>();
         ConcurrentMap<String, MetricName> metrics = new ConcurrentHashMap<>();
 
@@ -238,10 +248,11 @@ public class MetricSearch implements InitializingBean, Runnable {
                     log.warn("Invalid metric in db: " + fullName);
                     return;
                 }
+
                 MetricStatus status = MetricStatus.valueOf(rs.getString("last_status"));
-                boolean isDir = MetricUtil.isDir(fullName);
                 String name = MetricUtil.getLastLevelName(fullName).intern();
-                if (isDir) {
+
+                if (MetricUtil.isDir(fullName)) {
                     dirs.put(name, metricDirFactory.createMetricDir(dir, name, status));
                 } else {
                     metrics.put(name, new MetricName(dir, name, status, retentionProvider));
@@ -249,11 +260,16 @@ public class MetricSearch implements InitializingBean, Runnable {
             },
             dirName, MetricStatus.AUTO_HIDDEN.name()
         );
+
         stopwatch.stop();
+
         log.info(
             "Loaded metrics for dir " + dirName
                 + " (" + dirs.size() + " dirs, " + metrics.size() + " metrics) in " + stopwatch.toString()
         );
+
+        numberOfLoadedMetrics.addAndGet(metrics.size());
+
         return new DirContent(dirs, metrics);
     }
 
