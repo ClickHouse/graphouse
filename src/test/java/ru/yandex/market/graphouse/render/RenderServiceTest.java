@@ -7,15 +7,23 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.HostPortWaitStrategy;
+import ru.yandex.clickhouse.ClickHouseDataSource;
+import ru.yandex.clickhouse.settings.ClickHouseProperties;
 import ru.yandex.market.graphouse.config.DbConfig;
 import ru.yandex.market.graphouse.config.MetricsConfig;
 import ru.yandex.market.graphouse.config.ServerConfig;
@@ -24,12 +32,14 @@ import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.Double.NaN;
 
@@ -41,11 +51,22 @@ import static java.lang.Double.NaN;
 @ContextConfiguration(classes = RenderServiceTest.Config.class)
 public class RenderServiceTest {
 
-//    @ClassRule
-//    public static DockerComposeRule docker = DockerComposeRule.builder()
-//        .file("docker-compose.yml")
-//        .waitingForService("clickhouse-service", HealthChecks.toHaveAllPortsOpen())
-//        .build();
+    public static int CLICKHOUSE_HTTP_PORT = 8123;
+
+    @ClassRule
+    public static GenericContainer clickhouse =
+        new GenericContainer("yandex/clickhouse-server:latest")
+            .withExposedPorts(CLICKHOUSE_HTTP_PORT)
+            .withFileSystemBind(
+                "src/test/data/var-lib-clickhouse", "/var/lib/clickhouse", BindMode.READ_WRITE
+            )
+            .withFileSystemBind(
+                "src/test/data/etc-clickhouse-conf", "/etc/clickhouse-server/conf.d", BindMode.READ_WRITE
+            )
+        .withStartupTimeout(Duration.ofMinutes(1));
+
+//            .waitingFor(new HostPortWaitStrategy());
+
 
     @Autowired
     private RenderService renderService;
@@ -217,6 +238,30 @@ public class RenderServiceTest {
     @PropertySource(value = {"classpath:graphouse-default.properties", "classpath:test.properties"})
     @Import({DbConfig.class, MetricsConfig.class, ServerConfig.class})
     public static class Config {
+
+        @Value("${graphouse.clickhouse.socket-timeout-seconds}")
+        private int clickhouseSocketTimeoutSeconds;
+
+        @Value("${graphouse.clickhouse.query-timeout-seconds}")
+        private int clickhouseQueryTimeoutSeconds;
+
+
+        @Bean
+        public JdbcTemplate clickHouseJdbcTemplate() {
+            String url = "jdbc:clickhouse://" + clickhouse.getContainerIpAddress() + ":"
+                + clickhouse.getMappedPort(CLICKHOUSE_HTTP_PORT) + "/" + "render_test";
+
+            ClickHouseProperties clickHouseProperties = new ClickHouseProperties();
+            clickHouseProperties.setSocketTimeout((int) TimeUnit.SECONDS.toMillis(clickhouseSocketTimeoutSeconds));
+
+            ClickHouseDataSource dataSource = new ClickHouseDataSource(url, clickHouseProperties);
+            JdbcTemplate jdbcTemplate = new JdbcTemplate();
+            jdbcTemplate.setDataSource(dataSource);
+            jdbcTemplate.setQueryTimeout(clickhouseQueryTimeoutSeconds);
+
+            return jdbcTemplate;
+        }
+
         @Bean
         public Monitoring monitoring() {
             return new Monitoring();
