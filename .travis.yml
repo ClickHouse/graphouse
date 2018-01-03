@@ -5,5 +5,7 @@ jdk:
   - openjdk8
 services:
   - docker
+install:
+ - chmod -R ugo+rwX .
 script:
   - ./gradlew build --refresh-dependencies --rerun-tasks --recompile-scripts --info --continue --parallel
