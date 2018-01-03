@@ -26,7 +26,7 @@ class GraphouseFinder(object):
             if metric.endswith('.'):
                 yield BranchNode(metric[:-1])
             else:
-                yield LeafNode(metric, GraphouseReader(metric, self.graphouse_url))
+                yield LeafNode(metric, GraphouseReader(metric, graphouse_url=self.graphouse_url))
 
 
 # Data reader
@@ -38,7 +38,7 @@ class GraphouseReader(object):
         self.path = None
         self.graphouse_url = graphouse_url
 
-        if hasattr(path, '__iter__'):
+        if hasattr(path, '__iter__') and type(path) != str:
             self.nodes = path
         else:
             self.path = path
@@ -60,7 +60,7 @@ class GraphouseReader(object):
     data_points - list of ((end_time - start_time) / time_step) points, loaded from database
     """
 
-    def fetch(self, start_time, end_time):
+    def fetch(self, start_time, end_time, *arg):
         profilingTime = {'start': time.time()}
 
         try:
@@ -76,11 +76,11 @@ class GraphouseReader(object):
             request_url = self.graphouse_url + "/metricData"
             request = requests.post(request_url, params=query)
 
-            log.info('DEBUG:graphouse_data_query: %s parameters %s' % (request_url, query))
+            logger.info('DEBUG:graphouse_data_query: %s parameters %s' % (request_url, query))
 
             request.raise_for_status()
         except Exception as e:
-            log.info("Failed to fetch data, got exception:\n %s" % traceback.format_exc())
+            logger.info("Failed to fetch data, got exception:\n %s" % traceback.format_exc())
             raise e
 
         profilingTime['fetch'] = time.time()
@@ -111,3 +111,4 @@ class GraphouseReader(object):
         ))
 
         return time_infos, points
+

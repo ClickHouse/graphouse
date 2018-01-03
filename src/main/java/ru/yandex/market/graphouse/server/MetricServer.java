@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +31,9 @@ public class MetricServer implements InitializingBean {
 
     @Value("${graphouse.cacher.port}")
     private int port;
+    
+    @Value("${graphouse.cacher.bind-address}")
+    private String bindAddress;
 
     @Value("${graphouse.cacher.socket-timeout-millis}")
     private int socketTimeoutMillis;
@@ -54,7 +59,9 @@ public class MetricServer implements InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         log.info("Starting metric server on port: " + port);
-        serverSocket = new ServerSocket(port);
+        serverSocket = new ServerSocket();
+        SocketAddress socketAddress = new InetSocketAddress(bindAddress, port);
+        serverSocket.bind(socketAddress);
 
         log.info("Starting " + threadCount + " metric server threads");
         executorService = Executors.newFixedThreadPool(threadCount);

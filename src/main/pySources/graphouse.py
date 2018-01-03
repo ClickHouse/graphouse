@@ -95,7 +95,7 @@ class GraphouseReader(object):
             if metric_object is None:
                 if len(self.nodes) == 1:
                     return None
-                time_infos += (0, 0, 1)
+                time_infos += (start_time, end_time, 1)
                 points += []
             else:
                 time_infos += (metric_object.get("start"), metric_object.get("end"), metric_object.get("step"))
