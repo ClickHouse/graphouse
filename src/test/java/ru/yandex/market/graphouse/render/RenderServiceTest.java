@@ -61,7 +61,7 @@ public class RenderServiceTest {
             .withFileSystemBind(
                 "src/test/data/etc-clickhouse-conf", "/etc/clickhouse-server/conf.d", BindMode.READ_WRITE
             )
-        .withStartupTimeout(Duration.ofMinutes(1));
+        .withPrivilegedMode(true);
 
     @Autowired
     private RenderService renderService;
