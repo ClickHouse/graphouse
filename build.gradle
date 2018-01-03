@@ -7,7 +7,6 @@ buildscript {
 
 project.repositories {
     mavenCentral()
-    maven { url 'https://dl.bintray.com/palantir/releases' } // docker-compose-rule is published on bintray
     mavenLocal()
 }
 
@@ -47,6 +46,9 @@ dependencies {
     testCompile 'com.palantir.docker.compose:docker-compose-rule-junit4:0.32.1'
     testCompile "org.springframework:spring-test:$springVersion"
 
+    testCompile 'junit:junit:4.8.1'
+    testCompile 'com.mockrunner:mockrunner-jdbc:1.1.2'
+    testCompile 'org.testcontainers:testcontainers:1.5.1'
 }
 
 project.sourceSets {
