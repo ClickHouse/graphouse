@@ -21,10 +21,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.HostPortWaitStrategy;
 import ru.yandex.clickhouse.ClickHouseDataSource;
 import ru.yandex.clickhouse.settings.ClickHouseProperties;
-import ru.yandex.market.graphouse.config.DbConfig;
 import ru.yandex.market.graphouse.config.MetricsConfig;
 import ru.yandex.market.graphouse.config.ServerConfig;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
@@ -32,7 +30,6 @@ import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
@@ -62,11 +59,7 @@ public class RenderServiceTest {
             )
             .withFileSystemBind(
                 "src/test/data/etc-clickhouse-conf", "/etc/clickhouse-server/conf.d", BindMode.READ_WRITE
-            )
-        .withStartupTimeout(Duration.ofMinutes(1));
-
-//            .waitingFor(new HostPortWaitStrategy());
-
+            );
 
     @Autowired
     private RenderService renderService;
@@ -236,7 +229,7 @@ public class RenderServiceTest {
 
     @Configuration
     @PropertySource(value = {"classpath:graphouse-default.properties", "classpath:test.properties"})
-    @Import({DbConfig.class, MetricsConfig.class, ServerConfig.class})
+    @Import({MetricsConfig.class, ServerConfig.class})
     public static class Config {
 
         @Value("${graphouse.clickhouse.socket-timeout-seconds}")
