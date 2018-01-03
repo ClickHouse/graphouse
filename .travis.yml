@@ -5,3 +5,5 @@ jdk:
   - openjdk8
 services:
   - docker
+script:
+  - ./gradlew build --refresh-dependencies --rerun-tasks --recompile-scripts --info --continue --parallel
