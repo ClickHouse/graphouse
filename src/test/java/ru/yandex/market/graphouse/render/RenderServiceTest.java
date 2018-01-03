@@ -30,6 +30,7 @@ import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
@@ -59,7 +60,8 @@ public class RenderServiceTest {
             )
             .withFileSystemBind(
                 "src/test/data/etc-clickhouse-conf", "/etc/clickhouse-server/conf.d", BindMode.READ_WRITE
-            );
+            )
+        .withStartupTimeout(Duration.ofMinutes(1));
 
     @Autowired
     private RenderService renderService;
