@@ -30,7 +30,7 @@ import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
@@ -56,12 +56,8 @@ public class RenderServiceTest {
         new GenericContainer("yandex/clickhouse-server:latest")
             .withExposedPorts(CLICKHOUSE_HTTP_PORT)
             .withFileSystemBind(
-                "src/test/data/var-lib-clickhouse", "/var/lib/clickhouse", BindMode.READ_WRITE
-            )
-            .withFileSystemBind(
-                "src/test/data/etc-clickhouse-conf", "/etc/clickhouse-server/conf.d", BindMode.READ_WRITE
-            )
-        .withPrivilegedMode(true);
+                "src/test/data/etc-clickhouse-conf", "/etc/clickhouse-server/conf.d", BindMode.READ_ONLY
+            );
 
     @Autowired
     private RenderService renderService;
@@ -229,6 +225,79 @@ public class RenderServiceTest {
 
     }
 
+    public static void prepareTestData(JdbcTemplate jdbcTemplate) {
+
+        jdbcTemplate.update(
+            "CREATE TABLE default.data\n" +
+                "(\n" +
+                "    metric String, \n" +
+                "    value Float64, \n" +
+                "    timestamp UInt32, \n" +
+                "    date Date, \n" +
+                "    updated UInt32\n" +
+                ") ENGINE = ReplacingMergeTree(date, (metric, timestamp), 8192, updated)\n"
+        );
+        jdbcTemplate.update(
+            "CREATE TABLE default.metrics\n" +
+                "(\n" +
+                "    date Date DEFAULT toDate(0), \n" +
+                "    name String, \n" +
+                "    level UInt16, \n" +
+                "    parent String, \n" +
+                "    updated DateTime DEFAULT now(), \n" +
+                "    status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4)\n" +
+                ") ENGINE = ReplacingMergeTree(date, (parent, name), 1024, updated)\n"
+        );
+        jdbcTemplate.batchUpdate(
+            "INSERT INTO default.metrics (name, level, parent) VALUES (?, ?, ?)",
+            Arrays.asList(
+                new Object[]{"dir1.", 1, "."},
+                new Object[]{"dir1.metric1", 2, "dir1."},
+                new Object[]{"dir1.metric2", 2, "dir1."},
+                new Object[]{"dir1.metric3", 2, "dir1."},
+                new Object[]{"dir2.", 1, "."},
+                new Object[]{"dir2.metric1", 2, "dir2."},
+                new Object[]{"dir2.metric2", 2, "dir2."},
+                new Object[]{"dir2.metric3", 2, "dir2."}
+            )
+        );
+
+        jdbcTemplate.update(
+            "INSERT INTO default.data (metric, value, timestamp, date, updated) VALUES\n" +
+                "    ('dir1.metric1', 0, 0, '1970-01-01', 42),\n" +
+                "    ('dir1.metric1', 1, 1, '1970-01-01', 42),\n" +
+                "    ('dir1.metric1', 2, 2, '1970-01-01', 42),\n" +
+                "    ('dir1.metric1', 3, 3, '1970-01-01', 42),\n" +
+                "    ('dir1.metric1', 4, 4, '1970-01-01', 42),\n" +
+                "    ('dir1.metric1', 5, 5, '1970-01-01', 42),\n" +
+                "    ('dir1.metric2', 0, 0, '1970-01-01', 42),\n" +
+                "    ('dir1.metric2', 2, 1, '1970-01-01', 42),\n" +
+                "    ('dir1.metric2', 4, 2, '1970-01-01', 42),\n" +
+                "    ('dir1.metric2', 6, 3, '1970-01-01', 42),\n" +
+                "    ('dir1.metric2', 8, 4, '1970-01-01', 42),\n" +
+                "    ('dir1.metric2', 10, 5, '1970-01-01', 42),\n" +
+                "    ('dir1.metric3', 0, 0, '1970-01-01', 42),\n" +
+                "    ('dir1.metric3', 2, 1, '1970-01-01', 42),\n" +
+                "    ('dir1.metric3', 4, 2, '1970-01-01', 42),\n" +
+                "    ('dir1.metric3', 8, 3, '1970-01-01', 42),\n" +
+                "    ('dir1.metric3', 16, 4, '1970-01-01', 42),\n" +
+                "    ('dir1.metric3', 32, 5, '1970-01-01', 42);"
+        );
+
+        jdbcTemplate.update(
+            "INSERT INTO default.data (metric, value, timestamp, date, updated) VALUES\n" +
+                "    ('dir2.metric1', 1, 1, '1970-01-01', 42),\n" +
+                "    ('dir2.metric1', 3, 3, '1970-01-01', 42),\n" +
+                "    ('dir2.metric1', 5, 5, '1970-01-01', 42),\n" +
+                "    ('dir2.metric2', 0, 0, '1970-01-01', 42),\n" +
+                "    ('dir2.metric2', 4, 2, '1970-01-01', 42),\n" +
+                "    ('dir2.metric2', 8, 4, '1970-01-01', 42),\n" +
+                "    ('dir2.metric3', 2, 1, '1970-01-01', 42),\n" +
+                "    ('dir2.metric3', 4, 2, '1970-01-01', 42),\n" +
+                "    ('dir2.metric3', 8, 3, '1970-01-01', 42);"
+        );
+    }
+
     @Configuration
     @PropertySource(value = {"classpath:graphouse-default.properties", "classpath:test.properties"})
     @Import({MetricsConfig.class, ServerConfig.class})
@@ -244,7 +313,7 @@ public class RenderServiceTest {
         @Bean
         public JdbcTemplate clickHouseJdbcTemplate() {
             String url = "jdbc:clickhouse://" + clickhouse.getContainerIpAddress() + ":"
-                + clickhouse.getMappedPort(CLICKHOUSE_HTTP_PORT) + "/" + "render_test";
+                + clickhouse.getMappedPort(CLICKHOUSE_HTTP_PORT);
 
             ClickHouseProperties clickHouseProperties = new ClickHouseProperties();
             clickHouseProperties.setSocketTimeout((int) TimeUnit.SECONDS.toMillis(clickhouseSocketTimeoutSeconds));
@@ -253,7 +322,7 @@ public class RenderServiceTest {
             JdbcTemplate jdbcTemplate = new JdbcTemplate();
             jdbcTemplate.setDataSource(dataSource);
             jdbcTemplate.setQueryTimeout(clickhouseQueryTimeoutSeconds);
-
+            prepareTestData(jdbcTemplate);
             return jdbcTemplate;
         }
 

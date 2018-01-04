@@ -41,6 +41,7 @@ dependencies {
     compile "org.eclipse.jetty:jetty-servlet:$jettyVersion"
     compile 'com.beust:jcommander:1.60'
     compile 'org.jparsec:jparsec:3.0'
+    compile 'xerces:xercesImpl:2.11.0'
 
     testCompile 'junit:junit:4.12'
     testCompile 'com.mockrunner:mockrunner-jdbc:1.1.2'
