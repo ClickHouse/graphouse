@@ -228,7 +228,7 @@ public class RenderServiceTest {
     public static void prepareTestData(JdbcTemplate jdbcTemplate) {
 
         jdbcTemplate.update(
-            "CREATE TABLE default.data\n" +
+            "CREATE TABLE IF NOT EXISTS default.data\n" +
                 "(\n" +
                 "    metric String, \n" +
                 "    value Float64, \n" +
@@ -238,7 +238,7 @@ public class RenderServiceTest {
                 ") ENGINE = ReplacingMergeTree(date, (metric, timestamp), 8192, updated)\n"
         );
         jdbcTemplate.update(
-            "CREATE TABLE default.metrics\n" +
+            "CREATE TABLE IF NOT EXISTS default.metrics\n" +
                 "(\n" +
                 "    date Date DEFAULT toDate(0), \n" +
                 "    name String, \n" +
