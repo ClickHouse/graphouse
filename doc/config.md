@@ -1,4 +1,4 @@
-Graphouse configuration
+Graphouse Configuration
 =======================
 
 Configuration files
@@ -15,15 +15,16 @@ All parameters can be viewed in [graphouse-default.properties](../src/main/resou
 Java Options (graphouse.vmoptions)
 ----------------------------------
 By default, Graphouse is configured with 256Mb Xms (startup memory) and 4Gb Xmx (max memory usage).
-If you have a huge metric tree (>1 million metrics), it is recommended to increase Xmx.
-Also it is better to set Xms equal to Xmx (in this case Graphouse will allocate all allowed memory to startup).
+If you have a huge metric tree (>10 million metrics), it is recommended to increase Xmx.
+Also it is better to set Xms equal to Xmx (in this case Graphouse will allocate all allowed memory at startup).
 
 
 Metric cacher
 -------------
-Graphouse support [graphite plaintext protocol](http://graphite.readthedocs.io/en/latest/feeding-carbon.html#the-plaintext-protocol)
+Graphouse supports [graphite plaintext protocol](http://graphite.readthedocs.io/en/latest/feeding-carbon.html#the-plaintext-protocol)
 
 ```properties
+graphouse.cacher.bind-address=::
 graphouse.cacher.port=2003
 graphouse.cacher.threads=100
 graphouse.cacher.socket-timeout-millis=42000
@@ -38,7 +39,7 @@ graphouse.cacher.flush-interval-seconds=5
 Metric validation
 -----------------
 Graphouse can validate incoming metrics.
-You can provide validating regexp and specify min/max length or levels count using the following options:
+You can provide validation regexp and specify min/max length or levels count using the following options:
 ```properties
 graphouse.metric-validation.min-length=10
 graphouse.metric-validation.max-length=200

@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse;
 
+import com.google.common.base.Strings;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.jetty.server.Connector;
@@ -26,6 +27,12 @@ public class GraphouseWebServer {
     @Value("${graphouse.http.port}")
     private int httpPort;
 
+    @Value("${graphouse.http.bind-address}")
+    private String httpBindAddress;
+
+    @Value("${graphouse.http.max-form-context-size-bytes}")
+    private int maxFormContextSizeBytes;
+
     @Value("${graphouse.http.threads}")
     private int threadCount;
 
@@ -48,8 +55,12 @@ public class GraphouseWebServer {
         Server server = new Server(new QueuedThreadPool(threadCount));
         ServerConnector serverConnector = new ServerConnector(server);
         serverConnector.setPort(httpPort);
+        if (!Strings.isNullOrEmpty(httpBindAddress)) {
+            serverConnector.setHost(httpBindAddress);
+        }
         server.setConnectors(new Connector[]{serverConnector});
         ServletContextHandler context = new ServletContextHandler();
+        context.setMaxFormContentSize(maxFormContextSizeBytes);
         context.setContextPath("/");
 
         ServletHolder metricSearchServletHolder = new ServletHolder(metricSearchServlet);

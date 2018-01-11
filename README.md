@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/yandex/graphouse.svg?branch=master)](https://travis-ci.org/yandex/graphouse)
+
 Graphouse allows you to use [ClickHouse](https://github.com/yandex/ClickHouse) as a Graphite storage.
 
 [Installation guide](doc/install.md)

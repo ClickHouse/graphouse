@@ -99,7 +99,7 @@ class GraphouseMultiFetcher(object):
 class GraphouseFinder(object):
 
     def find_nodes(self, query):
-        request = requests.get('%s/search' % graphouse_url, params={'query': query.pattern})
+        request = requests.post('%s/search' % graphouse_url, data={'query': query.pattern})
         request.raise_for_status()
         result = request.text.split('\n')
 
