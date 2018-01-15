@@ -1,7 +1,10 @@
 import json
 import time
 import traceback
-import urllib.parse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+     from urlparse import urlparse
 import requests
 
 from structlog import get_logger
