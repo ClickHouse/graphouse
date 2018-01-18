@@ -1,3 +1,9 @@
+graphouse (1.8) unstable; urgency=medium
+
+  * MTRSADMIN-2998: add GraphouseMultiFetcher (#48)
+
+ -- teamcity <teamcity@yandex-team.ru>  Thu, 18 Jan 2018 22:52:30 +0300
+
 graphouse (1.7) unstable; urgency=medium
 
   * Making urllib.parse python 2.x/3.x compatible
