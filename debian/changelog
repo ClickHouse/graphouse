@@ -1,3 +1,10 @@
+graphouse (1.7) unstable; urgency=medium
+
+  * Making urllib.parse python 2.x/3.x compatible
+  * Fixing regression from #54
+
+ -- teamcity <teamcity@yandex-team.ru>  Thu, 18 Jan 2018 11:27:23 +0300
+
 graphouse (1.6) unstable; urgency=medium
 
   * * MARKETINFRA-2315 added POST support for /search method
