@@ -1,3 +1,33 @@
+graphouse (1.9) unstable; urgency=medium
+
+  * and syncing `fetch()` function with graphouse.py
+  * Removing urrlib
+
+ -- teamcity <teamcity@yandex-team.ru>  Fri, 19 Jan 2018 10:08:02 +0300
+
+graphouse (1.8) unstable; urgency=medium
+
+  * MTRSADMIN-2998: add GraphouseMultiFetcher (#48)
+
+ -- teamcity <teamcity@yandex-team.ru>  Thu, 18 Jan 2018 22:52:30 +0300
+
+graphouse (1.7) unstable; urgency=medium
+
+  * Making urllib.parse python 2.x/3.x compatible
+  * Fixing regression from #54
+
+ -- teamcity <teamcity@yandex-team.ru>  Thu, 18 Jan 2018 11:27:23 +0300
+
+graphouse (1.6) unstable; urgency=medium
+
+  * * MARKETINFRA-2315 added POST support for /search method
+  *
+  * * MARKETINFRA-2315 fixed python client
+  *
+  * * MARKETINFRA-2315 renaming
+
+ -- teamcity <teamcity@yandex-team.ru>  Mon, 15 Jan 2018 16:11:40 +0300
+
 graphouse (1.5) unstable; urgency=medium
 
   * * Update install `retention_config` explanations

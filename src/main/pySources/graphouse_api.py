@@ -1,7 +1,5 @@
-import json
 import time
 import traceback
-import urllib.parse
 import requests
 
 from structlog import get_logger
@@ -16,7 +14,7 @@ class GraphouseFinder(object):
         self.graphouse_url = config['graphouse'].get('url', 'http://localhost:2005')
 
     def find_nodes(self, query):
-        request = requests.get('%s/search?%s' % (self.graphouse_url, urllib.parse.urlencode({'query': query.pattern})))
+        request = requests.post('%s/search' % self.graphouse_url, data={'query': query.pattern})
         request.raise_for_status()
         result = request.text.split('\n')
 
@@ -66,26 +64,36 @@ class GraphouseReader(object):
         try:
             paths = [node.path.replace('\'', '\\\'') for node in self.nodes]
 
-            query = urllib.parse.urlencode(
-                {
-                    'metrics': ','.join(paths),
-                    'start': start_time,
-                    'end': end_time,
-                    'reqKey': self.reqkey
-                })
+            query = {
+                        'start': start_time,
+                        'end': end_time,
+                        'reqKey': self.reqkey
+                    }
+            data = {'metrics': ','.join(paths)}
             request_url = self.graphouse_url + "/metricData"
-            request = requests.post(request_url, params=query)
+            request = requests.post(request_url, params=query, data=data)
 
             logger.info('DEBUG:graphouse_data_query: %s parameters %s' % (request_url, query))
 
             request.raise_for_status()
-        except Exception as e:
-            logger.info("Failed to fetch data, got exception:\n %s" % traceback.format_exc())
-            raise e
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            logger.info("CRITICAL:graphouse_data_query: Connection error: %s", str(e))
+            raise
+        except requests.exceptions.HTTPError as e:
+            logger.info("CRITICAL:graphouse_data_query: %s, message: %s", str(e), request.text)
+            raise
+        except Exception:
+            logger.info("Unexpected exception!", exc_info=True)
+            raise
 
         profilingTime['fetch'] = time.time()
 
-        metrics_object = json.loads(request.text)
+        try:
+            metrics_object = request.json()
+        except Exception:
+            log.info("CRITICAL:graphouse_parse: can't parse json from graphouse answer, got '%s'", request.text)
+            raise
+
         profilingTime['parse'] = time.time()
 
         time_infos = []
@@ -111,4 +119,3 @@ class GraphouseReader(object):
         ))
 
         return time_infos, points
-
