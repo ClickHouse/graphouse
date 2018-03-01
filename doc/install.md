@@ -168,7 +168,7 @@ But you still need to describe the rules for the rotation, so that Graphouse kno
 
 Graphouse
 ---------
-- Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/docs/en/getting_started/index.html#installing-from-packages)
+- Add ClickHouse debian repo. [See doc.](https://clickhouse.yandex/docs/en/getting_started/index.html#installing-from-packages) But instead of http://repo.yandex.ru/clickhouse/trusty use http://repo.yandex.ru/graphouse/trusty
 - [Install JDK8.](https://tecadmin.net/install-oracle-java-8-ubuntu-via-ppa/)
 - Install Graphouse `sudo apt-get install graphouse`
 - Set `graphouse.clickhouse.retention-config` property in graphouse config /etc/graphouse/graphouse.properties. You can skip this step, then [default config](../src/main/java/ru/yandex/market/graphouse/retention/DefaultRetentionProvider.java#L29) will be used.
