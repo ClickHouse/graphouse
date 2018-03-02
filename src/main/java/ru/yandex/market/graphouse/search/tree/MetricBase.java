@@ -44,7 +44,7 @@ public abstract class MetricBase implements MetricDescription {
 
     @Override
     public int getNameLength() {
-        int length = name.length();
+        int length = name.getBytes().length;
         if (isDir()) {
             length++;
         }
