@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.search;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -16,6 +17,7 @@ import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
+import ru.yandex.market.graphouse.retention.MetricRetention;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.search.tree.DirContent;
 import ru.yandex.market.graphouse.search.tree.DirContentBatcher;
@@ -31,6 +33,7 @@ import ru.yandex.market.graphouse.utils.AppendableResult;
 import ru.yandex.market.graphouse.utils.AppendableWrapper;
 
 import java.io.IOException;
+import java.lang.annotation.Retention;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -66,7 +69,6 @@ public class MetricSearch implements InitializingBean, Runnable {
     private final Monitoring monitoring;
     private final MetricValidator metricValidator;
     private final RetentionProvider retentionProvider;
-
 
     private final MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
     private MetricTree metricTree;
@@ -156,6 +158,10 @@ public class MetricSearch implements InitializingBean, Runnable {
             saveUpdatedMetrics();
             log.info("Metric search stopped");
         }));
+    }
+
+    public MetricRetention getDefaultRetention() {
+        return retentionProvider.getDefaultRetention();
     }
 
     private void saveMetrics(List<MetricDescription> metrics) {
@@ -455,7 +461,8 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     }
 
-    public void loadNewMetrics() {
+    @VisibleForTesting
+    public synchronized void loadNewMetrics() {
         int timeSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())) - updateDelaySeconds;
         if (isMetricTreeLoaded()) {
             loadUpdatedMetrics(lastUpdatedTimestampSeconds);

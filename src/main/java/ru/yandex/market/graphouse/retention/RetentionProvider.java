@@ -8,4 +8,6 @@ public interface RetentionProvider {
 
     MetricRetention getRetention(String metric);
 
+    MetricRetention getDefaultRetention();
+
 }

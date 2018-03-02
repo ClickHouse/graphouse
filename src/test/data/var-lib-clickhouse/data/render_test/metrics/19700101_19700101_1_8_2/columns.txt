@@ -1,0 +1,8 @@
+columns format version: 1
+6 columns:
+`date` Date
+`name` String
+`level` UInt16
+`parent` String
+`updated` DateTime
+`status` Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4)

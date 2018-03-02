@@ -5,10 +5,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
+import ru.yandex.market.graphouse.AutoHideService;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
 import ru.yandex.market.graphouse.data.MetricDataService;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
+import ru.yandex.market.graphouse.render.FunctionProcessor;
+import ru.yandex.market.graphouse.render.RenderService;
 import ru.yandex.market.graphouse.retention.ClickHouseRetentionProvider;
 import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
@@ -42,10 +45,10 @@ public class MetricsConfig {
     private int maxMetricLength;
 
     @Value("${graphouse.metric-validation.min-levels}")
-    private int minDots;
+    private int minLevels;
 
     @Value("${graphouse.metric-validation.max-levels}")
-    private int maxDots;
+    private int maxLevels;
 
     @Value("${graphouse.metric-validation.regexp}")
     private String metricRegexp;
@@ -71,7 +74,7 @@ public class MetricsConfig {
 
     @Bean
     public MetricValidator metricValidator() {
-        return new MetricValidator(metricRegexp, minMetricLength, maxMetricLength, minDots, maxDots);
+        return new MetricValidator(metricRegexp, minMetricLength, maxMetricLength, minLevels, maxLevels);
     }
 
     @Bean
@@ -82,5 +85,17 @@ public class MetricsConfig {
     @Bean
     public MetricFactory metricFactory() {
         return new MetricFactory(metricSearch(), metricValidator());
+    }
+
+    @Bean(initMethod = "startService")
+    public AutoHideService autoHideService() {
+        return new AutoHideService(clickHouseJdbcTemplate, metricSearch());
+    }
+
+
+    @Bean
+    public RenderService renderService() {
+        FunctionProcessor functionProcessor = new FunctionProcessor();
+        return new RenderService(metricSearch(), functionProcessor, clickHouseJdbcTemplate, graphiteDataTable, -1);
     }
 }

@@ -3,6 +3,8 @@ package ru.yandex.market.graphouse.cacher;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import ru.yandex.clickhouse.settings.ClickHouseProperties;
+import ru.yandex.clickhouse.util.ClickHouseRowBinaryStream;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
 import ru.yandex.market.graphouse.search.MetricStatus;
@@ -19,7 +21,7 @@ import java.util.TimeZone;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 16/04/2017
  */
-public class MetricRowBinaryHttpEntityTest {
+public class MetricRowBinaryStreamCallbackTest {
 
     @Before
     public void setUp() throws Exception {
@@ -28,7 +30,7 @@ public class MetricRowBinaryHttpEntityTest {
 
     @Test
     public void testTimeZones() {
-        MetricRowBinaryHttpEntity entity = new MetricRowBinaryHttpEntity(null);
+        MetricRowBinaryStreamCallback entity = new MetricRowBinaryStreamCallback(null);
         Assert.assertEquals(17265, entity.getUnsignedDaysSinceEpoch(1491771599));
         Assert.assertEquals(17266, entity.getUnsignedDaysSinceEpoch(1491771601));
     }
@@ -36,7 +38,7 @@ public class MetricRowBinaryHttpEntityTest {
     @Test
     public void testTimeZones2() {
         LocalDate localDate = LocalDate.of(2017, 4, 9);
-        MetricRowBinaryHttpEntity entity = new MetricRowBinaryHttpEntity(null, localDate);
+        MetricRowBinaryStreamCallback entity = new MetricRowBinaryStreamCallback(null, localDate);
 
         Assert.assertEquals(17265, entity.getCurrentDay());
         Assert.assertEquals(1491685200, entity.getTodayStartSeconds());
@@ -60,10 +62,13 @@ public class MetricRowBinaryHttpEntityTest {
             1492350000
         );
 
-        MetricRowBinaryHttpEntity entity = new MetricRowBinaryHttpEntity(Collections.singletonList(metric));
+        MetricRowBinaryStreamCallback callback = new MetricRowBinaryStreamCallback(Collections.singletonList(metric));
 
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        entity.writeTo(byteArrayOutputStream);
+        ClickHouseRowBinaryStream rowBinaryStream = new ClickHouseRowBinaryStream(
+            byteArrayOutputStream, null, new ClickHouseProperties()
+        );
+        callback.writeTo(rowBinaryStream);
 
         byte[] actual = byteArrayOutputStream.toByteArray();
 

@@ -221,7 +221,7 @@ public class MetricCacher implements Runnable, InitializingBean {
                         "MetricCacherClickhouseOutput", e.getMessage(), 1, TimeUnit.MINUTES
                     );
                     try {
-                        Thread.sleep(1000);
+                        TimeUnit.SECONDS.sleep(1);
                     } catch (InterruptedException ignored) {
                     }
                 }
@@ -232,15 +232,12 @@ public class MetricCacher implements Runnable, InitializingBean {
 
         private void saveMetrics() throws IOException {
 
-            MetricRowBinaryHttpEntity httpEntity = new MetricRowBinaryHttpEntity(metrics);
             clickHouseJdbcTemplate.execute(
                 (StatementCallback<Void>) stmt -> {
-
                     ClickHouseStatementImpl statement = (ClickHouseStatementImpl) stmt;
-                    statement.sendStream(
-                        httpEntity,
+                    statement.sendRowBinaryStream(
                         "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated)",
-                        "RowBinary"
+                        new MetricRowBinaryStreamCallback(metrics)
                     );
                     return null;
                 }

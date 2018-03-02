@@ -1,0 +1,7 @@
+columns format version: 1
+5 columns:
+`metric` String
+`value` Float64
+`timestamp` UInt32
+`date` Date
+`updated` UInt32
