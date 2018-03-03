@@ -13,7 +13,7 @@ public interface MetricDescription {
 
     String getName();
 
-    int getNameLength();
+    int getNameLengthInBytes();
 
     void writeName(DataOutput out) throws IOException;
 

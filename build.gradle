@@ -25,7 +25,7 @@ javadoc.options.encoding = 'UTF-8'
 
 
 dependencies {
-    compile 'ru.yandex.clickhouse:clickhouse-jdbc:0.1.19'
+    compile 'ru.yandex.clickhouse:clickhouse-jdbc:0.1.36'
     compile 'com.google.guava:guava:21.0'
     compile 'com.google.code.gson:gson:2.3.1'
     compile 'org.springframework:spring-jdbc:4.1.6.RELEASE'

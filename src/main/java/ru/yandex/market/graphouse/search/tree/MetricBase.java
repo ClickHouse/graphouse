@@ -43,13 +43,13 @@ public abstract class MetricBase implements MetricDescription {
     }
 
     @Override
-    public int getNameLength() {
-        int length = name.length();
+    public int getNameLengthInBytes() {
+        int length = name.getBytes().length;
         if (isDir()) {
             length++;
         }
         if (!parent.isRoot()) {
-            length += parent.getNameLength();
+            length += parent.getNameLengthInBytes();
         }
         return length;
     }
