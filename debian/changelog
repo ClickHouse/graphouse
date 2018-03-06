@@ -1,3 +1,15 @@
+graphouse (1.10) unstable; urgency=medium
+
+  * * MARKETINFRA-2686 Added new repo in doc
+  *
+  * * MARKETINFRA-2686 removed "see doc"
+  *
+  * * MARKETINFRA-2686 removed info about testing
+  * * #issue70 BalancedClickhouseDataSource support, new clickhouse JDBC
+    driver version
+
+ -- teamcity <teamcity@yandex-team.ru>  Tue, 06 Mar 2018 14:14:38 +0300
+
 graphouse (1.9) unstable; urgency=medium
 
   * and syncing `fetch()` function with graphouse.py
