@@ -57,9 +57,8 @@ public class MetricsStreamCallback implements ClickHouseStreamCallback {
      * @throws IOException
      */
     private void writeMetric(Metric metric, ClickHouseRowBinaryStream stream) throws IOException {
-        //TODO fix degradation (need support in JDBC driver)
-        //stream.writeUnsignedLeb128(metric.getMetricDescription().getNameLengthInBytes());
-        stream.writeString(metric.getMetricDescription().getName());
+        stream.writeUnsignedLeb128(metric.getMetricDescription().getNameLengthInBytes());
+        metric.getMetricDescription().writeName(stream);
         stream.writeFloat64(metric.getValue());
         stream.writeUInt32(metric.getTimestampSeconds());
         stream.writeUInt16(getUnsignedDaysSinceEpoch(metric.getTimestampSeconds()));
