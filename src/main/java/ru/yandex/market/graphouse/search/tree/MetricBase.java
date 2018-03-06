@@ -1,9 +1,9 @@
 package ru.yandex.market.graphouse.search.tree;
 
+import ru.yandex.clickhouse.util.ClickHouseRowBinaryStream;
 import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.search.MetricStatus;
 
-import java.io.DataOutput;
 import java.io.IOException;
 
 /**
@@ -11,6 +11,8 @@ import java.io.IOException;
  * @date 25/01/2017
  */
 public abstract class MetricBase implements MetricDescription {
+    private static final byte LEVEL_SPLITTER = (byte) MetricUtil.LEVEL_SPLITTER;
+
     protected final MetricDir parent;
     protected final String name;
 
@@ -32,24 +34,24 @@ public abstract class MetricBase implements MetricDescription {
     }
 
     @Override
-    public void writeName(DataOutput out) throws IOException {
+    public void writeName(ClickHouseRowBinaryStream stream) throws IOException {
         if (!parent.isRoot()) {
-            parent.writeName(out);
+            parent.writeName(stream);
         }
-        out.write(name.getBytes());
+        stream.writeBytes(name.getBytes());
         if (isDir()) {
-            out.write(MetricUtil.LEVEL_SPLITTER);
+            stream.writeByte(LEVEL_SPLITTER);
         }
     }
 
     @Override
-    public int getNameLength() {
-        int length = name.length();
+    public int getNameLengthInBytes() {
+        int length = name.getBytes().length;
         if (isDir()) {
             length++;
         }
         if (!parent.isRoot()) {
-            length += parent.getNameLength();
+            length += parent.getNameLengthInBytes();
         }
         return length;
     }

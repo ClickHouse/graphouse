@@ -19,6 +19,11 @@ If you have a huge metric tree (>10 million metrics), it is recommended to incre
 Also it is better to set Xms equal to Xmx (in this case Graphouse will allocate all allowed memory at startup).
 
 
+Clickhouse connection
+---------------------
+```graphouse.clickhouse.hosts=localhost``` Clickhouse host. You can specify multiple hosts separated by comma.
+
+
 Metric cacher
 -------------
 Graphouse supports [graphite plaintext protocol](http://graphite.readthedocs.io/en/latest/feeding-carbon.html#the-plaintext-protocol)
