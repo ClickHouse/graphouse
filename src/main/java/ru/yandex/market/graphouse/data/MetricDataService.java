@@ -17,6 +17,8 @@ import java.io.PrintWriter;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -81,6 +83,28 @@ public class MetricDataService {
             startTimeSeconds, endTimeSeconds, startTimeSeconds, endTimeSeconds, stepSeconds, stepSeconds
         );
         handler.finish();
+	Set<String> handledMetrics = handler.metrics();
+	log.info(handledMetrics);
+	for(MetricName nm: metrics) {
+	    String m = nm.getName();
+	    boolean handled = handledMetrics.contains(m);
+	    if ( !handled ) {
+		try {
+                    jsonWriter.name(m).beginObject();
+                    jsonWriter.name("start").value(startTimeSeconds);
+                    jsonWriter.name("end").value(endTimeSeconds);
+                    jsonWriter.name("step").value(stepSeconds);
+                    jsonWriter.name("points").beginArray();
+                    for (int nextTs = startTimeSeconds; nextTs < endTimeSeconds; nextTs += stepSeconds) {
+                        jsonWriter.nullValue();
+                    }
+                    jsonWriter.endArray().endObject();
+		} catch (IOException e) {
+                    log.error("Failed to fill points for " + m);
+                    throw new RuntimeIOException(e);
+		}
+	    }
+	}
     }
 
     @VisibleForTesting
@@ -89,6 +113,7 @@ public class MetricDataService {
         private final int start;
         private final int end;
         private final int step;
+	private Set<String> foundMetrics;
 
         private String currentMetric = null;
         private int nextTs;
@@ -98,6 +123,7 @@ public class MetricDataService {
             this.start = start;
             this.end = end;
             this.step = step;
+	    this.foundMetrics = new HashSet<String>();
         }
 
         @Override
@@ -117,7 +143,9 @@ public class MetricDataService {
                 throw new RuntimeIOException(e);
             }
         }
-
+	public Set<String> metrics() {
+		return foundMetrics;
+	}
         public void finish() {
             try {
                 endMetric();
@@ -147,6 +175,7 @@ public class MetricDataService {
             if (currentMetric == null) {
                 return;
             }
+	    foundMetrics.add(currentMetric);
             fillNulls(end);
             jsonWriter.endArray().endObject();
             currentMetric = null;
