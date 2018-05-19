@@ -84,7 +84,6 @@ public class MetricDataService {
         );
         handler.finish();
 	Set<String> handledMetrics = handler.metrics();
-	log.info(handledMetrics);
 	for(MetricName nm: metrics) {
 	    String m = nm.getName();
 	    boolean handled = handledMetrics.contains(m);
