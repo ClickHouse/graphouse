@@ -268,14 +268,13 @@ public class MetricCacher implements Runnable, InitializingBean {
         }
 
         private void saveMetrics() {
-            MetricRowBinaryHttpEntity httpEntity = new MetricRowBinaryHttpEntity(metrics);
+            MetricsStreamCallback metricsStreamCallback = new MetricsStreamCallback(metrics);
             clickHouseJdbcTemplate.execute(
                 (StatementCallback<Void>) stmt -> {
                     ClickHouseStatementImpl statement = (ClickHouseStatementImpl) stmt;
-                    statement.sendStream(
-                        httpEntity,
+                    statement.sendRowBinaryStream(
                         "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated)",
-                        "RowBinary"
+                        metricsStreamCallback
                     );
                     return null;
                 }
