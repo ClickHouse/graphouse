@@ -12,7 +12,6 @@ import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -230,24 +229,18 @@ public class MetricCacher implements Runnable, InitializingBean {
             activeWriters.decrementAndGet();
         }
 
-        private void saveMetrics() throws IOException {
-
-            MetricRowBinaryHttpEntity httpEntity = new MetricRowBinaryHttpEntity(metrics);
+        private void saveMetrics() {
+            MetricsStreamCallback metricsStreamCallback = new MetricsStreamCallback(metrics);
             clickHouseJdbcTemplate.execute(
                 (StatementCallback<Void>) stmt -> {
-
                     ClickHouseStatementImpl statement = (ClickHouseStatementImpl) stmt;
-                    statement.sendStream(
-                        httpEntity,
+                    statement.sendRowBinaryStream(
                         "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated)",
-                        "RowBinary"
+                        metricsStreamCallback
                     );
                     return null;
                 }
-
             );
-
         }
     }
-
 }

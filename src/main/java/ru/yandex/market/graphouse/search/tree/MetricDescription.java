@@ -1,8 +1,8 @@
 package ru.yandex.market.graphouse.search.tree;
 
+import ru.yandex.clickhouse.util.ClickHouseRowBinaryStream;
 import ru.yandex.market.graphouse.search.MetricStatus;
 
-import java.io.DataOutput;
 import java.io.IOException;
 
 /**
@@ -13,9 +13,9 @@ public interface MetricDescription {
 
     String getName();
 
-    int getNameLength();
+    int getNameLengthInBytes();
 
-    void writeName(DataOutput out) throws IOException;
+    void writeName(ClickHouseRowBinaryStream stream) throws IOException;
 
     MetricStatus getStatus();
 

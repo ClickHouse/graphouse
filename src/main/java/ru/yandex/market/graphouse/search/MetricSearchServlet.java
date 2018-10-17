@@ -3,15 +3,12 @@ package ru.yandex.market.graphouse.search;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Resource;
 import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.Writer;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -30,12 +27,11 @@ public class MetricSearchServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!allowColdRun && !metricSearch.isMetricTreeLoaded()){
-            resp.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            resp.getWriter().println("Metric tree not loaded\n");
-            resp.getWriter().println("Loading status: " + metricSearch.getMetricSearchUnit().toString());
+        if (isServerNotReady()) {
+            respondMetricsNotLoaded(resp);
             return;
         }
+
         switch (req.getRequestURI()) {
             case "/search":
                 search(req, resp);
@@ -64,16 +60,44 @@ public class MetricSearchServlet extends HttpServlet {
         }
     }
 
+    private void respondMetricsNotLoaded(HttpServletResponse resp) throws IOException {
+        resp.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        resp.getWriter().println("Metric tree not loaded\n");
+        resp.getWriter().println("Loading status: " + metricSearch.getMetricSearchUnit().toString());
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        if (isServerNotReady()) {
+            respondMetricsNotLoaded(resp);
+            return;
+        }
+
+        switch (req.getRequestURI()) {
+            case "/search":
+                search(req, resp);
+                break;
+            default:
+                badRequest(resp);
+                break;
+        }
+    }
+
+    private boolean isServerNotReady() {
+        return !allowColdRun && !metricSearch.isMetricTreeLoaded();
+    }
+
     private void badRequest(HttpServletResponse resp) throws IOException {
         resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         resp.getOutputStream().println("Usage:");
-        resp.getOutputStream().println("/search?query=<pattern>");
-        resp.getOutputStream().println("/ban?name=<metric>");
-        resp.getOutputStream().println("/multiBan?query=<pattern>");
-        resp.getOutputStream().println("/approve?name=<metric>");
-        resp.getOutputStream().println("/multiApprove?query=<pattern>");
-        resp.getOutputStream().println("/hide?name=<metric>");
-        resp.getOutputStream().println("/multiHide?query=<pattern>");
+        resp.getOutputStream().println("GET  /search?query=<pattern>");
+        resp.getOutputStream().println("POST /search (body: query=<url_encoded_search_query>)");
+        resp.getOutputStream().println("GET  /ban?name=<metric>");
+        resp.getOutputStream().println("GET  /multiBan?query=<pattern>");
+        resp.getOutputStream().println("GET  /approve?name=<metric>");
+        resp.getOutputStream().println("GET  /multiApprove?query=<pattern>");
+        resp.getOutputStream().println("GET  /hide?name=<metric>");
+        resp.getOutputStream().println("GET  /multiHide?query=<pattern>");
     }
 
     private void modify(HttpServletRequest req, HttpServletResponse resp, MetricStatus status) throws IOException {
@@ -102,15 +126,18 @@ public class MetricSearchServlet extends HttpServlet {
         writer.println("Total count: " + count);
     }
 
-
     private void search(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String query = req.getParameter("query");
         final PrintWriter writer = resp.getWriter();
+
         if (query == null || query.isEmpty()) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            writer.println("Usage: /search?query=<searchquery>");
+            writer.println("Usage:\n" +
+                "GET /search?query=<search_query>\n" +
+                "POST /search (body: search=<url_encoded_search_query>)");
             return;
         }
+
         metricSearch.search(query, writer);
     }
 }
