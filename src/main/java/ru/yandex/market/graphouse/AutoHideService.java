@@ -37,7 +37,7 @@ public class AutoHideService implements Runnable {
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final MetricSearch metricSearch;
 
-    @Value("${graphouse.clickhouse.read-data-table}")
+    @Value("${graphouse.clickhouse.data-read-table}")
     private String graphiteDataReadTable;
 
     @Value("${graphouse.autohide.enabled}")
