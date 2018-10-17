@@ -38,6 +38,10 @@ graphouse.clickhouse.user=${GH__CLICKHOUSE__USER:=}
 graphouse.clickhouse.password=${GH__CLICKHOUSE__PASSWORD:=}
 
 graphouse.clickhouse.data-table=${GH__CLICKHOUSE__DATA_TABLE:=data}
+graphouse.clickhouse.data-read-table=${GH__CLICKHOUSE__DATA_READ_TABLE:='${graphouse.clickhouse.data-table}'}
+graphouse.clickhouse.data-write-table=${GH__CLICKHOUSE__DATA_WRITE_TABLE:='${graphouse.clickhouse.data-table}'}
+
+
 graphouse.clickhouse.metric-tree-table=${GH__CLICKHOUSE__METRIC_TREE_TABLE:=metrics}
 
 graphouse.clickhouse.socket-timeout-seconds=${GH__CLICKHOUSE__SOCKET_TIMEOUT_SECONDS:=600}
