@@ -32,12 +32,13 @@ public class MetricDataService {
 
     private final JdbcTemplate clickHouseJdbcTemplate;
 
-    private final String graphiteTable;
+    private final String graphiteDataReadTable;
 
-    public MetricDataService(MetricSearch metricSearch, JdbcTemplate clickHouseJdbcTemplate, String graphiteTable) {
+    public MetricDataService(MetricSearch metricSearch, JdbcTemplate clickHouseJdbcTemplate,
+                             String graphiteDataReadTable) {
         this.metricSearch = metricSearch;
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
-        this.graphiteTable = graphiteTable;
+        this.graphiteDataReadTable = graphiteDataReadTable;
     }
 
 
@@ -72,7 +73,7 @@ public class MetricDataService {
         );
         clickHouseJdbcTemplate.query(
             "SELECT metric, ts, " + function + "(value) as value FROM (" +
-                "   SELECT metric, ts, argMax(value, updated) as value FROM " + graphiteTable +
+                "   SELECT metric, ts, argMax(value, updated) as value FROM " + graphiteDataReadTable +
                 "       WHERE metric IN (" + toMetricString(metrics) + ")" +
                 "           AND ts >= ? AND ts < ? AND date >= toDate(?) AND date <= toDate(?)" +
                 "       GROUP BY metric, timestamp as ts" +

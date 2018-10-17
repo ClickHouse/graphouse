@@ -34,8 +34,8 @@ public class MetricCacher implements Runnable, InitializingBean {
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final Monitoring monitoring;
 
-    @Value("${graphouse.clickhouse.data-table}")
-    private String graphiteTable;
+    @Value("${graphouse.clickhouse.data-write-table}")
+    private String graphiteDataWriteTable;
 
     @Value("${graphouse.cacher.queue-size}")
     private int queueSize = 1_000_000;
@@ -235,7 +235,7 @@ public class MetricCacher implements Runnable, InitializingBean {
                 (StatementCallback<Void>) stmt -> {
                     ClickHouseStatementImpl statement = (ClickHouseStatementImpl) stmt;
                     statement.sendRowBinaryStream(
-                        "INSERT INTO " + graphiteTable + " (metric, value, timestamp, date, updated)",
+                        "INSERT INTO " + graphiteDataWriteTable + " (metric, value, timestamp, date, updated)",
                         metricsStreamCallback
                     );
                     return null;

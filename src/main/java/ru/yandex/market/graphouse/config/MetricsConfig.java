@@ -28,8 +28,8 @@ public class MetricsConfig {
     @Autowired
     private JdbcTemplate clickHouseJdbcTemplate;
 
-    @Value("${graphouse.clickhouse.data-table}")
-    private String graphiteDataTable;
+    @Value("${graphouse.clickhouse.data-read-table}")
+    private String graphiteDataReadTable;
 
     @Value("${graphouse.clickhouse.retention-config}")
     private String retentionConfig;
@@ -66,7 +66,7 @@ public class MetricsConfig {
 
     @Bean
     public MetricDataService metricDataService() {
-        return new MetricDataService(metricSearch(), clickHouseJdbcTemplate, graphiteDataTable);
+        return new MetricDataService(metricSearch(), clickHouseJdbcTemplate, graphiteDataReadTable);
     }
 
     @Bean

@@ -37,8 +37,8 @@ public class AutoHideService implements Runnable {
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final MetricSearch metricSearch;
 
-    @Value("${graphouse.clickhouse.data-table}")
-    private String graphiteTable;
+    @Value("${graphouse.clickhouse.read-data-table}")
+    private String graphiteDataReadTable;
 
     @Value("${graphouse.autohide.enabled}")
     private boolean enabled = true;
@@ -128,7 +128,7 @@ public class AutoHideService implements Runnable {
 
                 clickHouseJdbcTemplate.query(
                     "SELECT metric, count() AS cnt, max(updated) AS ts " +
-                        "FROM " + graphiteTable + " WHERE metric >= ? AND metric <= ?" +
+                        "FROM " + graphiteDataReadTable + " WHERE metric >= ? AND metric <= ?" +
                         "GROUP BY metric " +
                         "HAVING cnt < ? AND ts < toUInt32(toDateTime(today() - ?))",
                     row -> {
