@@ -44,6 +44,7 @@ public class DbConfig {
     public DataSource clickHouseDataSource(@Value("${graphouse.clickhouse.hosts}") String hostsString,
                                            @Value("${graphouse.clickhouse.port}") int port,
                                            @Value("${graphouse.clickhouse.db}") String db,
+                                           @Value("${graphouse.clickhouse.host-ping-rate-seconds}") int pingRateSeconds,
                                            ClickHouseProperties clickHouseProperties
     ) {
         List<String> hosts = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(hostsString);
@@ -55,7 +56,13 @@ public class DbConfig {
         String url = ClickhouseJdbcUrlParser.JDBC_CLICKHOUSE_PREFIX + "//" +
             hosts.stream().map(host -> host + ":" + port).collect(Collectors.joining(",")) +
             "/" + db;
-        return new BalancedClickhouseDataSource(url, clickHouseProperties);
+        BalancedClickhouseDataSource balancedClickhouseDataSource = new BalancedClickhouseDataSource(
+            url, clickHouseProperties
+        );
+        if (pingRateSeconds > 0){
+            balancedClickhouseDataSource.scheduleActualization(pingRateSeconds, TimeUnit.SECONDS);
+        }
+        return balancedClickhouseDataSource;
     }
 
     @Bean
