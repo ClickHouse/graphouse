@@ -17,7 +17,7 @@ public class DbConfigTest {
     @Test
     public void clickHouseSimpleDataSource() {
         DbConfig dbConfig = new DbConfig();
-        DataSource ds = dbConfig.clickHouseDataSource("host1", 42, "db", new ClickHouseProperties());
+        DataSource ds = dbConfig.clickHouseDataSource("host1", 42, "db", -1, new ClickHouseProperties());
         Assert.assertTrue(ds instanceof ClickHouseDataSource);
         ClickHouseDataSource cds = (ClickHouseDataSource) ds;
         Assert.assertEquals("host1", cds.getHost());
@@ -28,7 +28,7 @@ public class DbConfigTest {
     @Test
     public void clickHouseBalancedDataSource() {
         DbConfig dbConfig = new DbConfig();
-        DataSource ds = dbConfig.clickHouseDataSource("host1,host2", 42, "db", new ClickHouseProperties());
+        DataSource ds = dbConfig.clickHouseDataSource("host1,host2", 42, "db", -1, new ClickHouseProperties());
         Assert.assertTrue(ds instanceof BalancedClickhouseDataSource);
         BalancedClickhouseDataSource cds = (BalancedClickhouseDataSource) ds;
     }
