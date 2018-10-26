@@ -19,11 +19,11 @@ RUN cd /tmp/ && \
     ln -sf $GRAPHOUSE_ROOT/log/ /var/log/graphouse && \
     rm -rf /tmp/graphouse
     
-ADD run.sh /usr/local/bin/run.sh
-RUN chmod +x /usr/local/bin/run.sh
+ADD run.py /usr/local/bin/run.py
+RUN chmod +x /usr/local/bin/run.py
 
 EXPOSE 2003 2005
 USER $USER
 WORKDIR $GRAPHOUSE_ROOT
 
-CMD ["bash","/usr/local/bin/run.sh"]
+CMD ["python","/usr/local/bin/run.py"]
