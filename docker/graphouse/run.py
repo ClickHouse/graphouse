@@ -3,7 +3,7 @@
 import os
 import subprocess
 
-print ("Generation graphouse properties")
+print("Generating graphouse properties")
 with open('/etc/graphouse/graphouse.properties', 'w') as graphouse_config:
     for env_key, value in os.environ.items():
         if not env_key.startswith("GH__"):
@@ -12,8 +12,7 @@ with open('/etc/graphouse/graphouse.properties', 'w') as graphouse_config:
         print ("Property '%s' value: %s" % (java_key, value))
         graphouse_config.write("%s=%s\n" % (java_key, value))
 
-print ("Generation graphouse vm options")
-
+print("Generating graphouse vm options")
 with open('/etc/graphouse/graphouse.vmoptions', 'w') as graphouse_vm_config:
     vm_xmx = os.environ.get("GH_XMX", "4g")
     vm_xms = os.environ.get("GH_XMS", "256m")
@@ -26,7 +25,6 @@ with open('/etc/graphouse/graphouse.vmoptions', 'w') as graphouse_vm_config:
     graphouse_vm_config.write('-XX:StringTableSize=10000000\n')
     graphouse_vm_config.write('-XX:+UseG1GC\n')
     graphouse_vm_config.write('-XX:MaxGCPauseMillis=1000\n')
-
 
 print ("Starting graphouse")
 subprocess.call("/opt/graphouse/bin/graphouse")
