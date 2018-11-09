@@ -50,11 +50,15 @@ public abstract class MetricDir extends MetricBase {
 
     public abstract MetricName maybeGetMetric(String name);
 
-    public MetricDir getOrCreateDir(String name, MetricStatus status, MetricDirFactory metricDirFactory) {
+    public MetricDir getOrCreateDir(String name, MetricStatus status,
+                                    MetricDirFactory metricDirFactory, int maxSubDirsPerDir) {
         Map<String, MetricDir> dirs = getDirs();
         MetricDir dir = dirs.get(name);
         if (dir != null) {
             return dir;
+        }
+        if (maxSubDirsPerDir > 0 && dirs.size() >= maxSubDirsPerDir && !status.handmade()) {
+            return null;
         }
         String internName = name.intern();
         dir = dirs.computeIfAbsent(
@@ -65,11 +69,15 @@ public abstract class MetricDir extends MetricBase {
         return dir;
     }
 
-    public MetricName getOrCreateMetric(String name, MetricStatus status, RetentionProvider retentionProvider) {
+    public MetricName getOrCreateMetric(String name, MetricStatus status,
+                                        RetentionProvider retentionProvider, int maxMetricsPerDir) {
         Map<String, MetricName> metrics = getMetrics();
         MetricName metric = metrics.get(name);
         if (metric != null) {
             return metric;
+        }
+        if (maxMetricsPerDir > 0 && metrics.size() >= maxMetricsPerDir && !status.handmade()) {
+            return null;
         }
         String internName = name.intern();
         metric = metrics.computeIfAbsent(

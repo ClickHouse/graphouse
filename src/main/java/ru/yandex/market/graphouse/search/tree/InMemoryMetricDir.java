@@ -70,7 +70,6 @@ public class InMemoryMetricDir extends MetricDir {
         return metrics != null && !metrics.isEmpty();
     }
 
-
     public int loadedMetricCount() {
         int count = 0;
 

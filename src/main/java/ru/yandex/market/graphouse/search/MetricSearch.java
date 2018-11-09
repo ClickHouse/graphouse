@@ -102,6 +102,13 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Value("${graphouse.clickhouse.metric-tree-table}")
     private String metricsTable;
 
+    @Value("${graphouse.tree.max-subdirs-per-dir}")
+    private int maxSubDirsPerDir;
+
+    @Value("${graphouse.tree.max-metrics-per-dir}")
+    private int maxMetricsPerDir;
+
+
     private LoadingCache<MetricDir, DirContent> dirContentProvider;
     private MetricDirFactory metricDirFactory;
 
@@ -148,7 +155,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 }
             });
 
-        metricTree = new MetricTree(metricDirFactory, retentionProvider);
+        metricTree = new MetricTree(metricDirFactory, retentionProvider, maxSubDirsPerDir, maxMetricsPerDir);
 
         new Thread(this, "MetricSearch thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
