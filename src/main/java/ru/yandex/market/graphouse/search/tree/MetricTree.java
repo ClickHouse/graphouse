@@ -29,10 +29,21 @@ public class MetricTree {
 
     private final MetricDirFactory metricDirFactory;
     private final RetentionProvider retentionProvider;
+    private final int maxSubDirsPerDir;
+    private final int maxMetricsPerDir;
 
-    public MetricTree(MetricDirFactory metricDirFactory, RetentionProvider retentionProvider) {
+    private final String subdirsPerDirLimitMessage;
+    private final String metricsPerDirLimitMessage;
+
+
+    public MetricTree(MetricDirFactory metricDirFactory, RetentionProvider retentionProvider,
+                      int maxSubDirsPerDir, int maxMetricsPerDir) {
         this.metricDirFactory = metricDirFactory;
         this.retentionProvider = retentionProvider;
+        this.maxSubDirsPerDir = maxSubDirsPerDir;
+        subdirsPerDirLimitMessage = "_SUBDIRS_LIMIT_REACHED_MAX_" + maxSubDirsPerDir;
+        this.maxMetricsPerDir = maxMetricsPerDir;
+        metricsPerDirLimitMessage = "_METRICS_LIMIT_REACHED_MAX_" + maxMetricsPerDir;
     }
 
     public void search(String query, AppendableResult result) throws IOException {
@@ -71,17 +82,18 @@ public class MetricTree {
                 appendSimpleResult(parentDir.getMetrics(), level, result);
             }
         } else if (level.equals(ALL_PATTERN)) {
-            if (parentDir.hasDirs()) {
-                if (isLast) {
+            if (isLast) {
+                appendLimitNotificationsIfNeeded(parentDir, result);
+                if (parentDir.hasDirs()) {
                     appendAllResult(parentDir.getDirs(), result);
-                } else {
-                    for (MetricDir dir : parentDir.getDirs().values()) {
-                        search(dir, levels, levelIndex + 1, result);
-                    }
                 }
-            }
-            if (isLast && parentDir.hasMetrics()) {
-                appendAllResult(parentDir.getMetrics(), result);
+                if (parentDir.hasMetrics()) {
+                    appendAllResult(parentDir.getMetrics(), result);
+                }
+            } else {
+                for (MetricDir dir : parentDir.getDirs().values()) {
+                    search(dir, levels, levelIndex + 1, result);
+                }
             }
         } else {
             PathMatcher pathMatcher = createPathMatcher(level);
@@ -103,7 +115,15 @@ public class MetricTree {
                 appendAllPatternResult(parentDir.getMetrics(), pathMatcher, result);
             }
         }
+    }
 
+    private void appendLimitNotificationsIfNeeded(MetricDir parentDir, AppendableResult result) throws IOException {
+        if (maxSubDirsPerDir > 0 && parentDir.hasDirs() && parentDir.getDirs().size() >= maxSubDirsPerDir) {
+            result.appendMetric(new NotificationMetric(parentDir, subdirsPerDirLimitMessage));
+        }
+        if (maxMetricsPerDir > 0 && parentDir.hasMetrics() && parentDir.getMetrics().size() >= maxMetricsPerDir) {
+            result.appendMetric(new NotificationMetric(parentDir, metricsPerDirLimitMessage));
+        }
     }
 
     private <T extends MetricBase> void appendAllPatternResult(Map<String, T> map, PathMatcher pathMatcher,
@@ -193,7 +213,7 @@ public class MetricTree {
      *
      * @param metric if ends with ".", then it's a directory
      * @param status
-     * @return MetricDescription, or <code>null</code> if the metric/directory is banned
+     * @return MetricDescription, or <code>null</code> if the metric/directory is banned, or limit reached
      */
     public MetricDescription modify(String metric, MetricStatus status) {
         boolean isDir = MetricUtil.isDir(metric);
@@ -203,20 +223,22 @@ public class MetricTree {
         MetricDir dir = root;
         for (int i = 0; i < levels.length; i++) {
             boolean isLast = (i == levels.length - 1);
-            if (dir.getStatus() == MetricStatus.BAN) {
+            if (dir == null || dir.getStatus() == MetricStatus.BAN) {
                 return null;
             }
             String level = levels[i];
             if (!isLast) {
-                dir = dir.getOrCreateDir(level, status, metricDirFactory);
+                dir = dir.getOrCreateDir(level, status, metricDirFactory, maxSubDirsPerDir);
             } else {
                 MetricBase metricBase;
                 if (isDir) {
-                    metricBase = dir.getOrCreateDir(level, status, metricDirFactory);
+                    metricBase = dir.getOrCreateDir(level, status, metricDirFactory, maxSubDirsPerDir);
                 } else {
-                    metricBase = dir.getOrCreateMetric(level, status, retentionProvider);
+                    metricBase = dir.getOrCreateMetric(level, status, retentionProvider, maxMetricsPerDir);
                 }
-                metricBase.setStatus(selectStatus(metricBase.getStatus(), status));
+                if (metricBase != null) {
+                    metricBase.setStatus(selectStatus(metricBase.getStatus(), status));
+                }
                 return metricBase;
             }
         }
