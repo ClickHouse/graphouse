@@ -1,7 +1,6 @@
 package ru.yandex.market.graphouse.cacher;
 
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import ru.yandex.clickhouse.settings.ClickHouseProperties;
 import ru.yandex.clickhouse.util.ClickHouseRowBinaryStream;
@@ -23,14 +22,10 @@ import java.util.TimeZone;
  */
 public class MetricsStreamCallbackTest {
 
-    @Before
-    public void setUp() throws Exception {
-        TimeZone.setDefault(TimeZone.getTimeZone("Europe/Moscow"));
-    }
 
     @Test
     public void testTimeZones() {
-        MetricsStreamCallback entity = new MetricsStreamCallback(null);
+        MetricsStreamCallback entity = new MetricsStreamCallback(null, TimeZone.getTimeZone("Europe/Moscow"));
         Assert.assertEquals(17265, entity.getUnsignedDaysSinceEpoch(1491771599));
         Assert.assertEquals(17266, entity.getUnsignedDaysSinceEpoch(1491771601));
     }
@@ -38,7 +33,7 @@ public class MetricsStreamCallbackTest {
     @Test
     public void testTimeZones2() {
         LocalDate localDate = LocalDate.of(2017, 4, 9);
-        MetricsStreamCallback entity = new MetricsStreamCallback(null, localDate);
+        MetricsStreamCallback entity = new MetricsStreamCallback(null, TimeZone.getTimeZone("Europe/Moscow").toZoneId(), localDate);
 
         Assert.assertEquals(17265, entity.getCurrentDay());
         Assert.assertEquals(1491685200, entity.getTodayStartSeconds());
@@ -62,7 +57,7 @@ public class MetricsStreamCallbackTest {
             1492350000
         );
 
-        MetricsStreamCallback entity = new MetricsStreamCallback(Collections.singletonList(metric));
+        MetricsStreamCallback entity = new MetricsStreamCallback(Collections.singletonList(metric), TimeZone.getTimeZone("Europe/Moscow"));
 
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         entity.writeTo(new ClickHouseRowBinaryStream(byteArrayOutputStream, null, new ClickHouseProperties()));

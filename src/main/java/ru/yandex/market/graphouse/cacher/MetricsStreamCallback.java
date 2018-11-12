@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.TimeZone;
 
 /**
  * Write in ClickHouse in a fast RowBinary format.
@@ -23,23 +24,30 @@ public class MetricsStreamCallback implements ClickHouseStreamCallback {
 
     private static final LocalDate EPOCH = LocalDate.ofEpochDay(0);
 
+
     private final int todayStartSeconds;
     private final int todayEndSeconds;
     private final short currentDay;
 
     private final List<Metric> metrics;
+    private final ZoneId clickHouseZoneId;
 
     @VisibleForTesting
-    protected MetricsStreamCallback(List<Metric> metrics, LocalDate localDate) {
+    protected MetricsStreamCallback(List<Metric> metrics, ZoneId clickHouseZoneId, LocalDate localDate) {
         this.metrics = metrics;
+        this.clickHouseZoneId = clickHouseZoneId;
         //Optimization. Assume that all metrics are today and precalc day number.
         currentDay = (short) Short.toUnsignedInt((short) localDate.toEpochDay());
-        todayStartSeconds = (int) localDate.atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
-        todayEndSeconds = (int) localDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
+        todayStartSeconds = (int) localDate.atStartOfDay(clickHouseZoneId).toEpochSecond();
+        todayEndSeconds = (int) localDate.plusDays(1).atStartOfDay(clickHouseZoneId).toEpochSecond();
     }
 
-    public MetricsStreamCallback(List<Metric> metrics) {
-        this(metrics, LocalDate.now());
+    public MetricsStreamCallback(List<Metric> metrics, TimeZone clickHouseTimeZone) {
+        this(metrics, clickHouseTimeZone.toZoneId(), LocalDate.now());
+    }
+
+    public MetricsStreamCallback(List<Metric> metrics, ZoneId clickHouseZoneId) {
+        this(metrics, clickHouseZoneId, LocalDate.now());
     }
 
     @Override
@@ -70,7 +78,7 @@ public class MetricsStreamCallback implements ClickHouseStreamCallback {
         if (timestampSeconds >= todayStartSeconds && timestampSeconds < todayEndSeconds) {
             return currentDay;
         }
-        LocalDate localDate = Instant.ofEpochSecond(timestampSeconds).atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate localDate = Instant.ofEpochSecond(timestampSeconds).atZone(clickHouseZoneId).toLocalDate();
         short days = (short) ChronoUnit.DAYS.between(EPOCH, localDate);
         return (short) Short.toUnsignedInt(days);
     }
