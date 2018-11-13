@@ -37,6 +37,8 @@ public class DbConfig {
         clickHouseProperties.setPassword(password);
         clickHouseProperties.setCompress(compress);
         clickHouseProperties.setDecompress(compress);
+        clickHouseProperties.setUseServerTimeZone(true);
+        clickHouseProperties.setUseServerTimeZoneForDates(true);
         return clickHouseProperties;
     }
 
