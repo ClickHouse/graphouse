@@ -10,6 +10,9 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.StringWriter;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -30,7 +33,7 @@ public class MetricDataRowCallbackHandlerTest {
         jsonWriter.beginObject();
 
         MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
-            jsonWriter, 100, 280, 60
+            jsonWriter, 100, 280, 60, Collections.emptySet()
         );
 
         while (resultSet.next()) {
@@ -61,7 +64,7 @@ public class MetricDataRowCallbackHandlerTest {
         jsonWriter.beginObject();
 
         MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
-            jsonWriter, 0, 3, 1
+            jsonWriter, 0, 3, 1, Collections.emptySet()
         );
 
         while (resultSet.next()) {
@@ -86,7 +89,7 @@ public class MetricDataRowCallbackHandlerTest {
         jsonWriter.beginObject();
 
         MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
-            jsonWriter, 0, 3, 1
+            jsonWriter, 0, 3, 1, Collections.emptySet()
         );
 
         while (resultSet.next()) {
@@ -97,6 +100,35 @@ public class MetricDataRowCallbackHandlerTest {
 
         Assert.assertEquals("{}", stringWriter.toString());
 
+    }
+
+    @Test
+    public void testEmptyMetricFilling() throws Exception {
+        MockResultSet resultSet = new MockResultSet("data");
+        resultSet.addColumn("metric", new String[]{"name1", "name1"});
+        resultSet.addColumn("ts", new Integer[]{100, 160});
+        resultSet.addColumn("value", new Double[]{33.33, 42.0});
+
+        StringWriter stringWriter = new StringWriter();
+        JsonWriter jsonWriter = new JsonWriter(stringWriter);
+        jsonWriter.beginObject();
+
+        MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
+            jsonWriter, 100, 280, 60, new HashSet<>(Arrays.asList("name1", "name2"))
+        );
+
+        while (resultSet.next()) {
+            handler.processRow(resultSet);
+        }
+        handler.finish();
+
+        jsonWriter.endObject();
+
+        JsonObject expected = new JsonObject();
+        expected.add("name1", createMetric(100, 280, 60, 33.33, 42.0, Double.NaN));
+        expected.add("name2", createMetric(100, 280, 60, Double.NaN, Double.NaN, Double.NaN));
+
+        Assert.assertEquals(expected.toString(), stringWriter.toString());
     }
 
 
