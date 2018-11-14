@@ -230,10 +230,12 @@ public class MetricCacher implements Runnable, InitializingBean {
         }
 
         private void saveMetrics() {
-            MetricsStreamCallback metricsStreamCallback = new MetricsStreamCallback(metrics);
             clickHouseJdbcTemplate.execute(
                 (StatementCallback<Void>) stmt -> {
                     ClickHouseStatementImpl statement = (ClickHouseStatementImpl) stmt;
+                    MetricsStreamCallback metricsStreamCallback = new MetricsStreamCallback(
+                        metrics, statement.getConnection().getTimeZone()
+                    );
                     statement.sendRowBinaryStream(
                         "INSERT INTO " + graphiteDataWriteTable + " (metric, value, timestamp, date, updated)",
                         metricsStreamCallback
