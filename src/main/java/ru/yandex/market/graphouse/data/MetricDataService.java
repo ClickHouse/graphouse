@@ -16,7 +16,9 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -68,13 +70,21 @@ public class MetricDataService {
         startTimeSeconds = startTimeSeconds / stepSeconds * stepSeconds;
         endTimeSeconds = startTimeSeconds + (dataPoints * stepSeconds);
 
+        Set<String> metricsSet = new HashSet<>();
+        String metricString = metrics.stream()
+            .map(MetricName::getName)
+            .peek(metricsSet::add)
+            .collect(Collectors.joining("','", "'", "'"));
+
+
         MetricDataRowCallbackHandler handler = new MetricDataRowCallbackHandler(
-            jsonWriter, startTimeSeconds, endTimeSeconds, stepSeconds
+            jsonWriter, startTimeSeconds, endTimeSeconds, stepSeconds, metricsSet
         );
+
         clickHouseJdbcTemplate.query(
             "SELECT metric, ts, " + function + "(value) as value FROM (" +
                 "   SELECT metric, ts, argMax(value, updated) as value FROM " + graphiteDataReadTable +
-                "       WHERE metric IN (" + toMetricString(metrics) + ")" +
+                "       WHERE metric IN (" + metricString + ")" +
                 "           AND ts >= ? AND ts < ? AND date >= toDate(?) AND date <= toDate(?)" +
                 "       GROUP BY metric, timestamp as ts" +
                 ") GROUP BY metric, intDiv(toUInt32(ts), ?) * ? as ts ORDER BY metric, ts",
@@ -90,15 +100,18 @@ public class MetricDataService {
         private final int start;
         private final int end;
         private final int step;
+        private final Set<String> remainingMetrics;
 
         private String currentMetric = null;
         private int nextTs;
 
-        public MetricDataRowCallbackHandler(JsonWriter jsonWriter, int start, int end, int step) {
+
+        public MetricDataRowCallbackHandler(JsonWriter jsonWriter, int start, int end, int step, Set<String> metrics) {
             this.jsonWriter = jsonWriter;
             this.start = start;
             this.end = end;
             this.step = step;
+            this.remainingMetrics = metrics;
         }
 
         @Override
@@ -122,6 +135,10 @@ public class MetricDataService {
         public void finish() {
             try {
                 endMetric();
+                for (String remainingMetric : remainingMetrics) {
+                    startMetric(remainingMetric);
+                    endMetric();
+                }
             } catch (IOException e) {
                 log.error("Failed to read data from CH", e);
                 throw new RuntimeIOException(e);
@@ -154,6 +171,7 @@ public class MetricDataService {
         }
 
         private void startMetric(String metric) throws IOException {
+            remainingMetrics.remove(metric);
             nextTs = start;
             currentMetric = metric;
             jsonWriter.name(metric).beginObject();
@@ -162,12 +180,6 @@ public class MetricDataService {
             jsonWriter.name("step").value(step);
             jsonWriter.name("points").beginArray();
         }
-    }
-
-    private static String toMetricString(List<MetricName> metrics) {
-        return metrics.stream()
-            .map(MetricName::getName)
-            .collect(Collectors.joining("','", "'", "'"));
     }
 
     private int selectStep(List<MetricName> metrics, int startTimeSeconds) {
