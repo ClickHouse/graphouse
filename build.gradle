@@ -119,7 +119,7 @@ startScripts {
         unixScript.text = unixScript.text.replace(
             'APP_HOME="`pwd -P`"',
             'APP_HOME="`pwd -P`"\n' +
-                'GRAPHOUSE_OPTS=$(<$APP_HOME/conf/graphouse.vmoptions)'
+                'GRAPHOUSE_OPTS=$(cat $APP_HOME/conf/graphouse.vmoptions)'
         )
         delete windowsScript
     }
