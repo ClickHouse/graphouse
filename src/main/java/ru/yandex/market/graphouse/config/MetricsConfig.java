@@ -80,7 +80,9 @@ public class MetricsConfig {
     }
 
     @Bean
-    public MetricFactory metricFactory() {
-        return new MetricFactory(metricSearch(), metricValidator());
+    public MetricFactory metricFactory(@Value("${graphouse.host-metric-redirect.enabled}") boolean redirectHostMetrics,
+                                       @Value("${graphouse.host-metric-redirect.dir}") String hostMetricDir,
+                                       @Value("${graphouse.host-metric-redirect.postfixes}") String hostPostfixes) {
+        return new MetricFactory(metricSearch(), metricValidator(), redirectHostMetrics, hostMetricDir, hostPostfixes);
     }
 }
