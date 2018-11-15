@@ -17,6 +17,7 @@ import java.io.PrintWriter;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -135,7 +136,10 @@ public class MetricDataService {
         public void finish() {
             try {
                 endMetric();
-                for (String remainingMetric : remainingMetrics) {
+                Iterator<String> remainingMetricIterator = remainingMetrics.iterator();
+                while (remainingMetricIterator.hasNext()) {
+                    String remainingMetric = remainingMetricIterator.next();
+                    remainingMetricIterator.remove();
                     startMetric(remainingMetric);
                     endMetric();
                 }
