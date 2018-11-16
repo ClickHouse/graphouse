@@ -12,7 +12,6 @@ import org.junit.Test;
 import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 
 /**
@@ -33,8 +32,8 @@ public class MetricDataRowCallbackHandlerTest {
         JsonWriter jsonWriter = new JsonWriter(stringWriter);
         jsonWriter.beginObject();
 
-        MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
-            jsonWriter, 100, 280, 60, Collections.emptySet()
+        MetricDataRowCallbackHandler handler = new MetricDataRowCallbackHandler(
+            jsonWriter, new MetricDataQueryParams(100, 280, 60), Collections.emptySet()
         );
 
         while (resultSet.next()) {
@@ -64,8 +63,8 @@ public class MetricDataRowCallbackHandlerTest {
         JsonWriter jsonWriter = new JsonWriter(stringWriter);
         jsonWriter.beginObject();
 
-        MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
-            jsonWriter, 0, 3, 1, Collections.emptySet()
+        MetricDataRowCallbackHandler handler = new MetricDataRowCallbackHandler(
+            jsonWriter, new MetricDataQueryParams(0, 3, 1), Collections.emptySet()
         );
 
         while (resultSet.next()) {
@@ -89,8 +88,8 @@ public class MetricDataRowCallbackHandlerTest {
         JsonWriter jsonWriter = new JsonWriter(stringWriter);
         jsonWriter.beginObject();
 
-        MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
-            jsonWriter, 0, 3, 1, Collections.emptySet()
+        MetricDataRowCallbackHandler handler = new MetricDataRowCallbackHandler(
+            jsonWriter, new MetricDataQueryParams(0, 3, 1), Collections.emptySet()
         );
 
         while (resultSet.next()) {
@@ -114,8 +113,8 @@ public class MetricDataRowCallbackHandlerTest {
         JsonWriter jsonWriter = new JsonWriter(stringWriter);
         jsonWriter.beginObject();
 
-        MetricDataService.MetricDataRowCallbackHandler handler = new MetricDataService.MetricDataRowCallbackHandler(
-            jsonWriter, 100, 280, 60, new LinkedHashSet<>(Arrays.asList("name1", "name2", "name3"))
+        MetricDataRowCallbackHandler handler = new MetricDataRowCallbackHandler(
+            jsonWriter, new MetricDataQueryParams(100, 280, 60), new LinkedHashSet<>(Arrays.asList("name1", "name2", "name3"))
         );
 
         while (resultSet.next()) {
