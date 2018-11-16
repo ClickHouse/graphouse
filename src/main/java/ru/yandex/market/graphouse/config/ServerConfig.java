@@ -41,7 +41,7 @@ public class ServerConfig {
     private Monitoring monitoring;
 
     @Bean(initMethod = "startServer")
-    public GraphouseWebServer server(@Value("${graphouse.clickhouse.data-read-table}") int maxMetricsPerQuery) {
+    public GraphouseWebServer server(@Value("${graphouse.metric-data.max-metrics-per-query}") int maxMetricsPerQuery) {
 
         MetricSearchServlet metricSearchServlet = new MetricSearchServlet(metricSearch, allowColdRun);
 
