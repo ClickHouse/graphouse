@@ -63,7 +63,7 @@ public class MetricsConfig {
 
     @Bean
     public MetricDataService dataService(@Value("${graphouse.clickhouse.data-read-table}") String graphiteDataReadTable,
-                                        @Value("${graphouse.clickhouse.data-read-table}") int maxPointsPerMetric) {
+                                         @Value("${graphouse.metric-data.max-points-per-metric}") int maxPointsPerMetric) {
         return new MetricDataService(
             metricSearch(), clickHouseJdbcTemplate, graphiteDataReadTable, maxPointsPerMetric
         );
