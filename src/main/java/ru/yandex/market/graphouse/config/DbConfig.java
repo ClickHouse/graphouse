@@ -29,7 +29,8 @@ public class DbConfig {
         @Value("${graphouse.clickhouse.user}") String user,
         @Value("${graphouse.clickhouse.password}") String password,
         @Value("${graphouse.clickhouse.socket-timeout-seconds}") int socketTimeoutSeconds,
-        @Value("${graphouse.clickhouse.compress}") boolean compress
+        @Value("${graphouse.clickhouse.compress}") boolean compress,
+        @Value("${graphouse.clickhouse.max-query-size.bytes}") long maxQuerySizeBytes
     ) {
         final ClickHouseProperties clickHouseProperties = new ClickHouseProperties();
         clickHouseProperties.setSocketTimeout((int) TimeUnit.SECONDS.toMillis(socketTimeoutSeconds));
@@ -39,6 +40,7 @@ public class DbConfig {
         clickHouseProperties.setDecompress(compress);
         clickHouseProperties.setUseServerTimeZone(true);
         clickHouseProperties.setUseServerTimeZoneForDates(true);
+        clickHouseProperties.setMaxQuerySize(maxQuerySizeBytes);
         return clickHouseProperties;
     }
 
@@ -61,7 +63,7 @@ public class DbConfig {
         BalancedClickhouseDataSource balancedClickhouseDataSource = new BalancedClickhouseDataSource(
             url, clickHouseProperties
         );
-        if (pingRateSeconds > 0){
+        if (pingRateSeconds > 0) {
             balancedClickhouseDataSource.scheduleActualization(pingRateSeconds, TimeUnit.SECONDS);
         }
         return balancedClickhouseDataSource;
