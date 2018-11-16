@@ -41,13 +41,15 @@ public class ServerConfig {
     private Monitoring monitoring;
 
     @Bean(initMethod = "startServer")
-    public GraphouseWebServer graphouseWebServer() {
+    public GraphouseWebServer server(@Value("${graphouse.clickhouse.data-read-table}") int maxMetricsPerQuery) {
 
-        final MetricSearchServlet metricSearchServlet = new MetricSearchServlet(metricSearch, allowColdRun);
+        MetricSearchServlet metricSearchServlet = new MetricSearchServlet(metricSearch, allowColdRun);
 
-        final MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, metricSearch, allowColdRun);
+        MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, metricSearch, allowColdRun);
 
-        final MetricDataServiceServlet metricDataServiceServlet = new MetricDataServiceServlet(metricDataService);
+        MetricDataServiceServlet metricDataServiceServlet = new MetricDataServiceServlet(
+            metricDataService, maxMetricsPerQuery
+        );
 
         return new GraphouseWebServer(metricSearchServlet, monitoringServlet, metricDataServiceServlet);
     }

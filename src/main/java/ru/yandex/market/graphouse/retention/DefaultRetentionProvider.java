@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 03/04/2017
  */
-public class DefaultRetentionProvider extends AbstractRetentionProvider {
+public class DefaultRetentionProvider extends BaseRetentionProvider {
 
     private final static Logger log = LogManager.getLogger();
 

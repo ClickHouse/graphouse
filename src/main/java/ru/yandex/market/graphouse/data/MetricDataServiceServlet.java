@@ -21,9 +21,11 @@ public class MetricDataServiceServlet extends HttpServlet {
     private static final Logger log = LogManager.getLogger();
 
     private final MetricDataService metricDataService;
+    private final int maxMetricsPerQuery;
 
-    public MetricDataServiceServlet(MetricDataService metricDataService) {
+    public MetricDataServiceServlet(MetricDataService metricDataService, int maxMetricsPerQuery) {
         this.metricDataService = metricDataService;
+        this.maxMetricsPerQuery = maxMetricsPerQuery;
     }
 
     @Override
@@ -49,6 +51,13 @@ public class MetricDataServiceServlet extends HttpServlet {
         }
 
         final List<String> metrics = Arrays.asList(metricsString.split(","));
+        if (maxMetricsPerQuery > 0 && metrics.size() > maxMetricsPerQuery) {
+            resp.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            resp.getOutputStream().println(String.format(
+                "Too many metrics in query. Provided %d, max %d", metrics.size(), maxMetricsPerQuery
+            ));
+            return;
+        }
 
         final int startTimeSeconds;
         final int endTimeSeconds;

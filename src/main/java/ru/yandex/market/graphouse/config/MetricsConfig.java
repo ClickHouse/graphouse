@@ -28,9 +28,6 @@ public class MetricsConfig {
     @Autowired
     private JdbcTemplate clickHouseJdbcTemplate;
 
-    @Value("${graphouse.clickhouse.data-read-table}")
-    private String graphiteDataReadTable;
-
     @Value("${graphouse.clickhouse.retention-config}")
     private String retentionConfig;
 
@@ -65,8 +62,11 @@ public class MetricsConfig {
     }
 
     @Bean
-    public MetricDataService metricDataService() {
-        return new MetricDataService(metricSearch(), clickHouseJdbcTemplate, graphiteDataReadTable);
+    public MetricDataService dataService(@Value("${graphouse.clickhouse.data-read-table}") String graphiteDataReadTable,
+                                        @Value("${graphouse.clickhouse.data-read-table}") int maxPointsPerMetric) {
+        return new MetricDataService(
+            metricSearch(), clickHouseJdbcTemplate, graphiteDataReadTable, maxPointsPerMetric
+        );
     }
 
     @Bean
