@@ -2,7 +2,7 @@ FROM ubuntu:xenial
 
 RUN apt-get -y update && \
     apt-get -y install python-dev python-pip libcairo2-dev libffi-dev python-requests build-essential && \
-    apt-get -y install git nginx uwsgi sqlite3 curl nano net-tools telnet bind9-host psmisc
+    apt-get -y install git nginx uwsgi sqlite3 curl nano net-tools telnet bind9-host psmisc python-memcached
 
 
 RUN git clone -b 1.0.2 --depth 1 https://github.com/graphite-project/graphite-web.git /usr/local/src/graphite-web && \
