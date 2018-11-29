@@ -3,4 +3,9 @@ set -e
 
 service nginx start
 export PYTHONPATH=/opt/graphite/webapp
-exec /usr/local/bin/gunicorn wsgi --workers=24 --bind=127.0.0.1:8080 --log-file=/var/log/gunicorn.log --preload --pythonpath=/opt/graphite/webapp/graphite
+
+exec /usr/local/bin/gunicorn wsgi --bind=127.0.0.1:8080 --log-file=/var/log/gunicorn.log \
+    --preload --pythonpath=/opt/graphite/webapp/graphite \
+    --worker-class=${GUNICORN_WORKER_CLASS:-'gthread'} \
+    --workers=${GUNICORN_WORKERS:-4} --threads=${GUNICORN_THREADS:-4} \
+    --timeout=${GUNICORN_TIMEOUT:-90} --max-requests=${GUNICORN_MAX_REQUSTS:-1000}
