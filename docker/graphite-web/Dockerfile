@@ -12,7 +12,7 @@ WORKDIR /usr/local/src/graphite-web
 
 
 RUN sed -i -e 's/whitenoise/whitenoise==3.3.1/g' requirements.txt  && \
-  pip install -r requirements.txt psycopg2 gthread tornado gevent eventlet && \
+  pip install -r requirements.txt psycopg2 futures tornado gevent eventlet && \
  python ./setup.py install
 
 WORKDIR /opt/graphite/webapp
