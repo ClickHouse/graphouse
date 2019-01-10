@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import ru.yandex.market.graphouse.search.MetricSearch;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -43,27 +44,30 @@ public class DirContentBatcher {
         requestSemaphore = new Semaphore(maxParallelRequests, true);
     }
 
+
     public DirContent loadDirContent(MetricDir dir) throws Exception {
+
+        /*
+         * If we have available permit we run immediately, otherwise create pending batch.
+         */
+
         if (requestSemaphore.tryAcquire()) {
-            return directLoad(dir);
-        }
-
-        Batch dirBatch = currentBatch.updateAndGet(batch -> {
-            if (batch == null || batch.size() >= maxBatchSize) {
-                batch = createNewBatch();
+            try {
+                return metricSearch.loadDirsContent(Collections.singleton(dir)).get(dir);
+            } finally {
+                requestSemaphore.release();
             }
-            batch.addToBatch(dir);
-            return batch;
-        });
-        return dirBatch.getResult(dir);
-    }
-
-    private DirContent directLoad(MetricDir dir) throws Exception {
-        try {
-            return metricSearch.loadDirContent(dir);
-        } finally {
-            requestSemaphore.release();
         }
+
+        Batch dirBatch = currentBatch.updateAndGet(
+            batch -> {
+                if (batch == null || batch.size() >= maxBatchSize) {
+                    batch = createNewBatch();
+                }
+                batch.addToBatch(dir);
+                return batch;
+            });
+        return dirBatch.getResult(dir);
     }
 
     private Batch createNewBatch() {
