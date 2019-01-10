@@ -27,7 +27,7 @@ public class MetricDataQueryParamsTest {
             new MetricRetention.MetricDataRetentionBuilder(".*", "avg").addRetention(0, 60).build()
         ));
         MetricDir root = new InMemoryMetricDir(null, null, MetricStatus.SIMPLE);
-        metric = new MetricName(root, "c", MetricStatus.SIMPLE, new DefaultRetentionProvider());
+        metric = new MetricName(root, "c", MetricStatus.SIMPLE, retentionProvider);
     }
 
     @Test
