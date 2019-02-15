@@ -71,15 +71,17 @@ public class DbConfig {
             url, clickHouseProperties
         );
 
-        int availableServers = balancedClickhouseDataSource.actualize();
-        if (availableServers == 0) {
-            throw new RuntimeException("Failed to start. All clickhouse servers no available: " + hostsString);
-        }
+        if (pingRateSeconds > 0) {
+            int availableServers = balancedClickhouseDataSource.actualize();
+            if (availableServers == 0) {
+                throw new RuntimeException("Failed to start. All clickhouse servers no available: " + hostsString);
+            }
 
-        BalancedClickhouseDataSourceMonitoring dataSourceMonitoring = new BalancedClickhouseDataSourceMonitoring(
-            balancedClickhouseDataSource, monitoring, ping, pingRateSeconds
-        );
-        dataSourceMonitoring.startAsync();
+            BalancedClickhouseDataSourceMonitoring dataSourceMonitoring = new BalancedClickhouseDataSourceMonitoring(
+                balancedClickhouseDataSource, monitoring, ping, pingRateSeconds
+            );
+            dataSourceMonitoring.startAsync();
+        }
 
         return balancedClickhouseDataSource;
     }
