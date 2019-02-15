@@ -1,7 +1,6 @@
 package ru.yandex.market.graphouse;
 
 import ru.yandex.market.graphouse.monitoring.Monitoring;
-import ru.yandex.market.graphouse.search.MetricSearch;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -16,23 +15,21 @@ import java.io.IOException;
 public class MonitoringServlet extends HttpServlet {
 
     private final Monitoring monitoring;
-    private final MetricSearch metricSearch;
-    private final boolean allowColdRun;
+    private final Monitoring ping;
 
-    public MonitoringServlet(Monitoring monitoring, MetricSearch metricSearch, boolean allowColdRun) {
+    public MonitoringServlet(Monitoring monitoring, Monitoring ping) {
         this.monitoring = monitoring;
-        this.metricSearch = metricSearch;
-        this.allowColdRun = allowColdRun;
+        this.ping = ping;
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         switch (req.getRequestURI()) {
             case "/ping":
-                ping(resp);
+                writeResponse(resp, monitoring);
                 break;
             case "/monitoring":
-                monitoring(resp);
+                writeResponse(resp, monitoring);
                 break;
             default:
                 resp.getWriter().print("Bad request");
@@ -41,18 +38,8 @@ public class MonitoringServlet extends HttpServlet {
         }
     }
 
-    private void ping(HttpServletResponse resp) throws IOException {
-        if (allowColdRun || metricSearch.isMetricTreeLoaded()) {
-            resp.setStatus(HttpServletResponse.SC_OK);
-            resp.getWriter().print("0;OK");
-            return;
-        }
+    private static void writeResponse(HttpServletResponse resp, Monitoring monitoring) throws IOException {
 
-        resp.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-        resp.getWriter().println("2;Metric tree not loaded ");
-    }
-
-    private void monitoring(HttpServletResponse resp) throws IOException {
         Monitoring.Result result = monitoring.getResult();
         switch (result.getStatus()) {
             case OK:
@@ -60,12 +47,13 @@ public class MonitoringServlet extends HttpServlet {
                 resp.setStatus(HttpServletResponse.SC_OK);
                 break;
             case CRITICAL:
-                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                resp.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
                 break;
             default:
                 throw new IllegalStateException();
         }
         resp.getWriter().print(result.toString());
     }
+
 
 }

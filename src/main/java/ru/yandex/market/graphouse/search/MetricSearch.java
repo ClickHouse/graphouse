@@ -64,11 +64,13 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final Monitoring monitoring;
+    private final Monitoring ping;
     private final MetricValidator metricValidator;
     private final RetentionProvider retentionProvider;
 
 
     private final MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
+    private final MonitoringUnit metricTreeInitUnit = new MonitoringUnit("MetricTreeInit");
     private MetricTree metricTree;
     private final Queue<MetricDescription> updateQueue = new ConcurrentLinkedQueue<>();
 
@@ -115,17 +117,20 @@ public class MetricSearch implements InitializingBean, Runnable {
     private DirContentBatcher dirContentBatcher;
 
 
-    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring,
+    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring, Monitoring ping,
                         MetricValidator metricValidator, RetentionProvider retentionProvider) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
+        this.ping = ping;
         this.metricValidator = metricValidator;
         this.retentionProvider = retentionProvider;
+        monitoring.addUnit(metricSearchUnit);
+        ping.addUnit(metricTreeInitUnit);
+        metricTreeInitUnit.critical("Initializing");
     }
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        monitoring.addUnit(metricSearchUnit);
 
         metricDirFactory = (parent, name, status) -> {
             int level = parent.getLevel() + 1;
@@ -344,6 +349,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         log.info(
             "Loaded complete. Total " + totalMetrics + " metrics in " + stopWatch.getTotalTimeSeconds() + " seconds"
         );
+        metricTreeInitUnit.ok();
     }
 
     private void loadUpdatedMetrics(int startTimestampSeconds) {
