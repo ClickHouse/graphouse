@@ -26,7 +26,7 @@ public class MonitoringServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         switch (req.getRequestURI()) {
             case "/ping":
-                writeResponse(resp, monitoring);
+                writeResponse(resp, ping);
                 break;
             case "/monitoring":
                 writeResponse(resp, monitoring);
