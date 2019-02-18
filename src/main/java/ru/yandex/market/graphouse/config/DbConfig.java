@@ -2,6 +2,7 @@ package ru.yandex.market.graphouse.config;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,8 @@ import ru.yandex.clickhouse.BalancedClickhouseDataSource;
 import ru.yandex.clickhouse.ClickHouseDataSource;
 import ru.yandex.clickhouse.ClickhouseJdbcUrlParser;
 import ru.yandex.clickhouse.settings.ClickHouseProperties;
+import ru.yandex.market.graphouse.monitoring.BalancedClickhouseDataSourceMonitoring;
+import ru.yandex.market.graphouse.monitoring.Monitoring;
 
 import javax.sql.DataSource;
 import java.util.List;
@@ -51,7 +54,9 @@ public class DbConfig {
                                            @Value("${graphouse.clickhouse.port}") int port,
                                            @Value("${graphouse.clickhouse.db}") String db,
                                            @Value("${graphouse.clickhouse.host-ping-rate-seconds}") int pingRateSeconds,
-                                           ClickHouseProperties clickHouseProperties
+                                           ClickHouseProperties clickHouseProperties,
+                                           Monitoring monitoring,
+                                           @Qualifier("ping") Monitoring ping
     ) {
         List<String> hosts = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(hostsString);
         Preconditions.checkArgument(!hosts.isEmpty(), "ClickHouse host(s) not provided.");
@@ -65,9 +70,19 @@ public class DbConfig {
         BalancedClickhouseDataSource balancedClickhouseDataSource = new BalancedClickhouseDataSource(
             url, clickHouseProperties
         );
+
         if (pingRateSeconds > 0) {
-            balancedClickhouseDataSource.scheduleActualization(pingRateSeconds, TimeUnit.SECONDS);
+            int availableServers = balancedClickhouseDataSource.actualize();
+            if (availableServers == 0) {
+                throw new RuntimeException("Failed to start. All clickhouse servers no available: " + hostsString);
+            }
+
+            BalancedClickhouseDataSourceMonitoring dataSourceMonitoring = new BalancedClickhouseDataSourceMonitoring(
+                balancedClickhouseDataSource, monitoring, ping, pingRateSeconds
+            );
+            dataSourceMonitoring.startAsync();
         }
+
         return balancedClickhouseDataSource;
     }
 
