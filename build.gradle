@@ -100,9 +100,6 @@ distributions {
 applicationDefaultJvmArgs = [
     '-Dapp.home=GRAPHOUSE_APP_HOME',
     '-Dlog4j.configurationFile=GRAPHOUSE_APP_HOME/conf/log4j2.xml',
-    '-verbose:gc', '-XX:+PrintGC', '-XX:+PrintGCDetails', '-XX:+PrintGCTimeStamps', '-XX:+PrintGCDateStamps',
-    '-XX:+UseGCLogFileRotation', '-XX:NumberOfGCLogFiles=7', '-XX:GCLogFileSize=50M',
-    '-Xloggc:GRAPHOUSE_APP_HOME/log/graphouse.gc.log',
     '-XX:+HeapDumpOnOutOfMemoryError', '-XX:HeapDumpPath=GRAPHOUSE_APP_HOME/log/',
     '-showversion', '-server', '-XX:+UseCompressedOops',
     '-Dsun.net.inetaddr.ttl=60', '-Dsun.net.inetaddr.negative.ttl=0'
