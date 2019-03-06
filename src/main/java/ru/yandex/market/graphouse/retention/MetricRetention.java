@@ -16,22 +16,71 @@ import java.util.stream.Collectors;
  * @date 23.11.16
  */
 public class MetricRetention {
-    private final Pattern pattern;
+    private final Pattern mainPattern;
+    private final Pattern secondPattern;
     private final String function;
+    private final boolean isDefault;
     private final RangeMap<Integer, Integer> ranges;
+    public final static int typeRetention = 1;
+    public final static int typeAggregation = 2;
+    public final static int typeAll = 3;
 
-    private MetricRetention(Pattern pattern, String function) {
-        this.pattern = pattern;
+    private MetricRetention(Pattern mainPattern, String function, boolean isDefault) {
+        if (isDefault) {
+            this.mainPattern = null;
+        } else {
+            this.mainPattern = mainPattern;
+        }
+        this.secondPattern = null;
         this.function = function;
+        this.isDefault = isDefault;
         this.ranges = TreeRangeMap.create();
+    }
+
+    private MetricRetention(Pattern mainPattern, Pattern secondPattern, String function) {
+        this.mainPattern = mainPattern;
+        this.secondPattern = secondPattern;
+        this.function = function;
+        this.isDefault = false;
+        this.ranges = TreeRangeMap.create();
+    }
+
+    @Override
+    public String toString() {
+        return "Main pattern: " + mainPattern + "; Second pattern: " + secondPattern + "; Function: " + function +
+            "; Ranges: " + ranges.toString();
     }
 
     public String getFunction() {
         return function;
     }
 
+    public String getMainPattern() { return mainPattern.toString(); }
+
+    public RangeMap<Integer, Integer> getRanges() { return ranges; }
+
+    public boolean getIsDefault() { return isDefault; }
+
+    public int getType() {
+        if (function.equals("")) {
+            return typeRetention;
+        }
+        if (getStepSize(0) == 0) {
+            return typeAggregation;
+        }
+        return typeAll;
+    }
+
     boolean matches(String name) {
-        return pattern.matcher(name).matches();
+        if (isDefault) {
+            return true;
+        }
+
+        if (secondPattern == null) {
+            return mainPattern.matcher(name).matches();
+        }
+
+        return mainPattern.matcher(name).matches() && secondPattern.matcher(name).matches();
     }
 
     public int getStepSize(int ageSeconds) {
@@ -42,20 +91,34 @@ public class MetricRetention {
         return step;
     }
 
-    public static MetricDataRetentionBuilder newBuilder(String pattern, String function) {
-        return new MetricDataRetentionBuilder(pattern, function);
+    public static MetricDataRetentionBuilder newBuilder(String mainPattern, String function, boolean isDefault) {
+        return new MetricDataRetentionBuilder(mainPattern, function, isDefault);
+    }
+
+    public static MetricDataRetentionBuilder newBuilder(String mainPattern, String secondPattern, String function) {
+        return new MetricDataRetentionBuilder(mainPattern, secondPattern, function);
     }
 
     public static class MetricDataRetentionBuilder {
         private final Map<Integer, Integer> ageRetentionMap = new HashMap<>();
         private final MetricRetention result;
 
-        public MetricDataRetentionBuilder(String pattern, String function) {
-            result = new MetricRetention(Pattern.compile(pattern), function);
+        public MetricDataRetentionBuilder(String mainPattern, String function, boolean isDefault) {
+            result = new MetricRetention(Pattern.compile(mainPattern), function, isDefault);
+        }
+
+        public MetricDataRetentionBuilder(String mainPattern, String secondPattern, String function) {
+            result = new MetricRetention(Pattern.compile(mainPattern), Pattern.compile(secondPattern), function);
         }
 
         public MetricRetention build() {
             refillRetentions();
+            return result;
+        }
+
+        public MetricRetention build(RangeMap<Integer, Integer> ranges) {
+            result.ranges.clear();
+            result.ranges.putAll(ranges);
             return result;
         }
 

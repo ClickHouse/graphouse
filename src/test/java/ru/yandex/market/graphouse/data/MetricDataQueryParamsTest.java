@@ -24,7 +24,7 @@ public class MetricDataQueryParamsTest {
     @Before
     public void setUp() throws Exception {
         BaseRetentionProvider retentionProvider = new BaseRetentionProvider(Collections.singletonList(
-            new MetricRetention.MetricDataRetentionBuilder(".*", "avg").addRetention(0, 60).build()
+            new MetricRetention.MetricDataRetentionBuilder(".*", "avg", true).addRetention(0, 60).build()
         ));
         MetricDir root = new InMemoryMetricDir(null, null, MetricStatus.SIMPLE);
         metric = new MetricName(root, "c", MetricStatus.SIMPLE, retentionProvider);

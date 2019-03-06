@@ -31,7 +31,7 @@ public class DefaultRetentionProvider extends BaseRetentionProvider {
         List<MetricRetention> retentions = new ArrayList<>();
 
         retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder("^one_sec.*", "avg")
+            new MetricRetention.MetricDataRetentionBuilder("^one_sec.*", "avg", false)
                 .addRetention(0, 1)
                 .addRetention(DAY, 5)
                 .addRetention(7 * DAY, 60)
@@ -41,7 +41,7 @@ public class DefaultRetentionProvider extends BaseRetentionProvider {
         );
 
         retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder("^five_sec.*", "avg")
+            new MetricRetention.MetricDataRetentionBuilder("^five_sec.*", "avg", false)
                 .addRetention(0, 5)
                 .addRetention(7 * DAY, 60)
                 .addRetention(3 * MONTH, 300)
@@ -50,7 +50,7 @@ public class DefaultRetentionProvider extends BaseRetentionProvider {
         );
 
         retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder("^one_min.*", "avg")
+            new MetricRetention.MetricDataRetentionBuilder("^one_min.*", "avg", false)
                 .addRetention(0, 60)
                 .addRetention(3 * MONTH, 300)
                 .addRetention(YEAR, 600)
@@ -58,38 +58,38 @@ public class DefaultRetentionProvider extends BaseRetentionProvider {
         );
 
         retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder("^five_min.*", "avg")
+            new MetricRetention.MetricDataRetentionBuilder("^five_min.*", "avg", false)
                 .addRetention(0, 300)
                 .addRetention(YEAR, 600)
                 .build()
         );
 
         retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder("^ten_min.*", "avg")
+            new MetricRetention.MetricDataRetentionBuilder("^ten_min.*", "avg", false)
                 .addRetention(0, 600)
                 .build()
         );
 
         retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder("^half_hour.*", "avg")
+            new MetricRetention.MetricDataRetentionBuilder("^half_hour.*", "avg", false)
                 .addRetention(0, 1_800)
                 .build()
         );
 
         retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder("^one_hour.*", "avg")
+            new MetricRetention.MetricDataRetentionBuilder("^one_hour.*", "avg", false)
                 .addRetention(0, 3_600)
                 .build()
         );
 
         retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder("^one_day.*", "avg")
+            new MetricRetention.MetricDataRetentionBuilder("^one_day.*", "avg", false)
                 .addRetention(0, 86_400)
                 .build()
         );
 
         retentions.add(
-            new MetricRetention.MetricDataRetentionBuilder(".*", "avg")
+            new MetricRetention.MetricDataRetentionBuilder(".*", "avg", true)
                 .addRetention(0, 60)
                 .addRetention(MONTH, 300)
                 .addRetention(YEAR, 600)
