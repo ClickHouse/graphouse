@@ -18,7 +18,8 @@ public class CombinedRetentionProvider implements RetentionProvider {
 
     @Override
     public MetricRetention getRetention(String metric) {
-        MetricRetention first_match = null;
+        MetricRetention firstMatch = null;
+        MetricRetention result;
 
         for (MetricRetention metricRetention : combinedRetentions) {
             if (metricRetention.matches(metric)) {
@@ -27,36 +28,24 @@ public class CombinedRetentionProvider implements RetentionProvider {
         }
         for (MetricRetention metricRetention : configRetentions) {
             if (metricRetention.getIsDefault()) {
-                if (first_match == null) {
+                if (firstMatch == null) {
                     // There is only default match
                     if (metricRetention.getType() == MetricRetention.typeAll) {
                         return metricRetention;
                     }
                     break;
-                } else if (first_match.getType() != metricRetention.getType()) {
+                } else if (firstMatch.getType() != metricRetention.getType()) {
                     // There is first partial pattern and default has a different type
-                    if (first_match.getType() == MetricRetention.typeRetention) {
-                        combinedRetentions.add(
-                            MetricRetention.newBuilder(
-                                metricRetention.getMainPattern(),
-                                first_match.getMainPattern(),
-                                metricRetention.getFunction()
-                            )
-                                .build(first_match.getRanges())
-                        );
-                        return combinedRetentions.get(combinedRetentions.size() - 1);
+                    if (firstMatch.getType() == MetricRetention.typeRetention) {
+                        result = makeCombinedRetention(firstMatch, metricRetention);
+                        combinedRetentions.add(result);
+                        return result;
                     }
 
-                    if (first_match.getType() == MetricRetention.typeAggregation) {
-                        combinedRetentions.add(
-                            MetricRetention.newBuilder(
-                                first_match.getMainPattern(),
-                                metricRetention.getMainPattern(),
-                                first_match.getFunction()
-                            )
-                                .build(first_match.getRanges())
-                        );
-                        return combinedRetentions.get(combinedRetentions.size() - 1);
+                    if (firstMatch.getType() == MetricRetention.typeAggregation) {
+                        result = makeCombinedRetention(metricRetention, firstMatch);
+                        combinedRetentions.add(result);
+                        return result;
                     }
                 }
 
@@ -64,39 +53,27 @@ public class CombinedRetentionProvider implements RetentionProvider {
             } else if (metricRetention.matches(metric)) {
                 if (metricRetention.getType() != MetricRetention.typeAll) {
                     // It's partial pattern
-                    if (first_match == null) {
+                    if (firstMatch == null) {
                         // And it's first match
-                        first_match = metricRetention;
+                        firstMatch = metricRetention;
                         continue;
                     }
 
                     // It's second match and types are different
-                    if (first_match.getType() == MetricRetention.typeAggregation
+                    if (firstMatch.getType() == MetricRetention.typeAggregation
                         && metricRetention.getType() == MetricRetention.typeRetention
                     ) {
-                        combinedRetentions.add(
-                            MetricRetention.newBuilder(
-                                first_match.getMainPattern(),
-                                metricRetention.getMainPattern(),
-                                first_match.getFunction()
-                            )
-                                .build(metricRetention.getRanges())
-                        );
-                        return combinedRetentions.get(combinedRetentions.size() - 1);
+                        result = makeCombinedRetention(metricRetention, firstMatch);
+                        combinedRetentions.add(result);
+                        return result;
                     }
 
-                    if (first_match.getType() == MetricRetention.typeRetention
+                    if (firstMatch.getType() == MetricRetention.typeRetention
                         && metricRetention.getType() == MetricRetention.typeAggregation
                     ) {
-                        combinedRetentions.add(
-                            MetricRetention.newBuilder(
-                                metricRetention.getMainPattern(),
-                                first_match.getMainPattern(),
-                                metricRetention.getFunction()
-                            )
-                                .build(first_match.getRanges())
-                        );
-                        return combinedRetentions.get(combinedRetentions.size() - 1);
+                        result = makeCombinedRetention(firstMatch, metricRetention);
+                        combinedRetentions.add(result);
+                        return result;
                     }
                 } else {
                     // It's a typeAll pattern
@@ -105,6 +82,16 @@ public class CombinedRetentionProvider implements RetentionProvider {
             }
         }
         throw new IllegalStateException("Retention for metric '" + metric + "' not found");
+    }
+
+    private MetricRetention makeCombinedRetention(MetricRetention retention, MetricRetention aggregation) {
+        MetricRetention.MetricDataRetentionBuilder builder = MetricRetention.newBuilder(
+            retention.getMainPattern(),
+            aggregation.getMainPattern(),
+            aggregation.getFunction()
+        );
+
+        return builder.build(retention.getRanges());
     }
 
 }
