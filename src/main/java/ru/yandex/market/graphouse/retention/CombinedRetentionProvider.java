@@ -27,14 +27,14 @@ public class CombinedRetentionProvider implements RetentionProvider {
         }
         for (MetricRetention metricRetention : configRetentions) {
             if (metricRetention.getIsDefault()) {
-                // There is only default match
-                if (first_match == null
-                    && metricRetention.getType() == MetricRetention.typeAll
-                ) {
-                    return metricRetention;
-                }
-                // The default pattern contains necessary part for combination
-                if (first_match.getType() != metricRetention.getType()) {
+                if (first_match == null) {
+                    // There is only default match
+                    if (metricRetention.getType() == MetricRetention.typeAll) {
+                        return metricRetention;
+                    }
+                    break;
+                } else if (first_match.getType() != metricRetention.getType()) {
+                    // There is first partial pattern and default has a different type
                     if (first_match.getType() == MetricRetention.typeRetention) {
                         combinedRetentions.add(
                             MetricRetention.newBuilder(
@@ -63,11 +63,14 @@ public class CombinedRetentionProvider implements RetentionProvider {
                 break;
             } else if (metricRetention.matches(metric)) {
                 if (metricRetention.getType() != MetricRetention.typeAll) {
+                    // It's partial pattern
                     if (first_match == null) {
+                        // And it's first match
                         first_match = metricRetention;
                         continue;
                     }
 
+                    // It's second match and types are different
                     if (first_match.getType() == MetricRetention.typeAggregation
                         && metricRetention.getType() == MetricRetention.typeRetention
                     ) {
@@ -96,12 +99,12 @@ public class CombinedRetentionProvider implements RetentionProvider {
                         return combinedRetentions.get(combinedRetentions.size() - 1);
                     }
                 } else {
+                    // It's a typeAll pattern
                     return metricRetention;
                 }
             }
         }
         throw new IllegalStateException("Retention for metric '" + metric + "' not found");
     }
-
 
 }

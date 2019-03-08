@@ -26,11 +26,7 @@ public class MetricRetention {
     public final static int typeAll = 3;
 
     private MetricRetention(Pattern mainPattern, String function, boolean isDefault) {
-        if (isDefault) {
-            this.mainPattern = null;
-        } else {
-            this.mainPattern = mainPattern;
-        }
+        this.mainPattern = mainPattern;
         this.secondPattern = null;
         this.function = function;
         this.isDefault = isDefault;
