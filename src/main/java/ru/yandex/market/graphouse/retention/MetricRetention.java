@@ -65,7 +65,7 @@ public class MetricRetention {
         if (function.equals("")) {
             return typeRetention;
         }
-        if (getStepSize(0) == 0) {
+        if (ranges.asMapOfRanges().isEmpty()) {
             return typeAggregation;
         }
         return typeAll;
@@ -100,7 +100,7 @@ public class MetricRetention {
     }
 
     public static class MetricDataRetentionBuilder {
-        private final Map<Integer, Integer> ageRetentionMap = new HashMap<>();
+        private Map<Integer, Integer> ageRetentionMap = new HashMap<>();
         private final MetricRetention result;
 
         public MetricDataRetentionBuilder(String mainPattern, String function, boolean isDefault) {
@@ -123,12 +123,20 @@ public class MetricRetention {
         }
 
         public MetricDataRetentionBuilder addRetention(int age, int retention) {
-            ageRetentionMap.put(age, retention);
+            if (age == 0 && retention ==0 ) {
+                ageRetentionMap = null;
+            } else {
+                ageRetentionMap.put(age, retention);
+            }
             return this;
         }
 
         private void refillRetentions() {
             result.ranges.clear();
+
+            if (ageRetentionMap == null) {
+                return;
+            }
 
             int counter = 0;
             final int valuesMaxIndex = ageRetentionMap.values().size() - 1;
