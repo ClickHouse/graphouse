@@ -35,7 +35,7 @@ public class CombinedRetentionProvider implements RetentionProvider {
                     }
                     break;
                 } else if (firstMatch.getType() != metricRetention.getType()) {
-                    // There is first partial pattern and default has a different type
+                    // There is first partial retention pattern and default has a different type
                     if (firstMatch.getType() == MetricRetention.typeRetention) {
                         result = makeCombinedRetention(firstMatch, metricRetention);
                         combinedRetentions.add(result);
@@ -52,7 +52,7 @@ public class CombinedRetentionProvider implements RetentionProvider {
                 break;
             } else if (metricRetention.matches(metric)) {
                 if (metricRetention.getType() != MetricRetention.typeAll) {
-                    // It's partial pattern
+                    // It's partial retention pattern
                     if (firstMatch == null) {
                         // And it's first match
                         firstMatch = metricRetention;
@@ -76,7 +76,7 @@ public class CombinedRetentionProvider implements RetentionProvider {
                         return result;
                     }
                 } else {
-                    // It's a typeAll pattern
+                    // It's a typeAll retention pattern
                     return metricRetention;
                 }
             }
