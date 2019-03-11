@@ -16,8 +16,8 @@ import java.util.stream.Collectors;
  * @date 23.11.16
  */
 public class MetricRetention {
-    private final Pattern mainPattern;
-    private final Pattern secondPattern;
+    private final Pattern regexp;
+    private final Pattern combinedRegexp;
     private final String function;
     private final boolean isDefault;
     private final RangeMap<Integer, Integer> ranges;
@@ -25,17 +25,17 @@ public class MetricRetention {
     public final static int typeAggregation = 2;
     public final static int typeAll = 3;
 
-    private MetricRetention(Pattern mainPattern, String function, boolean isDefault) {
-        this.mainPattern = mainPattern;
-        this.secondPattern = null;
+    private MetricRetention(Pattern regexp, String function, boolean isDefault) {
+        this.regexp = regexp;
+        this.combinedRegexp = null;
         this.function = function;
         this.isDefault = isDefault;
         this.ranges = TreeRangeMap.create();
     }
 
-    private MetricRetention(Pattern mainPattern, Pattern secondPattern, String function) {
-        this.mainPattern = mainPattern;
-        this.secondPattern = secondPattern;
+    private MetricRetention(Pattern regexp, Pattern combinedRegexp, String function) {
+        this.regexp = regexp;
+        this.combinedRegexp = combinedRegexp;
         this.function = function;
         this.isDefault = false;
         this.ranges = TreeRangeMap.create();
@@ -43,7 +43,7 @@ public class MetricRetention {
 
     @Override
     public String toString() {
-        return "Main pattern: " + mainPattern + "; Second pattern: " + secondPattern + "; Function: " + function +
+        return "Main regexp: " + regexp + "; Second pattern: " + combinedRegexp + "; Function: " + function +
             "; Ranges: " + ranges.toString();
     }
 
@@ -51,7 +51,7 @@ public class MetricRetention {
         return function;
     }
 
-    public String getMainPattern() { return mainPattern.toString(); }
+    public String getRegexp() { return regexp.toString(); }
 
     public RangeMap<Integer, Integer> getRanges() { return ranges; }
 
@@ -72,11 +72,11 @@ public class MetricRetention {
             return true;
         }
 
-        if (secondPattern == null) {
-            return mainPattern.matcher(name).matches();
+        if (combinedRegexp == null) {
+            return regexp.matcher(name).matches();
         }
 
-        return mainPattern.matcher(name).matches() && secondPattern.matcher(name).matches();
+        return regexp.matcher(name).matches() && combinedRegexp.matcher(name).matches();
     }
 
     public int getStepSize(int ageSeconds) {

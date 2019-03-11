@@ -28,10 +28,10 @@ public class ClickHouseRetentionProvider extends CombinedRetentionProvider {
                 "   SELECT * FROM system.graphite_retentions WHERE config_name = ? ORDER BY priority, age" +
                 ") GROUP BY regexp, function, priority, is_default ORDER BY priority",
             (rs, rowNum) -> {
-                String pattern = ".*" + rs.getString("regexp") + ".*";
+                String regexp = ".*" + rs.getString("regexp") + ".*";
                 String function = rs.getString("function");
                 boolean isDefault = rs.getInt("is_default") == 1;
-                MetricRetention.MetricDataRetentionBuilder builder = MetricRetention.newBuilder(pattern, function, isDefault);
+                MetricRetention.MetricDataRetentionBuilder builder = MetricRetention.newBuilder(regexp, function, isDefault);
                 int[] ages = getIntArray(rs.getString("ages"));
                 int[] precisions = getIntArray(rs.getString("precisions"));
                 for (int i = 0; i < ages.length; i++) {

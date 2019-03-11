@@ -86,8 +86,8 @@ public class CombinedRetentionProvider implements RetentionProvider {
 
     private MetricRetention makeCombinedRetention(MetricRetention retention, MetricRetention aggregation) {
         MetricRetention.MetricDataRetentionBuilder builder = MetricRetention.newBuilder(
-            retention.getMainPattern(),
-            aggregation.getMainPattern(),
+            retention.getRegexp(),
+            aggregation.getRegexp(),
             aggregation.getFunction()
         );
 
