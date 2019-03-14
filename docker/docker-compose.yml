@@ -1,0 +1,32 @@
+version: "3"
+services:
+
+  clickhouse:
+    image: yandex/clickhouse-server:19.1
+    volumes:
+      - "./graphite_rollup.xml:/etc/clickhouse-server/config.d/graphite_rollup.xml"
+      - "./init.sql:/docker-entrypoint-initdb.d/init.sql"
+      - "./data/clickhouse/data:/var/lib/clickhouse/data"
+      - "./data/clickhouse/metadata:/var/lib/clickhouse/metadata"
+    ports:
+      - "8123:8123"
+
+  graphouse:
+    build: ./graphouse
+    depends_on:
+      - clickhouse
+    environment:
+      - GH__CLICKHOUSE__HOSTS=clickhouse
+      - GH__CLICKHOUSE__RETENTION_CONFIG=graphite_rollup
+    ports:
+      - "2003:2003" 
+      - "2005:2005"
+
+  graphite-web:
+    build: ./graphite-web
+    depends_on:
+      - graphouse
+    environment:
+      - GRAPHOUSE_URL=http://graphouse:2005
+    ports:
+      - "8080:80"

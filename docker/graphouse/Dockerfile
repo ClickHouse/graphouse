@@ -26,4 +26,4 @@ EXPOSE 2003 2005
 USER $USER
 WORKDIR $GRAPHOUSE_ROOT
 
-CMD ["python","/usr/local/bin/run.py"]
+CMD ["python", "-u", "/usr/local/bin/run.py"]
