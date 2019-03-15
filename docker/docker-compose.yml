@@ -5,6 +5,7 @@ services:
     image: yandex/clickhouse-server:19.1
     volumes:
       - "./graphite_rollup.xml:/etc/clickhouse-server/config.d/graphite_rollup.xml"
+      - "./clickhouse_metrics.xml:/etc/clickhouse-server/config.d/clickhouse_metrics.xml"
       - "./init.sql:/docker-entrypoint-initdb.d/init.sql"
       - "./data/clickhouse/data:/var/lib/clickhouse/data"
       - "./data/clickhouse/metadata:/var/lib/clickhouse/metadata"
@@ -13,6 +14,7 @@ services:
 
   graphouse:
     build: ./graphouse
+    restart: always
     depends_on:
       - clickhouse
     environment:
@@ -24,6 +26,7 @@ services:
 
   graphite-web:
     build: ./graphite-web
+    restart: always
     depends_on:
       - graphouse
     environment:
