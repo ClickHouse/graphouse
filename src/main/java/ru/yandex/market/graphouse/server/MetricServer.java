@@ -18,9 +18,11 @@ import java.net.SocketAddress;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -90,7 +92,7 @@ public class MetricServer implements InitializingBean {
 
     private class MetricServerWorker implements Runnable {
 
-        private final List<Metric> metrics = new ArrayList<>(readBatchSize);
+        private final List<String> lines = new ArrayList<>(readBatchSize);
 
         @Override
         public void run() {
@@ -105,7 +107,7 @@ public class MetricServer implements InitializingBean {
         }
 
         private void read() throws IOException {
-            metrics.clear();
+            lines.clear();
             Socket socket = serverSocket.accept();
             try {
                 socket.setSoTimeout(socketTimeoutMillis);
@@ -113,23 +115,28 @@ public class MetricServer implements InitializingBean {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    int updatedSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()));
-                    Metric metric = metricFactory.createMetric(line, updatedSeconds);
-                    if (metric != null) {
-                        metrics.add(metric);
-                        if (metrics.size() >= readBatchSize) {
-                            metricCacher.submitMetrics(metrics);
-                            metrics.clear();
-                        }
+                    lines.add(line);
+                    if (lines.size() >= readBatchSize) {
+                        processLines();
                     }
+
                 }
             } catch (SocketTimeoutException e) {
                 log.warn("Socket timeout from " + socket.getRemoteSocketAddress().toString());
             } finally {
                 socket.close();
             }
+            processLines();
+        }
+
+        private void processLines() {
+            int updatedSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()));
+            List<Metric> metrics = lines.parallelStream()
+                .map(line -> metricFactory.createMetric(line, updatedSeconds))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
             metricCacher.submitMetrics(metrics);
-            metrics.clear();
+            lines.clear();
         }
     }
 
