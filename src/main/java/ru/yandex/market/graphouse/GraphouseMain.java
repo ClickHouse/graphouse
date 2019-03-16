@@ -23,11 +23,19 @@ public class GraphouseMain {
         AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
 
         applicationContext.registerShutdownHook();
+        Thread.setDefaultUncaughtExceptionHandler(
+            (t, e) -> log.error("Uncaught Exception in thread " + t.toString(), e)
+        );
         applicationContext.register(GraphouseConfig.class);
-        applicationContext.refresh();
 
-        log.info("Graphouse up and running");
 
-        Thread.setDefaultUncaughtExceptionHandler((t, e) -> log.error("Uncaught Exception in thread " + t.toString(), e));
+        try {
+            applicationContext.refresh();
+            log.info("Graphouse up and running");
+        } catch (Exception e) {
+            log.error("Graphouse failed to start", e);
+            System.exit(1);
+        }
+
     }
 }

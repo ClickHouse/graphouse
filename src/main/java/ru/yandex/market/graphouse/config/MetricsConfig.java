@@ -1,6 +1,7 @@
 package ru.yandex.market.graphouse.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +27,10 @@ public class MetricsConfig {
     private Monitoring monitoring;
 
     @Autowired
+    @Qualifier("ping")
+    private Monitoring ping;
+
+    @Autowired
     private JdbcTemplate clickHouseJdbcTemplate;
 
     @Value("${graphouse.clickhouse.retention-config}")
@@ -49,7 +54,7 @@ public class MetricsConfig {
 
     @Bean
     public MetricSearch metricSearch() {
-        return new MetricSearch(clickHouseJdbcTemplate, monitoring, metricValidator(), retentionProvider());
+        return new MetricSearch(clickHouseJdbcTemplate, monitoring, ping, metricValidator(), retentionProvider());
     }
 
     @Bean
