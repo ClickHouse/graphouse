@@ -11,7 +11,7 @@ RUN git clone -b 1.0.2 --depth 1 https://github.com/graphite-project/graphite-we
 WORKDIR /usr/local/src/graphite-web
 
 
-RUN sed -i -e 's/whitenoise/whitenoise==3.3.1/g' requirements.txt  && \
+RUN sed -i -e 's/whitenoise/whitenoise==3.3.1/g; s/cairocffi/cairocffi==0.9.0/g' requirements.txt  && \
   pip install -r requirements.txt psycopg2 futures tornado gevent eventlet && \
  python ./setup.py install
 
