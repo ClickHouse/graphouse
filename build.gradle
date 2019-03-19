@@ -84,12 +84,6 @@ distributions {
                 rename('graphouse-default.properties', 'graphouse.properties')
                 into 'conf'
             }
-            from('src/main/pySources/graphouse.py') {
-                into 'bin'
-            }
-            from('src/main/pySources/graphouse_api.py') {
-                into 'bin'
-            }
             from('LICENSE') {
                 into ''
             }

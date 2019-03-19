@@ -74,5 +74,6 @@ gradle-app.setting
 hs_err_pid*
 
 debian/graphouse
+debian/.gradlehome
 
 local-application.properties
