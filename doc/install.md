@@ -151,17 +151,54 @@ Pay attention to **graphite_rollup** tag name. The name is used below.
 </yandex>
 ```
 - Create tables
+
 ```sql
 CREATE DATABASE graphite;
 
-CREATE TABLE graphite.metrics ( date Date DEFAULT toDate(0),  name String,  level UInt16,  parent String,  updated DateTime DEFAULT now(),  status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4)) ENGINE = ReplacingMergeTree(date, (parent, name), 1024, updated);
+CREATE TABLE graphite.metrics
+(
+    date Date DEFAULT toDate(0),
+    name String,
+    level UInt16,
+    parent String,
+    updated DateTime DEFAULT now(),
+    status Enum8('SIMPLE' = 0, 'BAN' = 1, 'APPROVED' = 2, 'HIDDEN' = 3, 'AUTO_HIDDEN' = 4)
+)
+ENGINE = ReplacingMergeTree(updated)
+PARTITION BY toYYYYMM(date)
+ORDER BY (parent, name)
+SETTINGS index_granularity = 1024;
 
-CREATE TABLE graphite.data ( metric String,  value Float64,  timestamp UInt32,  date Date,  updated UInt32) ENGINE = GraphiteMergeTree(date, (metric, timestamp), 8192, 'graphite_rollup');
+
+CREATE TABLE graphite.data
+(
+    metric String,
+    value Float64,
+    timestamp UInt32,
+    date Date,
+    updated UInt32
+)
+ENGINE = GraphiteMergeTree('graphite_rollup')
+PARTITION BY toYYYYMM(date)
+ORDER BY (metric, timestamp)
+SETTINGS index_granularity = 8192;
 ```
 
 **Notice**: If you don't want ClickHouse to rollup data, you can use ReplacingMergeTree instead of GraphiteMergeTree.
+
 ```sql
-CREATE TABLE graphite.data ( metric String,  value Float64,  timestamp UInt32,  date Date,  updated UInt32) ENGINE = ReplacingMergeTree(date, (metric, timestamp), 8192, updated)
+CREATE TABLE graphite.data
+(
+    metric String,
+    value Float64,
+    timestamp UInt32,
+    date Date,
+    updated UInt32
+)
+ENGINE = ReplacingMergeTree(updated)
+PARTITION BY toYYYYMM(date)
+ORDER BY (parent, name)
+SETTINGS index_granularity = 8192;
 ```
 But you still need to describe the rules for the rotation, so that Graphouse knows its metrics retention.
 
