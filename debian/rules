@@ -1,20 +1,22 @@
 #!/usr/bin/make -f
 
 package=graphouse
+GRADLE_HOME = debian/.gradlehome
+GRADLE_FLAGS = --gradle-user-home $(GRADLE_HOME)
 
 %:
 	dh $@
 
 override_dh_clean:
-	./gradlew clean
 	dh_clean
+	./gradlew $(GRADLE_FLAGS) clean
 
 override_dh_build:
-	./gradlew build
+	./gradlew $(GRADLE_FLAGS) build
 	dh_build
 
 override_dh_install:
-	./gradlew installDist
+	./gradlew $(GRADLE_FLAGS) installDist
 	dh_install
 
 override_dh_installinit:

@@ -1,0 +1,10 @@
+[Unit]
+Description=Graphouse is a metrics writer and reader to and from Clickhouse for Graphite
+
+[Service]
+Type=simple
+User=graphouse
+ExecStart=/opt/graphouse/bin/graphouse
+
+[Install]
+WantedBy=multi-user.target
