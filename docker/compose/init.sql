@@ -1,6 +1,6 @@
-CREATE DATABASE graphite;
+CREATE DATABASE IF NOT EXISTS graphite;
 
-CREATE TABLE graphite.metrics (
+CREATE TABLE IF NOT EXISTS graphite.metrics (
     date Date DEFAULT toDate(0),
     name String,
     level UInt16,
@@ -13,7 +13,7 @@ PARTITION BY toYYYYMM(date)
 ORDER BY (parent, name)
 SETTINGS index_granularity = 1024;
 
-CREATE TABLE graphite.data (
+CREATE TABLE IF NOT EXISTS graphite.data (
     metric String,
     value Float64,
     timestamp UInt32,
