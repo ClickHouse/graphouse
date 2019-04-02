@@ -179,7 +179,7 @@ CREATE TABLE graphite.data
     updated UInt32
 )
 ENGINE = GraphiteMergeTree('graphite_rollup')
-PARTITION BY toYYYYMM(date)
+PARTITION BY toMonday(date) -- or, if you have low amount of data, then toYYYYMM(date)
 ORDER BY (metric, timestamp)
 SETTINGS index_granularity = 8192;
 ```
@@ -196,7 +196,7 @@ CREATE TABLE graphite.data
     updated UInt32
 )
 ENGINE = ReplacingMergeTree(updated)
-PARTITION BY toYYYYMM(date)
+PARTITION BY toMonday(date) -- or, if you have low amount of data, then toYYYYMM(date)
 ORDER BY (parent, name)
 SETTINGS index_granularity = 8192;
 ```

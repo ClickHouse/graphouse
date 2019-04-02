@@ -33,7 +33,7 @@ CREATE TABLE graphite.data_lr
     updated UInt32
 )
 ENGINE = ReplicatedGraphiteMergeTree('/clickhouse/tables/graphite.data', '{replica}', 'graphite_rollup')
-PARTITION BY toYYYYMM(date)
+PARTITION BY toMonday(date) -- or, if you have low amount of data, then toYYYYMM(date)
 ORDER BY (metric, timestamp)
 SETTINGS index_granularity = 8192;
 ```
@@ -70,7 +70,7 @@ CREATE TABLE graphite.data_lr
     updated UInt32
 )
 ENGINE = ReplicatedGraphiteMergeTree('/clickhouse/tables/{shard}/graphite.data_lr', '{replica}', 'graphite_rollup')
-PARTITION BY toYYYYMM(date)
+PARTITION BY toMonday(date) -- or, if you have low amount of data, then toYYYYMM(date)
 ORDER BY (metric, timestamp)
 SETTINGS index_granularity = 8192;
 
