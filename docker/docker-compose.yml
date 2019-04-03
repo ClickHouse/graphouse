@@ -1,0 +1,36 @@
+version: "3"
+services:
+
+  clickhouse:
+    image: yandex/clickhouse-server
+    user: "${UID:?You must do 'export UID' to launch}:${GID:?You must do 'export GID' to launch}"
+    volumes:
+      - "./compose/graphite_rollup.xml:/etc/clickhouse-server/config.d/graphite_rollup.xml"
+      - "./compose/clickhouse_metrics.xml:/etc/clickhouse-server/config.d/clickhouse_metrics.xml"
+      - "./compose/init.sql:/docker-entrypoint-initdb.d/init.sql"
+      - "./data/clickhouse/:/var/lib/clickhouse/"
+      - "./data/clickhouse/:/var/log/clickhouse-server/"
+    ports:
+      - "8123:8123"
+
+  graphouse:
+    build: ./graphouse
+    restart: always
+    depends_on:
+      - clickhouse
+    environment:
+      - GH__CLICKHOUSE__HOSTS=clickhouse
+      - GH__CLICKHOUSE__RETENTION_CONFIG=graphite_rollup
+    ports:
+      - "2003:2003" 
+      - "2005:2005"
+
+  graphite-web:
+    build: ./graphite-web
+    restart: always
+    depends_on:
+      - graphouse
+    environment:
+      - GRAPHOUSE_URL=http://graphouse:2005
+    ports:
+      - "8080:80"
