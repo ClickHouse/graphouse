@@ -30,19 +30,19 @@ public class CombinedRetentionProvider implements RetentionProvider {
             if (metricRetention.getIsDefault()) {
                 if (firstMatch == null) {
                     // There is only default match
-                    if (metricRetention.getType() == MetricRetention.typeAll) {
+                    if (metricRetention.getType() == MetricRetention.Type.ALL) {
                         return metricRetention;
                     }
                     break;
                 } else if (firstMatch.getType() != metricRetention.getType()) {
                     // There is first partial retention pattern and default has a different type
-                    if (firstMatch.getType() == MetricRetention.typeRetention) {
+                    if (firstMatch.getType() == MetricRetention.Type.RETENTION) {
                         result = makeCombinedRetention(firstMatch, metricRetention);
                         combinedRetentions.add(result);
                         return result;
                     }
 
-                    if (firstMatch.getType() == MetricRetention.typeAggregation) {
+                    if (firstMatch.getType() == MetricRetention.Type.AGGREGATION) {
                         result = makeCombinedRetention(metricRetention, firstMatch);
                         combinedRetentions.add(result);
                         return result;
@@ -51,7 +51,7 @@ public class CombinedRetentionProvider implements RetentionProvider {
 
                 break;
             } else if (metricRetention.matches(metric)) {
-                if (metricRetention.getType() != MetricRetention.typeAll) {
+                if (metricRetention.getType() != MetricRetention.Type.ALL) {
                     // It's partial retention pattern
                     if (firstMatch == null) {
                         // And it's first match
@@ -60,16 +60,16 @@ public class CombinedRetentionProvider implements RetentionProvider {
                     }
 
                     // It's second match and types are different
-                    if (firstMatch.getType() == MetricRetention.typeAggregation
-                        && metricRetention.getType() == MetricRetention.typeRetention
+                    if (firstMatch.getType() == MetricRetention.Type.AGGREGATION
+                        && metricRetention.getType() == MetricRetention.Type.RETENTION
                     ) {
                         result = makeCombinedRetention(metricRetention, firstMatch);
                         combinedRetentions.add(result);
                         return result;
                     }
 
-                    if (firstMatch.getType() == MetricRetention.typeRetention
-                        && metricRetention.getType() == MetricRetention.typeAggregation
+                    if (firstMatch.getType() == MetricRetention.Type.RETENTION
+                        && metricRetention.getType() == MetricRetention.Type.AGGREGATION
                     ) {
                         result = makeCombinedRetention(firstMatch, metricRetention);
                         combinedRetentions.add(result);

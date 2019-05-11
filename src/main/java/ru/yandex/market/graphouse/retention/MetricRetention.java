@@ -21,9 +21,12 @@ public class MetricRetention {
     private final String function;
     private final boolean isDefault;
     private final RangeMap<Integer, Integer> ranges;
-    public final static int typeRetention = 1;
-    public final static int typeAggregation = 2;
-    public final static int typeAll = 3;
+    public enum Type {
+        RETENTION(1), AGGREGATION(2), ALL(3);
+
+        private final int t;
+        Type(int t) { this.t = t; }
+    }
 
     private MetricRetention(Pattern regexp, String function, boolean isDefault) {
         this.regexp = regexp;
@@ -57,14 +60,14 @@ public class MetricRetention {
 
     public boolean getIsDefault() { return isDefault; }
 
-    public int getType() {
+    public Type getType() {
         if (function.equals("")) {
-            return typeRetention;
+            return Type.RETENTION;
         }
         if (ranges.asMapOfRanges().isEmpty()) {
-            return typeAggregation;
+            return Type.AGGREGATION;
         }
-        return typeAll;
+        return Type.ALL;
     }
 
     boolean matches(String name) {
