@@ -6,10 +6,10 @@ import java.util.List;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 04/04/2017
  */
-public class AbstractRetentionProvider implements RetentionProvider{
+public class BaseRetentionProvider implements RetentionProvider {
     private final List<MetricRetention> retentions;
 
-    public AbstractRetentionProvider(List<MetricRetention> retentions) {
+    public BaseRetentionProvider(List<MetricRetention> retentions) {
         this.retentions = retentions;
     }
 
@@ -22,7 +22,6 @@ public class AbstractRetentionProvider implements RetentionProvider{
         }
         throw new IllegalStateException("Retention for metric '" + metric + "' not found");
     }
-
 
 
 }

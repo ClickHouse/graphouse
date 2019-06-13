@@ -2,7 +2,7 @@ package ru.yandex.market.graphouse.server;
 
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -10,11 +10,10 @@ import static org.junit.Assert.*;
  */
 public class MetricFactoryTest {
 
-    private MetricFactory factory = new MetricFactory(null, null);
+    private MetricFactory factory = new MetricFactory(null, null, true, "HOST", "yandex_net,yandex_ru");
 
     @Test
     public void testProcessName() throws Exception {
-        factory.setHostPostfixes("yandex_net,yandex_ru");
         checkHostRedirect("one_min.zk03e_stat_yandex_net.sockstat_tcp.alloc", "one_min.HOST.zk03e_stat_yandex_net.sockstat_tcp.alloc");
         checkHostRedirect("one_min.zk03e_stat_yandex_ru.sockstat_tcp.alloc", "one_min.HOST.zk03e_stat_yandex_ru.sockstat_tcp.alloc");
         checkHostRedirect("one_min.some_service.safas.fasf", "one_min.some_service.safas.fasf");

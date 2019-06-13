@@ -1,6 +1,8 @@
 package ru.yandex.market.graphouse.server;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.google.common.base.Splitter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.MetricValidator;
@@ -8,8 +10,6 @@ import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricStatus;
 import ru.yandex.market.graphouse.search.tree.MetricDescription;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -18,27 +18,33 @@ import java.util.List;
  */
 public class MetricFactory {
 
+    private static final Logger log = LogManager.getLogger();
+
     private final MetricSearch metricSearch;
     private final MetricValidator metricValidator;
 
-    @Value("${graphouse.host-metric-redirect.enabled}")
-    private boolean redirectHostMetrics = true;
+    private final boolean redirectHostMetrics;
+    private final String hostMetricDir;
+    private final List<String> hostPostfixes;
 
-    @Value("${graphouse.host-metric-redirect.dir}")
-    private String hostMetricDir = "HOST";
-
-    @Value("${graphouse.host-metric-redirect.postfixes}")
-    private List<String> hostPostfixes = Collections.emptyList();
-
-    public MetricFactory(MetricSearch metricSearch, MetricValidator metricValidator) {
+    public MetricFactory(MetricSearch metricSearch, MetricValidator metricValidator,
+                         boolean redirectHostMetrics, String hostMetricDir, String hostPostfixes) {
         this.metricSearch = metricSearch;
         this.metricValidator = metricValidator;
+        this.redirectHostMetrics = redirectHostMetrics;
+        this.hostMetricDir = hostMetricDir;
+        this.hostPostfixes = Splitter.on(',').omitEmptyStrings().splitToList(hostPostfixes);
+        if (redirectHostMetrics) {
+            log.info("Host host metrics redirection enabled for postfixes {} to dir {}", hostPostfixes, hostMetricDir);
+        } else {
+            log.info("Host metric redirection disabled");
+        }
     }
 
     /**
      * Validates the metric and, if successful, creates or updates the current one.
      *
-     * @param line  contains name of the metric, value, timestamp
+     * @param line           contains name of the metric, value, timestamp
      * @param updatedSeconds
      * @return Created or updated metric,
      * <code>null</code> if the metric name or value is not valid, the metric is banned
@@ -58,7 +64,7 @@ public class MetricFactory {
                 return null;
             }
             metric = metricSearch.add(name);
-            if (metric == null){
+            if (metric == null) {
                 return null;
             }
         } else if (metric.getStatus() == MetricStatus.AUTO_HIDDEN || metric.getStatus() == MetricStatus.HIDDEN) {
@@ -94,17 +100,5 @@ public class MetricFactory {
             }
         }
         return name;
-    }
-
-    public void setRedirectHostMetrics(boolean redirectHostMetrics) {
-        this.redirectHostMetrics = redirectHostMetrics;
-    }
-
-    public void setHostMetricDir(String hostMetricDir) {
-        this.hostMetricDir = hostMetricDir;
-    }
-
-    public void setHostPostfixes(String hostPostfixes) {
-        this.hostPostfixes = Arrays.asList(hostPostfixes.split(","));
     }
 }

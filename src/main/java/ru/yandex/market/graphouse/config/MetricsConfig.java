@@ -1,6 +1,7 @@
 package ru.yandex.market.graphouse.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +28,10 @@ public class MetricsConfig {
 
     @Autowired
     private Monitoring monitoring;
+
+    @Autowired
+    @Qualifier("ping")
+    private Monitoring ping;
 
     @Autowired
     private JdbcTemplate clickHouseJdbcTemplate;
@@ -73,8 +78,11 @@ public class MetricsConfig {
     }
 
     @Bean
-    public MetricDataService metricDataService() {
-        return new MetricDataService(metricSearch(), clickHouseJdbcTemplate, graphiteDataTable);
+    public MetricDataService dataService(@Value("${graphouse.clickhouse.data-read-table}") String graphiteDataReadTable,
+                                         @Value("${graphouse.metric-data.max-points-per-metric}") int maxPointsPerMetric) {
+        return new MetricDataService(
+            metricSearch(), clickHouseJdbcTemplate, graphiteDataReadTable, maxPointsPerMetric
+        );
     }
 
     @Bean
@@ -88,7 +96,9 @@ public class MetricsConfig {
     }
 
     @Bean
-    public MetricFactory metricFactory() {
-        return new MetricFactory(metricSearch(), metricValidator());
+    public MetricFactory metricFactory(@Value("${graphouse.host-metric-redirect.enabled}") boolean redirectHostMetrics,
+                                       @Value("${graphouse.host-metric-redirect.dir}") String hostMetricDir,
+                                       @Value("${graphouse.host-metric-redirect.postfixes}") String hostPostfixes) {
+        return new MetricFactory(metricSearch(), metricValidator(), redirectHostMetrics, hostMetricDir, hostPostfixes);
     }
 }

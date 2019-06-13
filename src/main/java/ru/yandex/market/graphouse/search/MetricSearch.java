@@ -67,43 +67,52 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final Monitoring monitoring;
+    private final Monitoring ping;
     private final MetricValidator metricValidator;
     private final RetentionProvider retentionProvider;
     private final StatisticsService statisticsService;
 
     private final MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
+    private final MonitoringUnit metricTreeInitUnit = new MonitoringUnit("MetricTreeInit");
     private MetricTree metricTree;
     private final Queue<MetricDescription> updateQueue = new ConcurrentLinkedQueue<>();
 
     private int lastUpdatedTimestampSeconds = 0;
 
     @Value("${graphouse.search.refresh-seconds}")
-    private int saveIntervalSeconds = 180;
+    private int saveIntervalSeconds;
     /**
      * Задержка на запись, репликацию, синхронизацию
      */
     private int updateDelaySeconds = 120;
 
     @Value("${graphouse.tree.in-memory-levels}")
-    private int inMemoryLevelsCount = 3;
+    private int inMemoryLevelsCount;
 
     @Value("${graphouse.tree.dir-content.cache-time-minutes}")
-    private int dirContentCacheTimeMinutes = 60;
+    private int dirContentCacheTimeMinutes;
 
     @Value("${graphouse.tree.dir-content.cache-concurrency-level}")
-    private int dirContentCacheConcurrencyLevel = 6;
+    private int dirContentCacheConcurrencyLevel;
 
     @Value("${graphouse.tree.dir-content.batcher.max-parallel-requests}")
-    private int dirContentBatcherMaxParallelRequest = 3;
+    private int dirContentBatcherMaxParallelRequest;
 
     @Value("${graphouse.tree.dir-content.batcher.max-batch-size}")
-    private int dirContentBatcherMaxBatchSize = 2000;
+    private int dirContentBatcherMaxBatchSize;
 
     @Value("${graphouse.tree.dir-content.batcher.aggregation-time-millis}")
-    private int dirContentBatcherAggregationTimeMillis = 50;
+    private int dirContentBatcherAggregationTimeMillis;
 
     @Value("${graphouse.clickhouse.metric-tree-table}")
     private String metricsTable;
+
+    @Value("${graphouse.tree.max-subdirs-per-dir}")
+    private int maxSubDirsPerDir;
+
+    @Value("${graphouse.tree.max-metrics-per-dir}")
+    private int maxMetricsPerDir;
+
 
     private LoadingCache<MetricDir, DirContent> dirContentProvider;
     private MetricDirFactory metricDirFactory;
@@ -112,22 +121,25 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     AtomicInteger numberOfLoadedMetrics = new AtomicInteger();
 
-    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring,
+    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring, Monitoring ping,
                         MetricValidator metricValidator, RetentionProvider retentionProvider,
                         StatisticsService statisticsService) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
+        this.ping = ping;
         this.metricValidator = metricValidator;
         this.retentionProvider = retentionProvider;
         this.statisticsService = statisticsService;
 
         this.statisticsService.registerInstantMetric(InstantMetric.NUMBER_OF_LOADED_METRICS,
             () -> (double) numberOfLoadedMetrics.get());
+        monitoring.addUnit(metricSearchUnit);
+        ping.addUnit(metricTreeInitUnit);
+        metricTreeInitUnit.critical("Initializing");
     }
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        monitoring.addUnit(metricSearchUnit);
 
         metricDirFactory = (parent, name, status) -> {
             int level = parent.getLevel() + 1;
@@ -157,7 +169,7 @@ public class MetricSearch implements InitializingBean, Runnable {
                 }
             });
 
-        metricTree = new MetricTree(metricDirFactory, retentionProvider);
+        metricTree = new MetricTree(metricDirFactory, retentionProvider, maxSubDirsPerDir, maxMetricsPerDir);
 
         new Thread(this, "MetricSearch thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -306,9 +318,15 @@ public class MetricSearch implements InitializingBean, Runnable {
             boolean isDir = MetricUtil.isDir(fullName);
             String name = MetricUtil.getLastLevelName(fullName).intern();
             if (isDir) {
+                if (maxSubDirsPerDir > 0 && currentDirs.size() >= maxSubDirsPerDir && !status.handmade()) {
+                    return;
+                }
                 currentDirs.put(name, metricDirFactory.createMetricDir(currentDir, name, status));
                 dirCount++;
             } else {
+                if (maxMetricsPerDir > 0 && currentMetrics.size() >= maxMetricsPerDir && !status.handmade()) {
+                    return;
+                }
                 currentMetrics.put(name, new MetricName(currentDir, name, status, retentionProvider));
                 metricCount++;
             }
@@ -382,6 +400,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         log.info(
             "Loaded complete. Total " + totalMetrics + " metrics in " + stopWatch.getTotalTimeSeconds() + " seconds"
         );
+        metricTreeInitUnit.ok();
     }
 
     private void loadUpdatedMetrics(int startTimestampSeconds) {

@@ -1,6 +1,7 @@
 package ru.yandex.market.graphouse.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,9 +24,6 @@ import ru.yandex.market.graphouse.statistics.StatisticsService;
 @Configuration
 public class ServerConfig {
 
-    @Value("${graphouse.allow-cold-run}")
-    private boolean allowColdRun = false;
-
     @Autowired
     private MetricSearch metricSearch;
 
@@ -44,16 +42,23 @@ public class ServerConfig {
     @Autowired
     private StatisticsService statisticsService;
 
+    @Autowired
+    @Qualifier("ping")
+    private Monitoring ping;
+
     @Bean(initMethod = "startServer")
-    public GraphouseWebServer graphouseWebServer() {
+    public GraphouseWebServer server(@Value("${graphouse.metric-data.max-metrics-per-query}") int maxMetricsPerQuery) {
 
         final MetricSearchServlet metricSearchServlet = new MetricSearchServlet(
             metricSearch, statisticsService, allowColdRun
         );
+        MetricSearchServlet metricSearchServlet = new MetricSearchServlet(metricSearch);
 
-        final MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, metricSearch, allowColdRun);
+        MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, ping);
 
-        final MetricDataServiceServlet metricDataServiceServlet = new MetricDataServiceServlet(metricDataService);
+        MetricDataServiceServlet metricDataServiceServlet = new MetricDataServiceServlet(
+            metricDataService, maxMetricsPerQuery
+        );
 
         return new GraphouseWebServer(metricSearchServlet, monitoringServlet, metricDataServiceServlet);
     }

@@ -21,12 +21,10 @@ public class MetricSearchServlet extends HttpServlet {
     private static final Logger log = LogManager.getLogger();
     private final MetricSearch metricSearch;
     private final StatisticsService statisticsService;
-    private final boolean allowColdRun;
 
-    public MetricSearchServlet(MetricSearch metricSearch, StatisticsService statisticsService, boolean allowColdRun) {
+    public MetricSearchServlet(MetricSearch metricSearch, StatisticsService statisticsService) {
         this.metricSearch = metricSearch;
         this.statisticsService = statisticsService;
-        this.allowColdRun = allowColdRun;
     }
 
     @Override
@@ -90,7 +88,7 @@ public class MetricSearchServlet extends HttpServlet {
     }
 
     private boolean isServerNotReady() {
-        return !allowColdRun && !metricSearch.isMetricTreeLoaded();
+        return !metricSearch.isMetricTreeLoaded();
     }
 
     private void badRequest(HttpServletResponse resp) throws IOException {

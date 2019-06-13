@@ -2,6 +2,7 @@ package ru.yandex.market.graphouse.config;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,8 @@ import ru.yandex.clickhouse.BalancedClickhouseDataSource;
 import ru.yandex.clickhouse.ClickHouseDataSource;
 import ru.yandex.clickhouse.ClickhouseJdbcUrlParser;
 import ru.yandex.clickhouse.settings.ClickHouseProperties;
+import ru.yandex.market.graphouse.monitoring.BalancedClickhouseDataSourceMonitoring;
+import ru.yandex.market.graphouse.monitoring.Monitoring;
 
 import javax.sql.DataSource;
 import java.util.List;
@@ -29,14 +32,22 @@ public class DbConfig {
         @Value("${graphouse.clickhouse.user}") String user,
         @Value("${graphouse.clickhouse.password}") String password,
         @Value("${graphouse.clickhouse.socket-timeout-seconds}") int socketTimeoutSeconds,
-        @Value("${graphouse.clickhouse.compress}") boolean compress
+        @Value("${graphouse.clickhouse.connection-timeout-millis}") int socketTimeoutMillis,
+        @Value("${graphouse.clickhouse.compress}") boolean compress,
+        @Value("${graphouse.clickhouse.ssl}") boolean ssl,
+        @Value("${graphouse.clickhouse.max-query-size.bytes}") long maxQuerySizeBytes
     ) {
         final ClickHouseProperties clickHouseProperties = new ClickHouseProperties();
         clickHouseProperties.setSocketTimeout((int) TimeUnit.SECONDS.toMillis(socketTimeoutSeconds));
+        clickHouseProperties.setConnectionTimeout(socketTimeoutMillis);
         clickHouseProperties.setUser(user);
         clickHouseProperties.setPassword(password);
         clickHouseProperties.setCompress(compress);
         clickHouseProperties.setDecompress(compress);
+        clickHouseProperties.setSsl(ssl);
+        clickHouseProperties.setUseServerTimeZone(true);
+        clickHouseProperties.setUseServerTimeZoneForDates(true);
+        clickHouseProperties.setMaxQuerySize(maxQuerySizeBytes);
         return clickHouseProperties;
     }
 
@@ -44,7 +55,10 @@ public class DbConfig {
     public DataSource clickHouseDataSource(@Value("${graphouse.clickhouse.hosts}") String hostsString,
                                            @Value("${graphouse.clickhouse.port}") int port,
                                            @Value("${graphouse.clickhouse.db}") String db,
-                                           ClickHouseProperties clickHouseProperties
+                                           @Value("${graphouse.clickhouse.host-ping-rate-seconds}") int pingRateSeconds,
+                                           ClickHouseProperties clickHouseProperties,
+                                           Monitoring monitoring,
+                                           @Qualifier("ping") Monitoring ping
     ) {
         List<String> hosts = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(hostsString);
         Preconditions.checkArgument(!hosts.isEmpty(), "ClickHouse host(s) not provided.");
@@ -55,7 +69,23 @@ public class DbConfig {
         String url = ClickhouseJdbcUrlParser.JDBC_CLICKHOUSE_PREFIX + "//" +
             hosts.stream().map(host -> host + ":" + port).collect(Collectors.joining(",")) +
             "/" + db;
-        return new BalancedClickhouseDataSource(url, clickHouseProperties);
+        BalancedClickhouseDataSource balancedClickhouseDataSource = new BalancedClickhouseDataSource(
+            url, clickHouseProperties
+        );
+
+        if (pingRateSeconds > 0) {
+            int availableServers = balancedClickhouseDataSource.actualize();
+            if (availableServers == 0) {
+                throw new RuntimeException("Failed to start. All clickhouse servers no available: " + hostsString);
+            }
+
+            BalancedClickhouseDataSourceMonitoring dataSourceMonitoring = new BalancedClickhouseDataSourceMonitoring(
+                balancedClickhouseDataSource, monitoring, ping, pingRateSeconds
+            );
+            dataSourceMonitoring.startAsync();
+        }
+
+        return balancedClickhouseDataSource;
     }
 
     @Bean

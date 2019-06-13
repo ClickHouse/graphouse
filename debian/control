@@ -8,6 +8,11 @@ Section: libdevel
 
 Package: graphouse
 Architecture: all
-Depends:
+Depends: graphouse-py (= ${binary:Version})
 Description: Connect your ClickHouse and Graphite-Web
 
+Package: graphouse-py
+Replaces: graphouse
+Architecture: all
+Depends:
+Description: Python bindings for graphite-web and graphite-api to graphouse
