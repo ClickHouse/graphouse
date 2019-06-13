@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.config;
 
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -9,7 +10,6 @@ import ru.yandex.market.graphouse.statistics.StatisticsCounter;
 import ru.yandex.market.graphouse.statistics.StatisticsFlushFrequencyConfig;
 import ru.yandex.market.graphouse.statistics.StatisticsServiceImpl;
 
-import javax.annotation.PostConstruct;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  */
 @Configuration
 @Import({StatisticsConfig.class})
-public class StatisticsCountersConfig {
+public class StatisticsCountersConfig implements InitializingBean {
     @Autowired
     StatisticsServiceImpl statisticsService;
 
@@ -33,19 +33,19 @@ public class StatisticsCountersConfig {
     @Autowired
     MetricCacher metricCacher;
 
-    @PostConstruct
-    public void initialize() {
+    private StatisticsCounter createCounter(Map.Entry<String, Integer> metricToFlushPeriod) {
+        return new StatisticsCounter(
+            metricToFlushPeriod.getKey(), metricToFlushPeriod.getValue(), metricSearch, metricCacher
+        );
+    }
+
+    @Override
+    public void afterPropertiesSet() {
         List<StatisticsCounter> counters = config.getMetricNameToFlushPeriodInSeconds().entrySet()
             .stream()
             .map(this::createCounter)
             .collect(Collectors.toList());
 
         statisticsService.initialize(counters);
-    }
-
-    private StatisticsCounter createCounter(Map.Entry<String, Integer> metricToFlushPeriod) {
-        return new StatisticsCounter(
-            metricToFlushPeriod.getKey(), metricToFlushPeriod.getValue(), metricSearch, metricCacher
-        );
     }
 }
