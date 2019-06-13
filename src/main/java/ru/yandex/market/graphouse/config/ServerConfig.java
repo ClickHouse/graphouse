@@ -50,9 +50,8 @@ public class ServerConfig {
     public GraphouseWebServer server(@Value("${graphouse.metric-data.max-metrics-per-query}") int maxMetricsPerQuery) {
 
         final MetricSearchServlet metricSearchServlet = new MetricSearchServlet(
-            metricSearch, statisticsService, allowColdRun
+            metricSearch, statisticsService
         );
-        MetricSearchServlet metricSearchServlet = new MetricSearchServlet(metricSearch);
 
         MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, ping);
 

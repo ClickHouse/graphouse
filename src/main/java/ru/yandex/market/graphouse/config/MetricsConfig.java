@@ -63,7 +63,7 @@ public class MetricsConfig {
     @Bean
     public MetricSearch metricSearch() {
         return new MetricSearch(
-            clickHouseJdbcTemplate, monitoring,
+            clickHouseJdbcTemplate, monitoring, ping,
             metricValidator(), retentionProvider(), statisticsService
         );
     }
