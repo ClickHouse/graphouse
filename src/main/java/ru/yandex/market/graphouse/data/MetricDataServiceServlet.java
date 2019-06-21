@@ -22,10 +22,13 @@ public class MetricDataServiceServlet extends HttpServlet {
 
     private final MetricDataService metricDataService;
     private final int maxMetricsPerQuery;
+    private final int responseBufferSizeBytes;
 
-    public MetricDataServiceServlet(MetricDataService metricDataService, int maxMetricsPerQuery) {
+    public MetricDataServiceServlet(MetricDataService metricDataService, int maxMetricsPerQuery,
+                                    int responseBufferSizeBytes) {
         this.metricDataService = metricDataService;
         this.maxMetricsPerQuery = maxMetricsPerQuery;
+        this.responseBufferSizeBytes = responseBufferSizeBytes;
     }
 
     @Override
@@ -39,6 +42,7 @@ public class MetricDataServiceServlet extends HttpServlet {
     }
 
     private void getData(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setBufferSize(responseBufferSizeBytes);
 
         Stopwatch stopwatch = Stopwatch.createStarted();
 
