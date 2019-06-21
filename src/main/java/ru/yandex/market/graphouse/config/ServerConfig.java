@@ -43,14 +43,16 @@ public class ServerConfig {
     private Monitoring ping;
 
     @Bean(initMethod = "startServer")
-    public GraphouseWebServer server(@Value("${graphouse.metric-data.max-metrics-per-query}") int maxMetricsPerQuery) {
+    public GraphouseWebServer server(
+        @Value("${graphouse.metric-data.max-metrics-per-query}") int maxMetricsPerQuery,
+        @Value("${graphouse.http.response-buffer-size-bytes}") int responseBufferSizeBytes) {
 
         MetricSearchServlet metricSearchServlet = new MetricSearchServlet(metricSearch);
 
         MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, ping);
 
         MetricDataServiceServlet metricDataServiceServlet = new MetricDataServiceServlet(
-            metricDataService, maxMetricsPerQuery
+            metricDataService, maxMetricsPerQuery, responseBufferSizeBytes
         );
 
         return new GraphouseWebServer(metricSearchServlet, monitoringServlet, metricDataServiceServlet);
