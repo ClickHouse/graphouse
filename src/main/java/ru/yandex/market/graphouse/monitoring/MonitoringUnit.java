@@ -21,13 +21,17 @@ public class MonitoringUnit {
     protected volatile Throwable exception;
     protected volatile MonitoringStatus status = MonitoringStatus.OK;
     protected volatile boolean logEnabled;
+    private volatile long lastUpdateMillis;
+    private volatile long criticalTimeoutMillis = -1;
+    private volatile long warningTimeoutMillis = -1;
 
     public MonitoringUnit(String name) {
         this.name = name;
+        this.lastUpdateMillis = System.currentTimeMillis();
     }
 
     public MonitoringUnit(String name, int delay, TimeUnit timeUnit) {
-        this.name = name;
+        this(name);
         setMonitoringDelay(delay, timeUnit);
     }
 
@@ -69,11 +73,12 @@ public class MonitoringUnit {
         update(MonitoringStatus.CRITICAL, message, exception);
     }
 
-    synchronized void update(MonitoringStatus status, String message, Throwable exception) {
+    protected synchronized void update(MonitoringStatus status, String message, Throwable exception) {
         setProblemStartTimeMillis(status);
         this.status = status;
         this.message = message;
         this.exception = exception;
+        setLastUpdateMillis(System.currentTimeMillis());
     }
 
     void setProblemStartTimeMillis(MonitoringStatus status) {
@@ -90,12 +95,30 @@ public class MonitoringUnit {
         return name;
     }
 
-    public MonitoringStatus getStatus() {
-        return isDelayActive() ? MonitoringStatus.OK : status;
+    protected void setLastUpdateMillis(long lastUpdateMillis) {
+        this.lastUpdateMillis = lastUpdateMillis;
     }
 
-    private boolean isDelayActive() {
-        return (System.currentTimeMillis() - problemStartTimeMillis) <= monitoringDelayMillis;
+    protected long getLastUpdateMillis() {
+        return lastUpdateMillis;
+    }
+
+    public MonitoringStatus getStatus() {
+        final boolean isDelayActive = (System.currentTimeMillis() - problemStartTimeMillis) < monitoringDelayMillis;
+        if (isDelayActive) {
+            return MonitoringStatus.OK;
+        }
+
+        final long millisFromLastUpdate = System.currentTimeMillis() - getLastUpdateMillis();
+        if (criticalTimeoutMillis > 0 && millisFromLastUpdate > criticalTimeoutMillis) {
+            message = "Critical execution time exceeded";
+            return MonitoringStatus.CRITICAL;
+        } else if (warningTimeoutMillis > 0 && millisFromLastUpdate > warningTimeoutMillis) {
+            message = "Execution time exceeded";
+            return MonitoringStatus.WARNING;
+        }
+
+        return status;
     }
 
     public String getMessage() {
@@ -119,15 +142,6 @@ public class MonitoringUnit {
     }
 
     @Override
-    public String toString() {
-        return "MonitoringUnit{" +
-            "message='" + message + '\'' +
-            ", exception=" + exception +
-            ", status=" + status +
-            '}';
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
@@ -144,4 +158,19 @@ public class MonitoringUnit {
         return Objects.hash(name);
     }
 
+    public void setCriticalTimeoutMillis(long criticalTimeoutMillis) {
+        this.criticalTimeoutMillis = criticalTimeoutMillis;
+    }
+
+    public void setCriticalTimeout(long criticalTimeout, TimeUnit timeUnit) {
+        this.criticalTimeoutMillis = timeUnit.toMillis(criticalTimeout);
+    }
+
+    public void setWarningTimeoutMillis(long warningTimeoutMillis) {
+        this.warningTimeoutMillis = warningTimeoutMillis;
+    }
+
+    public void setWarningTimeout(long warningTimeout, TimeUnit timeUnit) {
+        this.warningTimeoutMillis = timeUnit.toMillis(warningTimeout);
+    }
 }
