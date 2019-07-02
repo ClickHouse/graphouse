@@ -11,9 +11,9 @@ override_dh_clean:
 	dh_clean
 	./gradlew $(GRADLE_FLAGS) clean
 
-override_dh_build:
+override_dh_auto_build:
 	./gradlew $(GRADLE_FLAGS) build
-	dh_build
+	dh_auto_build
 
 override_dh_install:
 	./gradlew $(GRADLE_FLAGS) installDist
