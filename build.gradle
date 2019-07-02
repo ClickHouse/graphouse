@@ -100,9 +100,6 @@ distributions {
 applicationDefaultJvmArgs = [
     '-Dapp.home=GRAPHOUSE_APP_HOME',
     '-Dlog4j.configurationFile=GRAPHOUSE_APP_HOME/conf/log4j2.xml',
-    '-verbose:gc', '-XX:+PrintGC', '-XX:+PrintGCDetails', '-XX:+PrintGCTimeStamps', '-XX:+PrintGCDateStamps',
-    '-XX:+UseGCLogFileRotation', '-XX:NumberOfGCLogFiles=7', '-XX:GCLogFileSize=50M',
-    '-Xloggc:GRAPHOUSE_APP_HOME/log/graphouse.gc.log',
     '-XX:+HeapDumpOnOutOfMemoryError', '-XX:HeapDumpPath=GRAPHOUSE_APP_HOME/log/',
     '-showversion', '-server', '-XX:+UseCompressedOops',
     '-Dsun.net.inetaddr.ttl=60', '-Dsun.net.inetaddr.negative.ttl=0'
@@ -110,6 +107,23 @@ applicationDefaultJvmArgs = [
 
 startScripts {
     doLast {
+        // Make a version dependent GC logging
+        unixScript.text = unixScript.text.replace(
+            '# Collect all arguments for the java command, following the shell quoting and substitution rules\n',
+            '''\
+            GC_LOG_FILE=GRAPHOUSE_APP_HOME/log/graphouse.gc.log
+            UNIFIED_JVM_LOGGING="$JAVACMD -Xlog:gc -version 1>/dev/null 2>&1"
+            LEGACY_JVM_LOGGING="$JAVACMD -XX:+PrintGCDateStamps -version 1>/dev/null 2>&1"
+            if eval $UNIFIED_JVM_LOGGING && eval ! $LEGACY_JVM_LOGGING; then
+                GC_LOGGING_OPTIONS="-Xlog:gc*:file=${GC_LOG_FILE}:time:filecount=7,filesize=50M"
+            elif eval $LEGACY_JVM_LOGGING && eval ! $UNIFIED_JVM_LOGGING
+                GC_LOGGING_OPTIONS="-verbose:gc -XX:+PrintGC -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=7 -XX:GCLogFileSize=50M -Xloggc:${GC_LOG_FILE}"
+            fi
+            GRAPHOUSE_OPTS="${GRAPHOUSE_OPTS} ${GC_LOGGING_OPTIONS}"
+
+            # Collect all arguments for the java command, following the shell quoting and substitution rules
+            '''.stripIndent()
+        )
         unixScript.text = unixScript.text.replace('GRAPHOUSE_APP_HOME', '\$APP_HOME')
         unixScript.text = unixScript.text.replace(
             'APP_HOME="`pwd -P`"',
