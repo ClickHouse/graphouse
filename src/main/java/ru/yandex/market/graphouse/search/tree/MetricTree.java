@@ -207,6 +207,22 @@ public class MetricTree {
         throw new IllegalStateException();
     }
 
+    /**
+     * Tries to find parent dir for a metric in in-memory cache. Will return dirs with any status, including
+     * {@link MetricStatus#BAN}, unlike {@link #maybeFindMetric}.
+     *
+     * @param metricLevels metric to find parent for.
+     * @return parent dir or null if parent dir isn't in in-memory cache.
+     */
+    public MetricDir maybeFindParent(String[] metricLevels) {
+        MetricDir currentDir = root;
+        int currentLevelIndex = 0;
+        while (currentLevelIndex < metricLevels.length - 1 && currentDir != null) {
+            currentDir = currentDir.maybeGetDir(metricLevels[currentLevelIndex]);
+            currentLevelIndex++;
+        }
+        return currentDir;
+    }
 
     /**
      * creates or changes the status of a metric or an entire directory.
