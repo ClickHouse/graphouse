@@ -125,6 +125,8 @@ public class MetricSearch implements InitializingBean, Runnable {
         this.metricValidator = metricValidator;
         this.retentionProvider = retentionProvider;
         monitoring.addUnit(metricSearchUnit);
+        metricSearchUnit.setWarningTimeout(3 * saveIntervalSeconds, TimeUnit.SECONDS);
+        metricSearchUnit.setCriticalTimeout(10 * saveIntervalSeconds, TimeUnit.SECONDS);
         ping.addUnit(metricTreeInitUnit);
         metricTreeInitUnit.critical("Initializing");
     }
