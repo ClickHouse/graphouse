@@ -389,17 +389,10 @@ public class MetricSearch implements InitializingBean, Runnable {
                 return;
             }
 
+            // Only update metrics that are already in memory
             String[] metricLevels = MetricUtil.splitToLevels(metric);
-            if (metricLevels.length <= inMemoryLevelsCount) {
-                // Dirs that are stored in memory must be updated immediately.
+            if (metricLevels.length <= inMemoryLevelsCount || (metricTree.maybeFindParent(metricLevels) != null)) {
                 metricTree.modify(metric, status);
-            } else {
-                // Dirs that are loaded lazily must not be updated immediately, that would be too slow and unnecessary.
-                // Cache entries are invalidated instead.
-                MetricDir parent = metricTree.maybeFindParent(metricLevels);
-                if (parent != null) {
-                    dirContentProvider.invalidate(parent);
-                }
             }
 
             int count = metricCount.incrementAndGet();
