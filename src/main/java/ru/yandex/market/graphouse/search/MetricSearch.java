@@ -388,7 +388,13 @@ public class MetricSearch implements InitializingBean, Runnable {
                 log.warn("Invalid metric in db: " + metric);
                 return;
             }
-            metricTree.modify(metric, status);
+
+            // Only update metrics that are already in memory
+            String[] metricLevels = MetricUtil.splitToLevels(metric);
+            if (metricLevels.length <= inMemoryLevelsCount || (metricTree.maybeFindParent(metricLevels) != null)) {
+                metricTree.modify(metric, status);
+            }
+
             int count = metricCount.incrementAndGet();
             if (count % 500_000 == 0) {
                 log.info("Loaded " + metricCount.get() + " metrics...");
