@@ -1,5 +1,5 @@
 import time
-import traceback
+import traceback  # noqa: F401
 import requests
 import graphite.readers
 import uuid
@@ -41,14 +41,22 @@ class GraphouseMultiFetcher(object):
             request_url = graphouse_url + "/metricData"
             request = requests.post(request_url, params=query, data=data)
 
-            log.info('DEBUG:graphouse_data_query: %s parameters %s, data %s', request_url, query, data)
+            log.info(
+                'DEBUG:graphouse_data_query: {} parameters {}, data {}'
+                .format(request_url, query, data)
+            )
 
             request.raise_for_status()
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-            log.info("CRITICAL:graphouse_data_query: Connection error: %s", str(e))
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout
+        ) as e:
+            log.info("CRITICAL:graphouse_data_query: Connection error: {}"
+                     .format(str(e)))
             raise
         except requests.exceptions.HTTPError as e:
-            log.info("CRITICAL:graphouse_data_query: %s, message: %s", str(e), request.text)
+            log.info("CRITICAL:graphouse_data_query: {}, message: {}"
+                     .format(str(e), request.text))
             raise
         except Exception:
             log.info("Unexpected exception!", exc_info=True)
@@ -59,13 +67,14 @@ class GraphouseMultiFetcher(object):
         try:
             metrics_object = request.json()
         except Exception:
-            log.info("CRITICAL:graphouse_parse: can't parse json from graphouse answer, got '%s'", request.text)
+            log.info(
+                "CRITICAL:graphouse_parse: "
+                "can't parse json from graphouse answer, got '{}'"
+                .format(request.text)
+            )
             raise
 
         profilingTime['parse'] = time.time()
-
-        time_infos = []
-        points = []
 
         for node in self.nodes:
             metric_object = metrics_object.get(node.path)
@@ -73,33 +82,45 @@ class GraphouseMultiFetcher(object):
                 self.result[node.path] = ((start_time, end_time, 1), [])
             else:
                 self.result[node.path] = (
-                        (metric_object.get("start"), metric_object.get("end"), metric_object.get("step")),
+                        (
+                            metric_object.get("start"),
+                            metric_object.get("end"),
+                            metric_object.get("step")),
                         metric_object.get("points"),
                     )
 
         profilingTime['convert'] = time.time()
 
-        log.info('DEBUG:graphouse_time:[%s] full = %s fetch = %s, parse = %s, convert = %s',
-            reqkey,
-            profilingTime['convert'] - profilingTime['start'],
-            profilingTime['fetch'] - profilingTime['start'],
-            profilingTime['parse'] - profilingTime['fetch'],
-            profilingTime['convert'] - profilingTime['parse']
+        log.info(
+            'DEBUG:graphouse_time:[{}] full = {}'
+            ' fetch = {}, parse = {}, convert = {}'.format(
+                reqkey,
+                profilingTime['convert'] - profilingTime['start'],
+                profilingTime['fetch'] - profilingTime['start'],
+                profilingTime['parse'] - profilingTime['fetch'],
+                profilingTime['convert'] - profilingTime['parse']
+            )
         )
 
         result = self.result.get(path)
         if result is None:
-            log.info("WARNING:graphouse_data: something strange: path %s doesn't exist in graphouse response", path)
-            raise ValueError("path %s doesn't exist in graphouse response" % path)
+            log.info(
+                "WARNING:graphouse_data: something strange:"
+                " path {} doesn't exist in graphouse response".format(path)
+            )
+            raise ValueError(
+                "path {} doesn't exist in graphouse response".format(path)
+            )
         else:
             return result
-
 
 
 class GraphouseFinder(object):
 
     def find_nodes(self, query):
-        request = requests.post('%s/search' % graphouse_url, data={'query': query.pattern})
+        request = requests.post(
+            '{}/search'.format(graphouse_url), data={'query': query.pattern}
+        )
         request.raise_for_status()
         result = request.text.split('\n')
 
@@ -110,7 +131,8 @@ class GraphouseFinder(object):
             if metric.endswith('.'):
                 yield BranchNode(metric[:-1])
             else:
-                yield LeafNode(metric, GraphouseReader(metric, fetcher=fetcher))
+                yield LeafNode(metric,
+                               GraphouseReader(metric, fetcher=fetcher))
 
 
 # Data reader
@@ -135,7 +157,8 @@ class GraphouseReader(object):
 
     """
     Graphite method
-    Hints graphite-web about the time range available for this given metric in the database
+    Hints graphite-web about the time range available
+        for this given metric in the database
     """
 
     def get_intervals(self):
@@ -145,7 +168,8 @@ class GraphouseReader(object):
     Graphite method
     :return list of 2 elements (time_info, data_points)
     time_info - list of 3 elements (start_time, end_time, time_step)
-    data_points - list of ((end_time - start_time) / time_step) points, loaded from database
+    data_points - list of ((end_time - start_time) / time_step) points,
+        loaded from database
     """
 
     def fetch(self, start_time, end_time):
