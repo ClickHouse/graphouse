@@ -17,7 +17,7 @@ public class MetricRetentionTest {
             .addRetention(3600, 600)
             .build();
         Assert.assertEquals(
-            "Main regexp: .*; Second pattern: null; Function: avg; Ranges: [[0..3600)=60, [3600..+∞)=600]",
+            "Main regexp: .*; Function: avg; Ranges: [[0..3600)=60, [3600..+∞)=600]",
             retention.toString()
         );
         Assert.assertEquals(true, retention.getIsDefault());
@@ -70,8 +70,6 @@ public class MetricRetentionTest {
             .addRetention(3600, 600)
             .build();
         MetricRetention combined = new MetricRetention.MetricDataRetentionBuilder(
-            aggregation.getRegexp(),
-            retention.getRegexp(),
             aggregation.getFunction()
         )
             .build(retention.getRanges());
@@ -81,7 +79,7 @@ public class MetricRetentionTest {
         Assert.assertEquals(retention.getRanges(), combined.getRanges());
         Assert.assertEquals(aggregation.getFunction(), combined.getFunction());
         Assert.assertEquals(
-            "Main regexp: .*avg$.*; Second pattern: .*^start.*; Function: avg; " +
+            "Main regexp: null; Function: avg; " +
                 "Ranges: [[0..3600)=60, [3600..+∞)=600]",
             combined.toString()
         );

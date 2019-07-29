@@ -59,7 +59,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_min.dir.name";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: .*.*; Second pattern: null; Function: avg; Ranges: " +
+            "Main regexp: .*.*; Function: avg; Ranges: " +
                 "[[0..7776000)=60, [7776000..31536000)=600, [31536000..63072000)=3600, [63072000..+∞)=86400]",
             retention.toString()
         );
@@ -71,7 +71,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_min.dir.name.max";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: .*.*; Second pattern: .*max$.*; Function: max; Ranges: " +
+            "Main regexp: null; Function: max; Ranges: " +
                 "[[0..7776000)=60, [7776000..31536000)=600, [31536000..63072000)=3600, [63072000..+∞)=86400]",
             retention.toString()
         );
@@ -83,7 +83,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_sec.dir.name.min";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: .*^one_sec.*; Second pattern: .*min$.*; Function: min; " +
+            "Main regexp: null; Function: min; " +
                 "Ranges: [[0..3600)=1, [3600..86400)=5, [86400..+∞)=60]",
             retention.toString()
         );
@@ -95,7 +95,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_hour.dir.name";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: .*^one_hour.*; Second pattern: .*.*; Function: avg; " +
+            "Main regexp: null; Function: avg; " +
                 "Ranges: [[0..31536000)=3600, [31536000..+∞)=86400]",
             retention.toString()
         );
@@ -107,7 +107,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_day.dir.name.count";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: .*^one_day.*.count$.*; Second pattern: null; Function: sum; Ranges: [[0..+∞)=86400]",
+            "Main regexp: .*^one_day.*.count$.*; Function: sum; Ranges: [[0..+∞)=86400]",
             retention.toString()
         );
     }

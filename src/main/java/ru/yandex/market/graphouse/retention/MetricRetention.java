@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
  */
 public class MetricRetention {
     private final Pattern regexp;
-    private final Pattern combinedRegexp;
     private final String function;
     private final boolean isDefault;
     private final RangeMap<Integer, Integer> ranges;
@@ -30,15 +29,13 @@ public class MetricRetention {
 
     private MetricRetention(Pattern regexp, String function, boolean isDefault) {
         this.regexp = regexp;
-        this.combinedRegexp = null;
         this.function = function;
         this.isDefault = isDefault;
         this.ranges = TreeRangeMap.create();
     }
 
-    private MetricRetention(Pattern regexp, Pattern combinedRegexp, String function) {
-        this.regexp = regexp;
-        this.combinedRegexp = combinedRegexp;
+    private MetricRetention(String function) {
+        this.regexp = null;
         this.function = function;
         this.isDefault = false;
         this.ranges = TreeRangeMap.create();
@@ -46,7 +43,7 @@ public class MetricRetention {
 
     @Override
     public String toString() {
-        return "Main regexp: " + regexp + "; Second pattern: " + combinedRegexp + "; Function: " + function +
+        return "Main regexp: " + regexp + "; Function: " + function +
             "; Ranges: " + ranges.toString();
     }
 
@@ -75,11 +72,7 @@ public class MetricRetention {
             return true;
         }
 
-        if (combinedRegexp == null) {
-            return regexp.matcher(name).matches();
-        }
-
-        return regexp.matcher(name).matches() && combinedRegexp.matcher(name).matches();
+        return regexp.matcher(name).matches();
     }
 
     public int getStepSize(int ageSeconds) {
@@ -94,8 +87,8 @@ public class MetricRetention {
         return new MetricDataRetentionBuilder(mainPattern, function, isDefault);
     }
 
-    public static MetricDataRetentionBuilder newBuilder(String mainPattern, String secondPattern, String function) {
-        return new MetricDataRetentionBuilder(mainPattern, secondPattern, function);
+    public static MetricDataRetentionBuilder newBuilder(String function) {
+        return new MetricDataRetentionBuilder(function);
     }
 
     public static class MetricDataRetentionBuilder {
@@ -106,8 +99,8 @@ public class MetricRetention {
             result = new MetricRetention(Pattern.compile(mainPattern), function, isDefault);
         }
 
-        public MetricDataRetentionBuilder(String mainPattern, String secondPattern, String function) {
-            result = new MetricRetention(Pattern.compile(mainPattern), Pattern.compile(secondPattern), function);
+        public MetricDataRetentionBuilder(String function) {
+            result = new MetricRetention(function);
         }
 
         public MetricRetention build() {
