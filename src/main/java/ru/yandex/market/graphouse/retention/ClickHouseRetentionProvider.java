@@ -18,11 +18,11 @@ public class ClickHouseRetentionProvider extends CombinedRetentionProvider {
         super(loadRetentions(clickHouseJdbcTemplate, configName));
     }
 
-    private static List<MetricRetention> loadRetentions(JdbcTemplate jdbcTemplate, String configName) {
+    private static List<MetricRetentionConfig> loadRetentions(JdbcTemplate jdbcTemplate, String configName) {
 
         log.info("Loading retentions from ClickHouse, config: " + configName);
 
-        List<MetricRetention> retentions = jdbcTemplate.query(
+        List<MetricRetentionConfig> retentions = jdbcTemplate.query(
             "SELECT priority, is_default, regexp, function, " +
                 "groupArray(age) AS ages, groupArray(precision) AS precisions FROM (" +
                 "   SELECT * FROM system.graphite_retentions WHERE config_name = ? ORDER BY priority, age" +
@@ -31,13 +31,13 @@ public class ClickHouseRetentionProvider extends CombinedRetentionProvider {
                 String regexp = ".*" + rs.getString("regexp") + ".*";
                 String function = rs.getString("function");
                 boolean isDefault = rs.getInt("is_default") == 1;
-                MetricRetention.MetricDataRetentionBuilder builder = MetricRetention.newBuilder(regexp, function, isDefault);
+                MetricRetention.MetricDataRetentionBuilder builder = MetricRetention.newBuilder(function);
                 int[] ages = getIntArray(rs.getString("ages"));
                 int[] precisions = getIntArray(rs.getString("precisions"));
                 for (int i = 0; i < ages.length; i++) {
                     builder.addRetention(ages[i], precisions[i]);
                 }
-                return builder.build();
+                return new MetricRetentionConfig(regexp, isDefault, builder.build());
             },
             configName
         );

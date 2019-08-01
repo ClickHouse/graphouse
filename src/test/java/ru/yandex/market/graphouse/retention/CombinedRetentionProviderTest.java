@@ -11,44 +11,55 @@ public class CombinedRetentionProviderTest {
     private CombinedRetentionProvider retentionProvider;
 
     @Before
-    public void setUp() throws Exception {
-        final List<MetricRetention> configRetentions = new ArrayList<>();
+    public void setUp() {
+        final List<MetricRetentionConfig> configRetentions = new ArrayList<>();
         configRetentions.add(
-            new MetricRetention.MetricDataRetentionBuilder(".*^one_sec.*", "", false)
-                .addRetention(0, 1)
-                .addRetention(3600, 5)
-                .addRetention(86400, 60)
-                .build()
+            new MetricRetentionConfig(".*^one_sec.*", false,
+                new MetricRetention.MetricDataRetentionBuilder("")
+                    .addRetention(0, 1)
+                    .addRetention(3600, 5)
+                    .addRetention(86400, 60)
+                    .build()
+            )
         );
         configRetentions.add(
-            new MetricRetention.MetricDataRetentionBuilder(".*^one_hour.*", "", false)
-                .addRetention(0, 3600)
-                .addRetention(31536000, 86400)
-                .build()
+            new MetricRetentionConfig(".*^one_hour.*", false,
+                new MetricRetention.MetricDataRetentionBuilder("")
+                    .addRetention(0, 3600)
+                    .addRetention(31536000, 86400)
+                    .build()
+            )
         );
         configRetentions.add(
-            new MetricRetention.MetricDataRetentionBuilder(".*max$.*", "max", false)
-                .addRetention(0, 0)
-                .build()
+            new MetricRetentionConfig(".*max$.*", false,
+                new MetricRetention.MetricDataRetentionBuilder("max")
+                    .addRetention(0, 0)
+                    .build()
+            )
         );
         configRetentions.add(
-            new MetricRetention.MetricDataRetentionBuilder(".*min$.*", "min", false)
-                .addRetention(0, 0)
-                .build()
+            new MetricRetentionConfig(".*min$.*", false,
+                new MetricRetention.MetricDataRetentionBuilder("min")
+                    .addRetention(0, 0)
+                    .build()
+            )
         );
         configRetentions.add(
-            new MetricRetention.MetricDataRetentionBuilder(".*^one_day.*.count$.*",
-                "sum", false)
-                .addRetention(0, 86400)
-                .build()
+            new MetricRetentionConfig(".*^one_day.*.count$.*", false,
+                new MetricRetention.MetricDataRetentionBuilder("sum")
+                    .addRetention(0, 86400)
+                    .build()
+            )
         );
         configRetentions.add(
-            new MetricRetention.MetricDataRetentionBuilder(".*.*", "avg", true)
-                .addRetention(0, 60)
-                .addRetention(7776000, 600)
-                .addRetention(31536000, 3600)
-                .addRetention(63072000, 86400)
-                .build()
+            new MetricRetentionConfig(".*.*", true,
+                new MetricRetention.MetricDataRetentionBuilder("avg")
+                    .addRetention(0, 60)
+                    .addRetention(7776000, 600)
+                    .addRetention(31536000, 3600)
+                    .addRetention(63072000, 86400)
+                    .build()
+            )
         );
         retentionProvider = new CombinedRetentionProvider(configRetentions);
     }
@@ -59,7 +70,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_min.dir.name";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: .*.*; Function: avg; Ranges: " +
+            "Function: avg; Ranges: " +
                 "[[0..7776000)=60, [7776000..31536000)=600, [31536000..63072000)=3600, [63072000..+∞)=86400]",
             retention.toString()
         );
@@ -71,7 +82,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_min.dir.name.max";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: null; Function: max; Ranges: " +
+            "Function: max; Ranges: " +
                 "[[0..7776000)=60, [7776000..31536000)=600, [31536000..63072000)=3600, [63072000..+∞)=86400]",
             retention.toString()
         );
@@ -83,7 +94,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_sec.dir.name.min";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: null; Function: min; " +
+            "Function: min; " +
                 "Ranges: [[0..3600)=1, [3600..86400)=5, [86400..+∞)=60]",
             retention.toString()
         );
@@ -95,7 +106,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_hour.dir.name";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: null; Function: avg; " +
+            "Function: avg; " +
                 "Ranges: [[0..31536000)=3600, [31536000..+∞)=86400]",
             retention.toString()
         );
@@ -107,7 +118,7 @@ public class CombinedRetentionProviderTest {
         String metric = "one_day.dir.name.count";
         MetricRetention retention = retentionProvider.getRetention(metric);
         Assert.assertEquals(
-            "Main regexp: .*^one_day.*.count$.*; Function: sum; Ranges: [[0..+∞)=86400]",
+            "Function: sum; Ranges: [[0..+∞)=86400]",
             retention.toString()
         );
     }

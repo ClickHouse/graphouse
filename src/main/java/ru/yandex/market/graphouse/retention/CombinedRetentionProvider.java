@@ -8,74 +8,74 @@ import java.util.concurrent.ConcurrentHashMap;
  * @date 07/03/2019
  */
 public class CombinedRetentionProvider implements RetentionProvider {
-    private final List<MetricRetention> configRetentions;
+    private final List<MetricRetentionConfig> configRetentions;
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, MetricRetention>> combinedRetentions;
 
-    public CombinedRetentionProvider(List<MetricRetention> configRetentions) {
+    public CombinedRetentionProvider(List<MetricRetentionConfig> configRetentions) {
         this.configRetentions = configRetentions;
         this.combinedRetentions = new ConcurrentHashMap<>();
     }
 
     @Override
     public MetricRetention getRetention(String metric) {
-        MetricRetention firstMatch = null;
+        MetricRetentionConfig firstMatch = null;
         MetricRetention result;
 
-        for (MetricRetention metricRetention : configRetentions) {
-            if (metricRetention.getIsDefault()) {
+        for (MetricRetentionConfig metricRetentionConfig : configRetentions) {
+            if (metricRetentionConfig.getIsDefault()) {
                 if (firstMatch == null) {
                     // There is only default match
-                    if (metricRetention.getType() == MetricRetention.Type.ALL) {
-                        return metricRetention;
+                    if (metricRetentionConfig.getType() == MetricRetentionConfig.Type.ALL) {
+                        return metricRetentionConfig.getMetricRetention();
                     }
                     break;
-                } else if (firstMatch.getType() != metricRetention.getType()) {
+                } else if (firstMatch.getType() != metricRetentionConfig.getType()) {
                     // There is first partial retention pattern and default has a different type
-                    if (firstMatch.getType() == MetricRetention.Type.RETENTION) {
-                        result = getOrMakeCombined(firstMatch, metricRetention);
+                    if (firstMatch.getType() == MetricRetentionConfig.Type.RETENTION) {
+                        result = getOrMakeCombined(firstMatch, metricRetentionConfig);
                         return result;
                     }
 
-                    if (firstMatch.getType() == MetricRetention.Type.AGGREGATION) {
-                        result = getOrMakeCombined(metricRetention, firstMatch);
+                    if (firstMatch.getType() == MetricRetentionConfig.Type.AGGREGATION) {
+                        result = getOrMakeCombined(metricRetentionConfig, firstMatch);
                         return result;
                     }
                 }
 
                 break;
-            } else if (metricRetention.matches(metric)) {
-                if (metricRetention.getType() != MetricRetention.Type.ALL) {
+            } else if (metricRetentionConfig.matches(metric)) {
+                if (metricRetentionConfig.getType() != MetricRetentionConfig.Type.ALL) {
                     // It's partial retention pattern
                     if (firstMatch == null) {
                         // And it's first match
-                        firstMatch = metricRetention;
+                        firstMatch = metricRetentionConfig;
                         continue;
                     }
 
                     // It's second match and types are different
-                    if (firstMatch.getType() == MetricRetention.Type.AGGREGATION
-                        && metricRetention.getType() == MetricRetention.Type.RETENTION
+                    if (firstMatch.getType() == MetricRetentionConfig.Type.AGGREGATION
+                        && metricRetentionConfig.getType() == MetricRetentionConfig.Type.RETENTION
                     ) {
-                        result = getOrMakeCombined(metricRetention, firstMatch);
+                        result = getOrMakeCombined(metricRetentionConfig, firstMatch);
                         return result;
                     }
 
-                    if (firstMatch.getType() == MetricRetention.Type.RETENTION
-                        && metricRetention.getType() == MetricRetention.Type.AGGREGATION
+                    if (firstMatch.getType() == MetricRetentionConfig.Type.RETENTION
+                        && metricRetentionConfig.getType() == MetricRetentionConfig.Type.AGGREGATION
                     ) {
-                        result = getOrMakeCombined(firstMatch, metricRetention);
+                        result = getOrMakeCombined(firstMatch, metricRetentionConfig);
                         return result;
                     }
                 } else {
                     // It's a typeAll retention pattern
-                    return metricRetention;
+                    return metricRetentionConfig.getMetricRetention();
                 }
             }
         }
         throw new IllegalStateException("Retention for metric '" + metric + "' not found");
     }
 
-    private MetricRetention getOrMakeCombined(MetricRetention retention, MetricRetention aggregation) {
+    private MetricRetention getOrMakeCombined(MetricRetentionConfig retention, MetricRetentionConfig aggregation) {
         String rRegexp = retention.getRegexp();
         String aRegexp = aggregation.getRegexp();
         if (combinedRetentions.containsKey(rRegexp)) {
@@ -83,7 +83,7 @@ public class CombinedRetentionProvider implements RetentionProvider {
             if (subMap.containsKey(aRegexp)) {
                 return subMap.get(aRegexp);
             } else {
-                subMap.put(aRegexp,makeCombined(retention, aggregation));
+                subMap.put(aRegexp, makeCombined(retention, aggregation));
                 return subMap.get(aRegexp);
             }
         } else {
@@ -94,12 +94,12 @@ public class CombinedRetentionProvider implements RetentionProvider {
         }
     }
 
-    private MetricRetention makeCombined(MetricRetention retention, MetricRetention aggregation) {
+    private MetricRetention makeCombined(MetricRetentionConfig retention, MetricRetentionConfig aggregation) {
         MetricRetention.MetricDataRetentionBuilder builder = MetricRetention.newBuilder(
-            aggregation.getFunction()
+            aggregation.getMetricRetention().getFunction()
         );
 
-        return builder.build(retention.getRanges());
+        return builder.build(retention.getMetricRetention().getRanges());
     }
 
 }

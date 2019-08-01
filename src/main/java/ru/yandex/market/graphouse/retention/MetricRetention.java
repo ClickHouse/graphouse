@@ -16,64 +16,25 @@ import java.util.stream.Collectors;
  * @date 23.11.16
  */
 public class MetricRetention {
-    private final Pattern regexp;
     private final String function;
-    private final boolean isDefault;
     private final RangeMap<Integer, Integer> ranges;
-    public enum Type {
-        RETENTION(1), AGGREGATION(2), ALL(3);
 
-        private final int t;
-        Type(int t) { this.t = t; }
-    }
-
-    private MetricRetention(Pattern regexp, String function, boolean isDefault) {
-        this.regexp = regexp;
-        this.function = function;
-        this.isDefault = isDefault;
-        this.ranges = TreeRangeMap.create();
-    }
 
     private MetricRetention(String function) {
-        this.regexp = null;
         this.function = function;
-        this.isDefault = false;
         this.ranges = TreeRangeMap.create();
     }
 
     @Override
     public String toString() {
-        return "Main regexp: " + regexp + "; Function: " + function +
-            "; Ranges: " + ranges.toString();
+        return "Function: " + function + "; Ranges: " + ranges.toString();
     }
 
     public String getFunction() {
         return function;
     }
 
-    public String getRegexp() { return regexp.toString(); }
-
     public RangeMap<Integer, Integer> getRanges() { return ranges; }
-
-    public boolean getIsDefault() { return isDefault; }
-
-    public Type getType() {
-        if (function.equals("")) {
-            return Type.RETENTION;
-        }
-        if (ranges.asMapOfRanges().isEmpty()) {
-            return Type.AGGREGATION;
-        }
-        return Type.ALL;
-    }
-
-    boolean matches(String name) {
-        if (isDefault) {
-            return true;
-        }
-
-        return regexp.matcher(name).matches();
-    }
 
     public int getStepSize(int ageSeconds) {
         Integer step = ranges.get(Math.max(ageSeconds, 0));
@@ -83,10 +44,6 @@ public class MetricRetention {
         return step;
     }
 
-    public static MetricDataRetentionBuilder newBuilder(String mainPattern, String function, boolean isDefault) {
-        return new MetricDataRetentionBuilder(mainPattern, function, isDefault);
-    }
-
     public static MetricDataRetentionBuilder newBuilder(String function) {
         return new MetricDataRetentionBuilder(function);
     }
@@ -94,10 +51,6 @@ public class MetricRetention {
     public static class MetricDataRetentionBuilder {
         private Map<Integer, Integer> ageRetentionMap = new HashMap<>();
         private final MetricRetention result;
-
-        public MetricDataRetentionBuilder(String mainPattern, String function, boolean isDefault) {
-            result = new MetricRetention(Pattern.compile(mainPattern), function, isDefault);
-        }
 
         public MetricDataRetentionBuilder(String function) {
             result = new MetricRetention(function);

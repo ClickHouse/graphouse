@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 import ru.yandex.market.graphouse.retention.BaseRetentionProvider;
 import ru.yandex.market.graphouse.retention.MetricRetention;
+import ru.yandex.market.graphouse.retention.MetricRetentionConfig;
 import ru.yandex.market.graphouse.search.MetricStatus;
 import ru.yandex.market.graphouse.search.tree.InMemoryMetricDir;
 import ru.yandex.market.graphouse.search.tree.MetricDir;
@@ -23,8 +24,9 @@ public class MetricDataQueryParamsTest {
     @Before
     public void setUp() throws Exception {
         BaseRetentionProvider retentionProvider = new BaseRetentionProvider(Collections.singletonList(
-            new MetricRetention.MetricDataRetentionBuilder(".*", "avg", true).addRetention(0, 60).build()
-        ));
+            new MetricRetentionConfig(".*", true,
+                new MetricRetention.MetricDataRetentionBuilder("avg").addRetention(0, 60).build()
+        )));
         MetricDir root = new InMemoryMetricDir(null, null, MetricStatus.SIMPLE);
         metric = new MetricName(root, "c", MetricStatus.SIMPLE, retentionProvider);
     }
