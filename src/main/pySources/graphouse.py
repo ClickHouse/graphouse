@@ -65,15 +65,15 @@ class GraphouseMultiFetcher(object):
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout
         ) as e:
-            log.exception("CRITICAL:graphouse_data_query: Connection error: {}"
-                          .format(str(e)))
+            log.warning("CRITICAL:graphouse_data_query: Connection error: {}"
+                        .format(str(e)))
             raise
         except requests.exceptions.HTTPError as e:
-            log.exception("CRITICAL:graphouse_data_query: {}, message: {}"
-                          .format(str(e), request.text))
+            log.warning("CRITICAL:graphouse_data_query: {}, message: {}"
+                        .format(str(e), request.text))
             raise
         except Exception:
-            log.exception("Unexpected exception!", exc_info=True)
+            log.warning("Unexpected exception!", exc_info=True)
             raise
 
         profilingTime['fetch'] = time.time()
@@ -81,7 +81,7 @@ class GraphouseMultiFetcher(object):
         try:
             metrics_object = request.json()
         except Exception:
-            log.exception(
+            log.warning(
                 "CRITICAL:graphouse_parse: "
                 "can't parse json from graphouse answer, got '{}'"
                 .format(request.text)
@@ -271,10 +271,10 @@ class GraphouseFinder(BaseFinder):
         find_results = self.find_multi(patterns, reqkey)
         profilingTime['find'] = time.time()
         log.debug('Results from find_multy={}'
-                  .format([(f[0], f[1]) for f in find_results]))
+                  .format([(f[0], len(f[1])) for f in find_results]))
 
         body_overhead = len('metrics')
-        subreq_len = 0
+        body_size = body_overhead
         subreqs = [GraphouseMultiFetcher()]
 
         subreq = 0
@@ -284,16 +284,16 @@ class GraphouseFinder(BaseFinder):
             for node in nodes:
                 if not isinstance(node, LeafNode):
                     continue
-                node_len = len(node.path) + 1  # additional coma or equal sign
-                body_size = subreq_len + node_len + body_overhead
+                # additional url encoded coma or equal sign
+                node_len = len(requests.utils.quote(node.path)) + 3
+                body_size += node_len
                 if body_size <= max_data_size:
                     subreqs[subreq].append(node)
-                    subreq_len += node_len
                 else:
                     subreqs.append(GraphouseMultiFetcher())
                     subreq += 1
                     subreqs[subreq].append(node)
-                    subreq_len = node_len
+                    body_size = body_overhead
                 results.append(
                     {
                         'pathExpression': pattern,
