@@ -1,5 +1,7 @@
 package ru.yandex.market.graphouse.retention;
 
+import com.google.common.base.Strings;
+
 import java.util.regex.Pattern;
 
 public class MetricRetentionConfig {
@@ -10,8 +12,11 @@ public class MetricRetentionConfig {
     public enum Type {
         RETENTION(1), AGGREGATION(2), ALL(3);
 
-        private final int t;
-        Type(int t) { this.t = t; }
+        private final int type;
+
+        Type(int type) {
+            this.type = type;
+        }
     }
 
     public MetricRetentionConfig(String regexp, boolean isDefault, MetricRetention metricRetention) {
@@ -35,7 +40,7 @@ public class MetricRetentionConfig {
     }
 
     public Type getType() {
-        if (metricRetention.getFunction().equals("")) {
+        if (Strings.isNullOrEmpty(metricRetention.getFunction())) {
             return Type.RETENTION;
         }
         if (metricRetention.getRanges().asMapOfRanges().isEmpty()) {

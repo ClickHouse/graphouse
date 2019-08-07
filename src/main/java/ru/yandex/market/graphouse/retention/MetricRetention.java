@@ -34,7 +34,9 @@ public class MetricRetention {
         return function;
     }
 
-    public RangeMap<Integer, Integer> getRanges() { return ranges; }
+    public RangeMap<Integer, Integer> getRanges() {
+        return ranges;
+    }
 
     public int getStepSize(int ageSeconds) {
         Integer step = ranges.get(Math.max(ageSeconds, 0));
@@ -68,7 +70,7 @@ public class MetricRetention {
         }
 
         public MetricDataRetentionBuilder addRetention(int age, int retention) {
-            if (age == 0 && retention ==0 ) {
+            if (age == 0 && retention == 0) {
                 ageRetentionMap = null;
             } else {
                 ageRetentionMap.put(age, retention);

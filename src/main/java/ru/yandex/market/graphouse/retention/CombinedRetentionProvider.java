@@ -2,6 +2,7 @@ package ru.yandex.market.graphouse.retention;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author Mikhail f. Shiryaev <a href="mailto:mr.felixoid@gmail.com"></a>
@@ -9,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class CombinedRetentionProvider implements RetentionProvider {
     private final List<MetricRetentionConfig> configRetentions;
-    private final ConcurrentHashMap<String, ConcurrentHashMap<String, MetricRetention>> combinedRetentions;
+    private final ConcurrentMap<String, ConcurrentHashMap<String, MetricRetention>> combinedRetentions;
 
     public CombinedRetentionProvider(List<MetricRetentionConfig> configRetentions) {
         this.configRetentions = configRetentions;
@@ -78,20 +79,10 @@ public class CombinedRetentionProvider implements RetentionProvider {
     private MetricRetention getOrMakeCombined(MetricRetentionConfig retention, MetricRetentionConfig aggregation) {
         String rRegexp = retention.getRegexp();
         String aRegexp = aggregation.getRegexp();
-        if (combinedRetentions.containsKey(rRegexp)) {
-            ConcurrentHashMap<String, MetricRetention> subMap = combinedRetentions.get(rRegexp);
-            if (subMap.containsKey(aRegexp)) {
-                return subMap.get(aRegexp);
-            } else {
-                subMap.put(aRegexp, makeCombined(retention, aggregation));
-                return subMap.get(aRegexp);
-            }
-        } else {
-            ConcurrentHashMap<String, MetricRetention> subMap = new ConcurrentHashMap<>();
-            combinedRetentions.put(rRegexp, subMap);
-            subMap.put(aRegexp,makeCombined(retention, aggregation));
-            return subMap.get(aRegexp);
-        }
+        combinedRetentions.computeIfAbsent(rRegexp, k -> new ConcurrentHashMap<>());
+        ConcurrentHashMap<String, MetricRetention> subMap = combinedRetentions.get(rRegexp);
+        subMap.computeIfAbsent(aRegexp, k -> makeCombined(retention, aggregation));
+        return subMap.get(aRegexp);
     }
 
     private MetricRetention makeCombined(MetricRetentionConfig retention, MetricRetentionConfig aggregation) {
