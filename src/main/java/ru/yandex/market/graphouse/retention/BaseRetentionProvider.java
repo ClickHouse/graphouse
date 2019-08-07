@@ -7,17 +7,17 @@ import java.util.List;
  * @date 04/04/2017
  */
 public class BaseRetentionProvider implements RetentionProvider {
-    private final List<MetricRetention> retentions;
+    private final List<MetricRetentionConfig> retentions;
 
-    public BaseRetentionProvider(List<MetricRetention> retentions) {
+    public BaseRetentionProvider(List<MetricRetentionConfig> retentions) {
         this.retentions = retentions;
     }
 
     @Override
     public MetricRetention getRetention(String metric) {
-        for (MetricRetention metricRetention : retentions) {
-            if (metricRetention.matches(metric)) {
-                return metricRetention;
+        for (MetricRetentionConfig metricRetentionConfig : retentions) {
+            if (metricRetentionConfig.matches(metric)) {
+                return metricRetentionConfig.getMetricRetention();
             }
         }
         throw new IllegalStateException("Retention for metric '" + metric + "' not found");
