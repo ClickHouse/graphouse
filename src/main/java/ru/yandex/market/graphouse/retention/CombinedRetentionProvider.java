@@ -79,8 +79,9 @@ public class CombinedRetentionProvider implements RetentionProvider {
     private MetricRetention getOrMakeCombined(MetricRetentionConfig retention, MetricRetentionConfig aggregation) {
         String rRegexp = retention.getRegexp();
         String aRegexp = aggregation.getRegexp();
-        combinedRetentions.computeIfAbsent(rRegexp, k -> new ConcurrentHashMap<>());
-        ConcurrentHashMap<String, MetricRetention> subMap = combinedRetentions.get(rRegexp);
+        ConcurrentHashMap<String, MetricRetention> subMap = combinedRetentions.computeIfAbsent(
+            rRegexp, k -> new ConcurrentHashMap<>()
+        );
         subMap.computeIfAbsent(aRegexp, k -> makeCombined(retention, aggregation));
         return subMap.get(aRegexp);
     }
