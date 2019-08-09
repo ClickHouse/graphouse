@@ -9,12 +9,13 @@ from graphite.logger import log
 from graphite.node import LeafNode, BranchNode
 try:
     from graphite.worker_pool.pool import (
-        Job, get_pool, pool_exec, PoolTimeoutError
+        Job, get_pool, pool_exec as worker_pool_exec
     )
     from graphite.finders.utils import BaseFinder
+    from graphite.storage import Store
 except ImportError:
     # Backward compatibility with older than 1.1
-    BaseFinder = object
+    BaseFinder = Store = object
     log.debug = log.warning = log.info
 
 
@@ -132,7 +133,7 @@ class GraphouseMultiFetcher(object):
             return result
 
 
-class GraphouseFinder(BaseFinder):
+class GraphouseFinder(BaseFinder, Store):
     def _search_request(self, pattern):
         request = requests.post(
             url='{}/search'.format(graphouse_url),
@@ -142,68 +143,20 @@ class GraphouseFinder(BaseFinder):
         result = (pattern, request.text.split('\n'))
         return result
 
-    def _wait_jobs(self, jobs, timeout, context, thread_count=parallel_jobs):
+    def pool_exec(self, jobs, timeout):
         '''
-        Parallel asynchronous execution of jobs.
-        This methode were copied from graphite.storage
+        Overwrite of pool_exec from Store to get another workers pool
         '''
         if not jobs:
             return []
 
-        pool_name = "graphouse"
+        thread_count = 0
         if settings.USE_WORKER_POOL:
-            thread_count = min(thread_count, settings.POOL_MAX_WORKERS)
-        else:
-            thread_count = 0
-        pool = get_pool(name=pool_name, thread_count=thread_count)
-        results = []
-        failed = []
-        done = 0
-        start = time.time()
-        try:
-            for job in pool_exec(pool, jobs, timeout):
-                done += 1
-                elapsed = time.time() - start
-                if job.exception:
-                    failed.append(job)
-                    log.info("Exception during {} after {}s: {}".format(
-                        job, elapsed, str(job.exception))
-                    )
-                else:
-                    log.debug("Got a result for {} after {}s"
-                              .format(job, elapsed))
-                    results.append(job.result)
-        except PoolTimeoutError:
-            message = "Timed out after {}s for {}".format(
-                time.time() - start, context
-            )
-            log.info(message)
-            if done == 0:
-                raise Exception(message)
+            thread_count = min(parallel_jobs, settings.POOL_MAX_WORKERS)
 
-        if len(failed) == done:
-            message = "All requests failed for {} ({})".format(
-                context, len(failed)
-            )
-            for job in failed:
-                message += "\n\n{}: {}: {}".format(
-                    job, job.exception,
-                    '\n'.join(traceback.format_exception(*job.exception_info))
-                )
-            raise Exception(message)
-
-        if len(results) < len(jobs) and settings.STORE_FAIL_ON_ERROR:
-            message = "{} request(s) failed for {} ({})".format(
-                len(jobs) - len(results), context, len(jobs)
-            )
-            for job in failed:
-                message += "\n\n{}: {}: {}".format(
-                    job, job.exception,
-                    '\n'.join(traceback.format_exception(*job.exception_info))
-                )
-            raise Exception(message)
-
-        return results
+        return worker_pool_exec(
+            get_pool('graphouse', thread_count), jobs, timeout
+        )
 
     def find_nodes(self, query):
         '''
@@ -233,7 +186,7 @@ class GraphouseFinder(BaseFinder):
         ]
 
         results = [
-            result for result in self._wait_jobs(
+            result for result in self.wait_jobs(
                 jobs, getattr(settings, 'FIND_TIMEOUT'),
                 'Find nodes for {} request'.format(reqkey)
             )
@@ -318,8 +271,8 @@ class GraphouseFinder(BaseFinder):
         profilingTime['gen_fetch'] = time.time()
 
         # Fetch everything in parallel
-        _ = self._wait_jobs(jobs, getattr(settings, 'FETCH_TIMEOUT'),
-                            'Multifetch for request key {}'.format(reqkey))
+        _ = self.wait_jobs(jobs, getattr(settings, 'FETCH_TIMEOUT'),
+                           'Multifetch for request key {}'.format(reqkey))
         profilingTime['fetch'] = time.time()
 
         for result in results:
