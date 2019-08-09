@@ -15,7 +15,13 @@ try:
     from graphite.storage import Store
 except ImportError:
     # Backward compatibility with older than 1.1
-    BaseFinder = Store = object
+    class BaseFinder(object):
+        def __init__(self):
+            pass
+
+    class Store(object):
+        pass
+
     log.debug = log.warning = log.info
 
 
@@ -33,9 +39,21 @@ class GraphouseMultiFetcher(object):
     def __init__(self):
         self.nodes = []
         self.result = {}
+        self.paths = []
+        self.body_size = len('metrics')
 
     def append(self, node):
-        self.nodes.append(node)
+        path = node.path.replace("'", "\\'")
+        # additional url encoded coma or equal sign
+        node_size = len(requests.utils.quote(path)) + 3
+        if (self.body_size + node_size) <= max_data_size:
+            self.nodes.append(node)
+            self.body_size += node_size
+            self.paths.append(path)
+        else:
+            raise OverflowError(
+                'Maximum body size {} exceeded'.format(max_data_size)
+            )
 
     def fetch(self, path, reqkey, start_time, end_time):
         if path in self.result:
@@ -47,14 +65,12 @@ class GraphouseMultiFetcher(object):
         profilingTime = {'start': time.time()}
 
         try:
-            paths = [node.path.replace("'", "\\'") for node in self.nodes]
-
             query = {
                         'start': start_time,
                         'end': end_time,
                         'reqKey': reqkey
                     }
-            data = {'metrics': ','.join(paths)}
+            data = {'metrics': ','.join(self.paths)}
             request_url = graphouse_url + "/metricData"
             request = requests.post(request_url, params=query, data=data)
 
@@ -68,15 +84,15 @@ class GraphouseMultiFetcher(object):
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout
         ) as e:
-            log.warning("CRITICAL:graphouse_data_query: Connection error: {}"
+            log.warning('CRITICAL:graphouse_data_query: Connection error: {}'
                         .format(str(e)))
             raise
         except requests.exceptions.HTTPError as e:
-            log.warning("CRITICAL:graphouse_data_query: {}, message: {}"
+            log.warning('CRITICAL:graphouse_data_query: {}, message: {}'
                         .format(str(e), request.text))
             raise
         except Exception:
-            log.warning("Unexpected exception!", exc_info=True)
+            log.warning('Unexpected exception!', exc_info=True)
             raise
 
         profilingTime['fetch'] = time.time()
@@ -85,7 +101,7 @@ class GraphouseMultiFetcher(object):
             metrics_object = request.json()
         except Exception:
             log.warning(
-                "CRITICAL:graphouse_parse: "
+                'CRITICAL:graphouse_parse: '
                 "can't parse json from graphouse answer, got '{}'"
                 .format(request.text)
             )
@@ -110,8 +126,8 @@ class GraphouseMultiFetcher(object):
         profilingTime['convert'] = time.time()
 
         log.debug(
-            'DEBUG:graphouse_time:[{}] full = {}'
-            ' fetch = {}, parse = {}, convert = {}'.format(
+            'DEBUG:graphouse_time:[{}] full = {} '
+            'fetch = {}, parse = {}, convert = {}'.format(
                 reqkey,
                 profilingTime['convert'] - profilingTime['start'],
                 profilingTime['fetch'] - profilingTime['start'],
@@ -123,8 +139,8 @@ class GraphouseMultiFetcher(object):
         result = self.result.get(path)
         if result is None:
             log.warning(
-                "WARNING:graphouse_data: something strange:"
-                " path {} doesn't exist in graphouse response".format(path)
+                'WARNING:graphouse_data: something strange: '
+                "path {} doesn't exist in graphouse response".format(path)
             )
             raise ValueError(
                 "path {} doesn't exist in graphouse response".format(path)
@@ -134,6 +150,12 @@ class GraphouseMultiFetcher(object):
 
 
 class GraphouseFinder(BaseFinder, Store):
+    def __init__(self):
+        '''
+        Explicit execution of BaseFinder.__init__ only
+        '''
+        BaseFinder.__init__(self)
+
     def _search_request(self, pattern):
         request = requests.post(
             url='{}/search'.format(graphouse_url),
@@ -171,12 +193,23 @@ class GraphouseFinder(BaseFinder, Store):
             if metric.endswith('.'):
                 yield BranchNode(metric[:-1])
             else:
-                yield LeafNode(metric,
-                               GraphouseReader(metric, fetcher=fetcher))
+                try:
+                    yield LeafNode(
+                        metric,
+                        GraphouseReader(metric, fetcher=fetcher)
+                    )
+                except OverflowError:
+                    fetcher = GraphouseMultiFetcher()
+                    yield LeafNode(
+                        metric,
+                        GraphouseReader(metric, fetcher=fetcher)
+                    )
 
     def find_multi(self, patterns, reqkey=None):
         '''
         This method processed in graphite 1.1 and newer from self.fetch
+        Returns:
+            Generator of (pattern, [nodes])
         '''
         reqkey = reqkey or uuid.uuid4()
         jobs = [
@@ -185,12 +218,10 @@ class GraphouseFinder(BaseFinder, Store):
             for pattern in patterns
         ]
 
-        results = [
-            result for result in self.wait_jobs(
-                jobs, getattr(settings, 'FIND_TIMEOUT'),
-                'Find nodes for {} request'.format(reqkey)
-            )
-        ]
+        results = self.wait_jobs(
+            jobs, getattr(settings, 'FIND_TIMEOUT'),
+            'Find nodes for {} request'.format(reqkey)
+        )
 
         for pattern, metric_names in results:
             leafs = []
@@ -226,36 +257,27 @@ class GraphouseFinder(BaseFinder, Store):
 
         find_results = self.find_multi(patterns, reqkey)
         profilingTime['find'] = time.time()
-        log.debug('Results from find_multy={}'
-                  .format([(f[0], len(f[1])) for f in find_results]))
 
-        body_overhead = len('metrics')
-        body_size = body_overhead
-        subreqs = [GraphouseMultiFetcher()]
+        current_fetcher = GraphouseMultiFetcher()
+        subreqs = [current_fetcher]
 
-        subreq = 0
         for pair in find_results:
             pattern = pair[0]
             nodes = pair[1]
+            log.debug('Results from find_multy={}'.format(pattern, nodes))
             for node in nodes:
-                if not isinstance(node, LeafNode):
-                    continue
-                # additional url encoded coma or equal sign
-                node_len = len(requests.utils.quote(node.path)) + 3
-                body_size += node_len
-                if body_size <= max_data_size:
-                    subreqs[subreq].append(node)
-                else:
-                    subreqs.append(GraphouseMultiFetcher())
-                    subreq += 1
-                    subreqs[subreq].append(node)
-                    body_size = body_overhead
+                try:
+                    current_fetcher.append(node)
+                except OverflowError:
+                    current_fetcher = GraphouseMultiFetcher()
+                    subreqs.append(current_fetcher)
+                    current_fetcher.append(node)
                 results.append(
                     {
                         'pathExpression': pattern,
                         'name': node.path,
                         'path': node.path,
-                        'fetcher': subreqs[subreq],
+                        'fetcher': current_fetcher,
                     }
                 )
 
@@ -266,20 +288,22 @@ class GraphouseFinder(BaseFinder, Store):
                     reqkey, len(sub.nodes)
                 ),
                 sub.nodes[0].path, reqkey, start_time, end_time
-            ) for sub in subreqs
+            ) for sub in subreqs if sub.nodes
         ]
         profilingTime['gen_fetch'] = time.time()
 
         # Fetch everything in parallel
-        _ = self.wait_jobs(jobs, getattr(settings, 'FETCH_TIMEOUT'),
-                           'Multifetch for request key {}'.format(reqkey))
+        _ = self.wait_jobs(
+            jobs,
+            getattr(settings, 'FETCH_TIMEOUT'),
+            'Multifetch for request key {}'.format(reqkey)
+        )
         profilingTime['fetch'] = time.time()
 
         for result in results:
             result['time_info'], result['values'] = result['fetcher'].fetch(
                 result['path'], reqkey, start_time, end_time
             )
-
         profilingTime['fill'] = time.time()
 
         log.debug(
@@ -301,21 +325,15 @@ class GraphouseFinder(BaseFinder, Store):
 
 # Data reader for graphite 1.0 and older
 class GraphouseReader(object):
-    __slots__ = ('path', 'nodes', 'reqkey', 'fetcher')
+    __slots__ = ('path', 'reqkey', 'fetcher')
 
     def __init__(self, path, reqkey=None, fetcher=None):
-        self.nodes = [self]
-        self.path = None
-
-        if fetcher is not None:
-            fetcher.append(self)
+        self.path = path
 
         self.fetcher = fetcher
 
-        if hasattr(path, '__iter__'):
-            self.nodes = path
-        else:
-            self.path = path
+        if fetcher is not None:
+            fetcher.append(self)
 
         self.reqkey = reqkey
 
