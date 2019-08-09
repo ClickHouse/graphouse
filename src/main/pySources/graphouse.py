@@ -19,10 +19,12 @@ except ImportError:
 
 
 graphouse_url = getattr(settings, 'GRAPHOUSE_URL', 'http://localhost:2005')
+# Amount of threads used to fetch data from graphouse
+parallel_jobs = getattr(settings, 'GRAPHOUSE_PARALLEL_JOBS', 2)
 # See graphouse.http.max-form-context-size-bytes property
 max_data_size = getattr(settings, 'GRAPHOUSE_MAX_FORM_SIZE', 500000)
 GRAPHITE_VERSION = tuple(
-    [int(i) for i in getattr(settings, 'WEBAPP_VERSION').split('.')]
+    int(i) for i in getattr(settings, 'WEBAPP_VERSION').split('.')
 )
 
 
@@ -96,12 +98,13 @@ class GraphouseMultiFetcher(object):
                 self.result[node.path] = ((start_time, end_time, 1), [])
             else:
                 self.result[node.path] = (
-                        (
-                            metric_object.get("start"),
-                            metric_object.get("end"),
-                            metric_object.get("step")),
-                        metric_object.get("points"),
-                    )
+                    (
+                        metric_object.get("start"),
+                        metric_object.get("end"),
+                        metric_object.get("step")
+                    ),
+                    metric_object.get("points"),
+                )
 
         profilingTime['convert'] = time.time()
 
@@ -139,7 +142,7 @@ class GraphouseFinder(BaseFinder):
         result = (pattern, request.text.split('\n'))
         return result
 
-    def _wait_jobs(self, jobs, timeout, context, thread_count=2):
+    def _wait_jobs(self, jobs, timeout, context, thread_count=parallel_jobs):
         '''
         Parallel asynchronous execution of jobs.
         This methode were copied from graphite.storage
@@ -316,7 +319,7 @@ class GraphouseFinder(BaseFinder):
 
         # Fetch everything in parallel
         _ = self._wait_jobs(jobs, getattr(settings, 'FETCH_TIMEOUT'),
-                            requestContext)
+                            'Multifetch for request key {}'.format(reqkey))
         profilingTime['fetch'] = time.time()
 
         for result in results:
