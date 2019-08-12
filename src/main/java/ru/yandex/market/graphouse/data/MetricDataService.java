@@ -28,13 +28,16 @@ public class MetricDataService {
     private final JdbcTemplate clickHouseJdbcTemplate;
     private final String graphiteDataReadTable;
     private final int maxPointsPerMetric;
+    private final boolean useSharding;
 
     public MetricDataService(MetricSearch metricSearch, JdbcTemplate clickHouseJdbcTemplate,
-                             String graphiteDataReadTable, int maxPointsPerMetric) {
+                             String graphiteDataReadTable, int maxPointsPerMetric,
+                             boolean useSharding) {
         this.metricSearch = metricSearch;
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.graphiteDataReadTable = graphiteDataReadTable;
         this.maxPointsPerMetric = maxPointsPerMetric;
+        this.useSharding = useSharding;
     }
 
 
@@ -68,13 +71,26 @@ public class MetricDataService {
 
         MetricDataRowCallbackHandler handler = new MetricDataRowCallbackHandler(jsonWriter, queryParams, metricsSet);
 
-        clickHouseJdbcTemplate.query(
-            "SELECT metric, ts, " + function + "(value) as value FROM (" +
-                "   SELECT metric, ts, argMax(value, updated) as value FROM " + graphiteDataReadTable +
+        String query;
+        if (this.useSharding) {
+            query = "SELECT metric, ts, " + function + "(value) as value FROM (" +
+                "   SELECT metric, timestamp as ts, value FROM " + graphiteDataReadTable +
                 "       WHERE metric IN (" + metricString + ")" +
                 "           AND ts >= ? AND ts < ? AND date >= toDate(?) AND date <= toDate(?)" +
-                "       GROUP BY metric, timestamp as ts" +
-                ") GROUP BY metric, intDiv(toUInt32(ts), ?) * ? as ts ORDER BY metric, ts",
+                ") GROUP BY metric, intDiv(toUInt32(ts), ?) * ? as ts ORDER BY metric, ts";
+        } else {
+            query = "SELECT metric, ts, " + function + "(value) as value FROM (" +
+                "   SELECT metric, timestamp as ts, argMax(value, updated) as value FROM " + graphiteDataReadTable +
+                "       WHERE metric IN (" + metricString + ")" +
+                "           AND ts >= ? AND ts < ? AND date >= toDate(?) AND date <= toDate(?)" +
+                "       GROUP BY metric, ts" +
+                ") GROUP BY metric, intDiv(toUInt32(ts), ?) * ? as ts ORDER BY metric, ts";
+        }
+
+
+
+        clickHouseJdbcTemplate.query(
+            query,
             handler,
             queryParams.getStartTimeSeconds(), queryParams.getEndTimeSeconds(),
             queryParams.getStartTimeSeconds(), queryParams.getEndTimeSeconds(),
