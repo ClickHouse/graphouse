@@ -15,6 +15,7 @@ import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricSearchServlet;
 import ru.yandex.market.graphouse.server.MetricFactory;
 import ru.yandex.market.graphouse.server.MetricServer;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
 
 /**
  * @author Vlad Vinogradov <a href="mailto:vladvin@yandex-team.ru"></a> on 10.01.17
@@ -39,6 +40,9 @@ public class ServerConfig {
     private Monitoring monitoring;
 
     @Autowired
+    private StatisticsService statisticsService;
+
+    @Autowired
     @Qualifier("ping")
     private Monitoring ping;
 
@@ -47,7 +51,9 @@ public class ServerConfig {
         @Value("${graphouse.metric-data.max-metrics-per-query}") int maxMetricsPerQuery,
         @Value("${graphouse.http.response-buffer-size-bytes}") int responseBufferSizeBytes) {
 
-        MetricSearchServlet metricSearchServlet = new MetricSearchServlet(metricSearch);
+        final MetricSearchServlet metricSearchServlet = new MetricSearchServlet(
+            metricSearch, statisticsService
+        );
 
         MonitoringServlet monitoringServlet = new MonitoringServlet(monitoring, ping);
 
