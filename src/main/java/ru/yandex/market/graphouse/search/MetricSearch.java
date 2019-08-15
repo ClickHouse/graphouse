@@ -244,47 +244,6 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     }
 
-    public DirContent loadDirContent(MetricDir dir) {
-        ConcurrentMap<String, MetricDir> dirs = new ConcurrentHashMap<>();
-        ConcurrentMap<String, MetricName> metrics = new ConcurrentHashMap<>();
-
-        Stopwatch stopwatch = Stopwatch.createStarted();
-        String dirName = dir.getName();
-        clickHouseJdbcTemplate.query(
-            "SELECT name, argMax(status, updated) AS last_status FROM " + metricsTable +
-                " PREWHERE parent = ? WHERE status != ? GROUP BY name",
-            rs -> {
-                String fullName = rs.getString("name");
-                if (!metricValidator.validate(fullName, true)) {
-                    log.warn("Invalid metric in db: " + fullName);
-                    return;
-                }
-
-                MetricStatus status = MetricStatus.valueOf(rs.getString("last_status"));
-                String name = MetricUtil.getLastLevelName(fullName).intern();
-
-                if (MetricUtil.isDir(fullName)) {
-                    dirs.put(name, metricDirFactory.createMetricDir(dir, name, status));
-                } else {
-                    metrics.put(name, new MetricName(dir, name, status, retentionProvider));
-                }
-            },
-            dirName, MetricStatus.AUTO_HIDDEN.name()
-        );
-
-        stopwatch.stop();
-
-        log.info(
-            "Loaded metrics for dir " + dirName
-                + " (" + dirs.size() + " dirs, " + metrics.size() + " metrics) in " + stopwatch.toString()
-        );
-
-        numberOfLoadedMetrics.addAndGet(metrics.size());
-
-        return new DirContent(dirs, metrics);
-    }
-
-
     private class DirContentRequestRowCallbackHandler implements RowCallbackHandler {
 
         private final Map<String, MetricDir> dirNames;
