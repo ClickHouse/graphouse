@@ -84,11 +84,13 @@ public class DirContentBatcher {
         public void run() {
             requestSemaphore.acquireUninterruptibly();
             try {
-                currentBatch.getAndUpdate(batch -> (batch == this) ? null : batch); //Removing this batch from current
+                currentBatch.getAndUpdate(batch -> (batch == this) ? null : batch); // Removing this batch from current
                 Map<MetricDir, DirContent> dirsContent = metricSearch.loadDirsContent(requests.keySet());
+
                 for (Map.Entry<MetricDir, DirContent> dirDirContentEntry : dirsContent.entrySet()) {
                     requests.remove(dirDirContentEntry.getKey()).set(dirDirContentEntry.getValue());
                 }
+
                 if (!requests.isEmpty()) {
                     log.error(requests.size() + " requests without data for dirs: " + requests.entrySet());
                     throw new IllegalStateException("No data for dirs");

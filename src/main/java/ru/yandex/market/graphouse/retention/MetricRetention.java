@@ -16,22 +16,26 @@ import java.util.stream.Collectors;
  * @date 23.11.16
  */
 public class MetricRetention {
-    private final Pattern pattern;
     private final String function;
     private final RangeMap<Integer, Integer> ranges;
 
-    private MetricRetention(Pattern pattern, String function) {
-        this.pattern = pattern;
+
+    private MetricRetention(String function) {
         this.function = function;
         this.ranges = TreeRangeMap.create();
+    }
+
+    @Override
+    public String toString() {
+        return "Function: " + function + "; Ranges: " + ranges.toString();
     }
 
     public String getFunction() {
         return function;
     }
 
-    boolean matches(String name) {
-        return pattern.matcher(name).matches();
+    public RangeMap<Integer, Integer> getRanges() {
+        return ranges;
     }
 
     public int getStepSize(int ageSeconds) {
@@ -42,16 +46,16 @@ public class MetricRetention {
         return step;
     }
 
-    public static MetricDataRetentionBuilder newBuilder(String pattern, String function) {
-        return new MetricDataRetentionBuilder(pattern, function);
+    public static MetricDataRetentionBuilder newBuilder(String function) {
+        return new MetricDataRetentionBuilder(function);
     }
 
     public static class MetricDataRetentionBuilder {
-        private final Map<Integer, Integer> ageRetentionMap = new HashMap<>();
+        private Map<Integer, Integer> ageRetentionMap = new HashMap<>();
         private final MetricRetention result;
 
-        public MetricDataRetentionBuilder(String pattern, String function) {
-            result = new MetricRetention(Pattern.compile(pattern), function);
+        public MetricDataRetentionBuilder(String function) {
+            result = new MetricRetention(function);
         }
 
         public MetricRetention build() {
@@ -59,13 +63,27 @@ public class MetricRetention {
             return result;
         }
 
+        public MetricRetention build(RangeMap<Integer, Integer> ranges) {
+            result.ranges.clear();
+            result.ranges.putAll(ranges);
+            return result;
+        }
+
         public MetricDataRetentionBuilder addRetention(int age, int retention) {
-            ageRetentionMap.put(age, retention);
+            if (age == 0 && retention == 0) {
+                ageRetentionMap = null;
+            } else {
+                ageRetentionMap.put(age, retention);
+            }
             return this;
         }
 
         private void refillRetentions() {
             result.ranges.clear();
+
+            if (ageRetentionMap == null) {
+                return;
+            }
 
             int counter = 0;
             final int valuesMaxIndex = ageRetentionMap.values().size() - 1;

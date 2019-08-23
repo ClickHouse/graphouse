@@ -5,7 +5,9 @@ LOG_DIR = '/var/log/graphite'
 SECRET_KEY = '$(date +%s | sha256sum | base64 | head -c 64)'
 
 if (os.getenv("MEMCACHE_HOSTS") is not None):
-    MEMCACHE_HOSTS = [host.strip() for host in os.getenv("MEMCACHE_HOSTS").split(',')]
+    MEMCACHE_HOSTS = [
+        host.strip() for host in os.getenv("MEMCACHE_HOSTS").split(',')
+    ]
 
 if (os.getenv("DEFAULT_CACHE_DURATION") is not None):
     DEFAULT_CACHE_DURATION = int(os.getenv("CACHE_DURATION"))
@@ -44,5 +46,7 @@ LOGGING = {
     },
 }
 
-if (os.path.exists("/opt/graphite/webapp/graphite/additional_local_settings.py")):
-    from graphite.additional_local_settings import *
+if (os.path.exists(
+    "/opt/graphite/webapp/graphite/additional_local_settings.py"
+)):
+    from graphite.additional_local_settings import *  # noqa: F403, F401

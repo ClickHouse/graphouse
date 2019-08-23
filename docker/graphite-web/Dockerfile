@@ -1,19 +1,23 @@
 FROM ubuntu:xenial
 
+ARG graphouse_branch=master
+ARG graphite_branch=1.1.5
+
 RUN apt-get -y update && \
-    apt-get -y install python-dev python-pip libcairo2-dev libffi-dev python-requests build-essential && \
-    apt-get -y install git nginx uwsgi sqlite3 curl nano net-tools telnet bind9-host psmisc
+    apt-get -y install python3-dev python3-pip libcairo2-dev libffi-dev libpq-dev python3-requests build-essential && \
+    apt-get -y install git nginx uwsgi sqlite3 curl nano net-tools telnet bind9-host psmisc && \
+    apt-get clean
 
 
-RUN git clone -b 1.0.2 --depth 1 https://github.com/graphite-project/graphite-web.git /usr/local/src/graphite-web && \
-    git clone https://github.com/yandex/graphouse.git /usr/local/src/graphouse
+RUN git clone -b $graphite_branch --depth 1 https://github.com/graphite-project/graphite-web.git /usr/local/src/graphite-web && \
+    git clone -b $graphouse_branch --depth 1 https://github.com/yandex/graphouse.git /usr/local/src/graphouse
 
 WORKDIR /usr/local/src/graphite-web
 
 
 RUN sed -i -e 's/whitenoise/whitenoise==3.3.1/g; s/cairocffi/cairocffi==0.9.0/g' requirements.txt  && \
-  pip install -r requirements.txt psycopg2 futures tornado gevent eventlet && \
- python ./setup.py install
+ pip3 install -r requirements.txt psycopg2 tornado gevent eventlet && \
+ python3 ./setup.py install
 
 WORKDIR /opt/graphite/webapp
 RUN mkdir -p /var/log/graphite/ && \

@@ -26,6 +26,8 @@ import ru.yandex.market.graphouse.search.tree.MetricDir;
 import ru.yandex.market.graphouse.search.tree.MetricDirFactory;
 import ru.yandex.market.graphouse.search.tree.MetricName;
 import ru.yandex.market.graphouse.search.tree.MetricTree;
+import ru.yandex.market.graphouse.statistics.InstantMetric;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
 import ru.yandex.market.graphouse.utils.AppendableList;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 import ru.yandex.market.graphouse.utils.AppendableWrapper;
@@ -67,7 +69,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private final Monitoring ping;
     private final MetricValidator metricValidator;
     private final RetentionProvider retentionProvider;
-
+    private final StatisticsService statisticsService;
 
     private final MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
     private final MonitoringUnit metricTreeInitUnit = new MonitoringUnit("MetricTreeInit");
@@ -116,14 +118,20 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private DirContentBatcher dirContentBatcher;
 
+    AtomicInteger numberOfLoadedMetrics = new AtomicInteger();
 
     public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring, Monitoring ping,
-                        MetricValidator metricValidator, RetentionProvider retentionProvider) {
+                        MetricValidator metricValidator, RetentionProvider retentionProvider,
+                        StatisticsService statisticsService) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
         this.ping = ping;
         this.metricValidator = metricValidator;
         this.retentionProvider = retentionProvider;
+        this.statisticsService = statisticsService;
+
+        this.statisticsService.registerInstantMetric(InstantMetric.NUMBER_OF_LOADED_METRICS,
+            () -> (double) numberOfLoadedMetrics.get());
         monitoring.addUnit(metricSearchUnit);
         metricSearchUnit.setWarningTimeout(3 * saveIntervalSeconds, TimeUnit.SECONDS);
         metricSearchUnit.setCriticalTimeout(10 * saveIntervalSeconds, TimeUnit.SECONDS);
@@ -213,7 +221,6 @@ public class MetricSearch implements InitializingBean, Runnable {
     }
 
     public Map<MetricDir, DirContent> loadDirsContent(Set<MetricDir> dirs) {
-
         Stopwatch stopwatch = Stopwatch.createStarted();
 
         String dirFilter = dirs.stream().map(MetricDir::getName).collect(Collectors.joining("','", "'", "'"));
@@ -226,13 +233,15 @@ public class MetricSearch implements InitializingBean, Runnable {
             MetricStatus.AUTO_HIDDEN.name()
         );
 
-
         stopwatch.stop();
         log.info(
             "Loaded metrics for " + dirs.size() + " dirs: " + dirs
                 + " (" + metricHandler.getDirCount() + " dirs, "
                 + metricHandler.getMetricCount() + " metrics) in " + stopwatch.toString()
         );
+
+        numberOfLoadedMetrics.addAndGet(metricHandler.getMetricCount());
+
         return metricHandler.getResult();
 
     }

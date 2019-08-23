@@ -2,6 +2,8 @@ package ru.yandex.market.graphouse.search;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import ru.yandex.market.graphouse.statistics.AccumulatedMetric;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -18,13 +20,17 @@ public class MetricSearchServlet extends HttpServlet {
 
     private static final Logger log = LogManager.getLogger();
     private final MetricSearch metricSearch;
+    private final StatisticsService statisticsService;
 
-    public MetricSearchServlet(MetricSearch metricSearch) {
+    public MetricSearchServlet(MetricSearch metricSearch, StatisticsService statisticsService) {
         this.metricSearch = metricSearch;
+        this.statisticsService = statisticsService;
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        statisticsService.accumulateMetric(AccumulatedMetric.NUMBER_OF_WEB_REQUESTS, 1);
+
         if (isServerNotReady()) {
             respondMetricsNotLoaded(resp);
             return;
