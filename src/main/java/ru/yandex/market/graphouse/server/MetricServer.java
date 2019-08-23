@@ -45,6 +45,8 @@ public class MetricServer implements InitializingBean {
     @Value("${graphouse.cacher.read-batch-size}")
     private int readBatchSize;
 
+    @Value("${graphouse.log.remote-socket-address:false}")
+    private boolean shouldLogRemoteSocketAddress;
 
     private ServerSocket serverSocket;
     private ExecutorService executorService;
@@ -62,13 +64,16 @@ public class MetricServer implements InitializingBean {
         log.info("Starting metric server on port: " + port);
         serverSocket = new ServerSocket();
         SocketAddress socketAddress;
+
         if (Strings.isNullOrEmpty(bindAddress)) {
             socketAddress = new InetSocketAddress(port);
         } else {
             socketAddress = new InetSocketAddress(bindAddress, port);
         }
         serverSocket.bind(socketAddress);
+
         log.info("Starting " + threadCount + " metric server threads");
+
         executorService = Executors.newFixedThreadPool(threadCount);
         for (int i = 0; i < threadCount; i++) {
             executorService.submit(new MetricServerWorker());
@@ -107,6 +112,11 @@ public class MetricServer implements InitializingBean {
         private void read() throws IOException {
             metrics.clear();
             Socket socket = serverSocket.accept();
+
+            if (shouldLogRemoteSocketAddress) {
+                log.info("Connection accepted. Client's address: '{}'", socket.getRemoteSocketAddress().toString());
+            }
+
             try {
                 socket.setSoTimeout(socketTimeoutMillis);
                 socket.setKeepAlive(false);
