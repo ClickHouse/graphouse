@@ -5,7 +5,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
-import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
 
 import java.io.BufferedReader;
@@ -134,17 +133,7 @@ public class MetricServer implements InitializingBean {
                         (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
                     ));
                     if (metrics.size() >= readBatchSize) {
-                        writersExecutorService.submit(
-                            () -> metricCacher.submitMetrics(
-                                metrics.stream()
-                                    .map(unparsedLine -> metricFactory.createMetric(
-                                        unparsedLine.line,
-                                        unparsedLine.updatedSeconds
-                                    ))
-                                    .collect(Collectors.toList())
-                            )
-                        );
-                        metrics = new ArrayList<>(readBatchSize);
+                        submitAndClearMetrics();
                     }
                 }
             } catch (SocketTimeoutException e) {
@@ -152,7 +141,20 @@ public class MetricServer implements InitializingBean {
             } finally {
                 socket.close();
             }
-            writersExecutorService.submit(() -> metricCacher.submitMetrics(metrics));
+            submitAndClearMetrics();
+        }
+
+        private void submitAndClearMetrics() {
+            writersExecutorService.submit(
+                () -> metricCacher.submitMetrics(
+                    metrics.stream()
+                        .map(unparsedLine -> metricFactory.createMetric(
+                            unparsedLine.line,
+                            unparsedLine.updatedSeconds
+                        ))
+                        .collect(Collectors.toList())
+                )
+            );
             metrics = new ArrayList<>(readBatchSize);
         }
     }
