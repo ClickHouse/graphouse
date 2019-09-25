@@ -49,7 +49,8 @@ public class MetricServer implements InitializingBean {
     private boolean shouldLogRemoteSocketAddress;
 
     private ServerSocket serverSocket;
-    private ExecutorService executorService;
+    private ExecutorService readersExecutorService;
+    private ExecutorService writersExecutorService;
 
     private final MetricCacher metricCacher;
     private final MetricFactory metricFactory;
@@ -74,15 +75,19 @@ public class MetricServer implements InitializingBean {
 
         log.info("Starting " + threadCount + " metric server threads");
 
-        executorService = Executors.newFixedThreadPool(threadCount);
+        readersExecutorService = Executors.newFixedThreadPool(threadCount);
         for (int i = 0; i < threadCount; i++) {
-            executorService.submit(new MetricServerWorker());
+            readersExecutorService.submit(new MetricServerWorker());
         }
+
+        writersExecutorService = Executors.newFixedThreadPool(threadCount);
+
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {
                 log.info("Shutting down metric server");
-                executorService.shutdownNow();
+                readersExecutorService.shutdownNow();
+                writersExecutorService.shutdownNow();
                 try {
                     serverSocket.close();
                 } catch (IOException ignored) {
@@ -95,7 +100,7 @@ public class MetricServer implements InitializingBean {
 
     private class MetricServerWorker implements Runnable {
 
-        private final List<Metric> metrics = new ArrayList<>(readBatchSize);
+        private List<Metric> metrics = new ArrayList<>(readBatchSize);
 
         @Override
         public void run() {
@@ -128,8 +133,8 @@ public class MetricServer implements InitializingBean {
                     if (metric != null) {
                         metrics.add(metric);
                         if (metrics.size() >= readBatchSize) {
-                            metricCacher.submitMetrics(metrics);
-                            metrics.clear();
+                            writersExecutorService.submit(() -> metricCacher.submitMetrics(metrics));
+                            metrics = new ArrayList<>(readBatchSize);
                         }
                     }
                 }
@@ -138,8 +143,8 @@ public class MetricServer implements InitializingBean {
             } finally {
                 socket.close();
             }
-            metricCacher.submitMetrics(metrics);
-            metrics.clear();
+            writersExecutorService.submit(() -> metricCacher.submitMetrics(metrics));
+            metrics = new ArrayList<>(readBatchSize);
         }
     }
 
