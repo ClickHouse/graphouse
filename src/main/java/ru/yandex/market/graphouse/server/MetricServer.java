@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -49,7 +50,8 @@ public class MetricServer implements InitializingBean {
     private boolean shouldLogRemoteSocketAddress;
 
     private ServerSocket serverSocket;
-    private ExecutorService executorService;
+    private ExecutorService readersExecutorService;
+    private ExecutorService writersExecutorService;
 
     private final MetricCacher metricCacher;
     private final MetricFactory metricFactory;
@@ -74,15 +76,19 @@ public class MetricServer implements InitializingBean {
 
         log.info("Starting " + threadCount + " metric server threads");
 
-        executorService = Executors.newFixedThreadPool(threadCount);
+        readersExecutorService = Executors.newFixedThreadPool(threadCount);
         for (int i = 0; i < threadCount; i++) {
-            executorService.submit(new MetricServerWorker());
+            readersExecutorService.submit(new MetricServerWorker());
         }
+
+        writersExecutorService = Executors.newFixedThreadPool(threadCount);
+
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {
                 log.info("Shutting down metric server");
-                executorService.shutdownNow();
+                readersExecutorService.shutdownNow();
+                writersExecutorService.shutdownNow();
                 try {
                     serverSocket.close();
                 } catch (IOException ignored) {
@@ -95,7 +101,7 @@ public class MetricServer implements InitializingBean {
 
     private class MetricServerWorker implements Runnable {
 
-        private final List<Metric> metrics = new ArrayList<>(readBatchSize);
+        private List<UnparsedLine> metrics = new ArrayList<>(readBatchSize);
 
         @Override
         public void run() {
@@ -123,14 +129,22 @@ public class MetricServer implements InitializingBean {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    int updatedSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()));
-                    Metric metric = metricFactory.createMetric(line, updatedSeconds);
-                    if (metric != null) {
-                        metrics.add(metric);
-                        if (metrics.size() >= readBatchSize) {
-                            metricCacher.submitMetrics(metrics);
-                            metrics.clear();
-                        }
+                    metrics.add(new UnparsedLine(
+                        line,
+                        (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
+                    ));
+                    if (metrics.size() >= readBatchSize) {
+                        writersExecutorService.submit(
+                            () -> metricCacher.submitMetrics(
+                                metrics.stream()
+                                    .map(unparsedLine -> metricFactory.createMetric(
+                                        unparsedLine.line,
+                                        unparsedLine.updatedSeconds
+                                    ))
+                                    .collect(Collectors.toList())
+                            )
+                        );
+                        metrics = new ArrayList<>(readBatchSize);
                     }
                 }
             } catch (SocketTimeoutException e) {
@@ -138,8 +152,18 @@ public class MetricServer implements InitializingBean {
             } finally {
                 socket.close();
             }
-            metricCacher.submitMetrics(metrics);
-            metrics.clear();
+            writersExecutorService.submit(() -> metricCacher.submitMetrics(metrics));
+            metrics = new ArrayList<>(readBatchSize);
+        }
+    }
+
+    private static class UnparsedLine {
+        final String line;
+        final int updatedSeconds;
+
+        private UnparsedLine(String line, int updatedSeconds) {
+            this.line = line;
+            this.updatedSeconds = updatedSeconds;
         }
     }
 
