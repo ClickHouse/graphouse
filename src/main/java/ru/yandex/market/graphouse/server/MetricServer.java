@@ -145,9 +145,11 @@ public class MetricServer implements InitializingBean {
         }
 
         private void submitAndClearMetrics() {
+            List<UnparsedLine> metricsToParseAndSave = metrics;
+            metrics = new ArrayList<>(readBatchSize);
             writersExecutorService.submit(
                 () -> metricCacher.submitMetrics(
-                    metrics.stream()
+                    metricsToParseAndSave.stream()
                         .map(unparsedLine -> metricFactory.createMetric(
                             unparsedLine.line,
                             unparsedLine.updatedSeconds
@@ -155,7 +157,6 @@ public class MetricServer implements InitializingBean {
                         .collect(Collectors.toList())
                 )
             );
-            metrics = new ArrayList<>(readBatchSize);
         }
     }
 
