@@ -17,6 +17,7 @@ import java.net.SocketAddress;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -167,6 +168,7 @@ public class MetricServer implements InitializingBean {
                             unparsedLine.line,
                             unparsedLine.updatedSeconds
                         ))
+                        .filter(Objects::nonNull)
                         .collect(Collectors.toList())
                 )
             );
