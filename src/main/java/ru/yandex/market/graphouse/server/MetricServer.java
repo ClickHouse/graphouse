@@ -17,8 +17,10 @@ import java.net.SocketAddress;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -80,7 +82,18 @@ public class MetricServer implements InitializingBean {
             readersExecutorService.submit(new MetricServerWorker());
         }
 
-        writersExecutorService = Executors.newFixedThreadPool(threadCount);
+        writersExecutorService = new ThreadPoolExecutor(
+            threadCount,
+            threadCount,
+            1, TimeUnit.SECONDS,
+            // Queue is limited so that we won't eat all available memory if we are reading metrics from sockets faster
+            // than we are able to write them to ClickHouse.
+            new ArrayBlockingQueue<>(10 * threadCount),
+            // Whenever a task is rejected because the task queue is full we will run it in the thread that attempted to
+            // enqueue it. This ensures that (1) we won't just ignore rejected tasks and (2) we will stop reading new
+            // metrics from sockets when the queue is full.
+            new ThreadPoolExecutor.CallerRunsPolicy()
+        );
 
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
