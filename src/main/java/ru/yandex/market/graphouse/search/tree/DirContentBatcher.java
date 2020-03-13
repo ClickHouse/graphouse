@@ -8,6 +8,7 @@ import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -83,9 +84,11 @@ public class DirContentBatcher {
         @Override
         public void run() {
             requestSemaphore.acquireUninterruptibly();
+            Set<MetricDir> dirs = requests.keySet();
             try {
                 currentBatch.getAndUpdate(batch -> (batch == this) ? null : batch); // Removing this batch from current
-                Map<MetricDir, DirContent> dirsContent = metricSearch.loadDirsContent(requests.keySet());
+                Map<MetricDir, DirContent> dirsContent = metricSearch.loadDirsContent(dirs);
+                log.info("Dirs: '{}'\nDirsContent: '{}' ", dirs, dirsContent);
 
                 for (Map.Entry<MetricDir, DirContent> dirDirContentEntry : dirsContent.entrySet()) {
                     requests.remove(dirDirContentEntry.getKey()).set(dirDirContentEntry.getValue());
@@ -96,7 +99,7 @@ public class DirContentBatcher {
                     throw new IllegalStateException("No data for dirs");
                 }
             } catch (Exception e) {
-                log.error("Failed to load content for dirs: " + requests.keySet(), e);
+                log.error("Failed to load content for dirs: " + dirs, e);
 
                 for (SettableFuture<DirContent> settableFuture : requests.values()) {
                     settableFuture.setException(e);
