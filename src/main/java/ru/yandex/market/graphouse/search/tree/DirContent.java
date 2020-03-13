@@ -37,4 +37,12 @@ public class DirContent {
     public static DirContent createEmpty() {
         return new DirContent(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
+
+    @Override
+    public String toString() {
+        return "DirContent{" +
+            "dirs=" + dirs +
+            ", metrics=" + metrics +
+            '}';
+    }
 }
