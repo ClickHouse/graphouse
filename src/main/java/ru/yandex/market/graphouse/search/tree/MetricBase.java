@@ -83,7 +83,13 @@ public abstract class MetricBase implements MetricDescription {
 
     @Override
     public String toString() {
-        return getName();
+        return "MetricBase{" +
+            "parent=" + parent +
+            ", name='" + name + '\'' +
+            ", updateTimeMillis=" + updateTimeMillis +
+            ", status=" + status +
+            ", visible=" + status.visible() +
+            '}';
     }
 
     @Override

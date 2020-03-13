@@ -148,4 +148,12 @@ public abstract class MetricDir extends MetricBase {
             return count;
         });
     }
+
+    @Override
+    public String toString() {
+        return "MetricDir{" +
+            "parent=" + parent +
+            ", name='" + name + '\'' +
+            '}';
+    }
 }
