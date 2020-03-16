@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.nio.file.PathMatcher;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -216,5 +215,35 @@ public class MetricTreeTest {
             ),
             dirList.getList().stream().map(MetricDescription::getName).collect(Collectors.toList())
         );
+    }
+
+    @Test
+    public void randomOrderStatusOnLoadTest() throws IOException {
+        globalTree.modify("one_min.", MetricStatus.SIMPLE);
+        globalTree.modify("five_min.", MetricStatus.SIMPLE);
+
+        globalTree.modify("one_min.one.", MetricStatus.BAN);
+        globalTree.modify("one_min.two.", MetricStatus.SIMPLE);
+        globalTree.modify("one_min.three.", MetricStatus.SIMPLE);
+
+        globalTree.modify("five_min.one.", MetricStatus.SIMPLE);
+        globalTree.modify("five_min.two.", MetricStatus.BAN);
+        globalTree.modify("five_min.three.", MetricStatus.BAN);
+
+        search("*", "five_min.", "one_min.");
+    }
+
+    @Test
+    public void autoHideMetricTest() throws IOException {
+        globalTree.modify("one_min.", MetricStatus.SIMPLE);
+        globalTree.modify("one_min.one.", MetricStatus.SIMPLE);
+
+        globalTree.modify("five_min.", MetricStatus.SIMPLE);
+        globalTree.modify("five_min.one.", MetricStatus.SIMPLE);
+
+        search("*", "five_min.", "one_min.");
+
+        globalTree.modify("five_min.one.", MetricStatus.AUTO_HIDDEN);
+        search("*", "one_min.");
     }
 }
