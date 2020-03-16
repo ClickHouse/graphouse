@@ -2,8 +2,6 @@ package ru.yandex.market.graphouse.search.tree;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
 import ru.yandex.market.graphouse.search.MetricPath;
@@ -24,7 +22,6 @@ import java.util.regex.PatternSyntaxException;
  */
 public class MetricTree {
 
-    private static final Logger log = LogManager.getLogger();
     public static final String ALL_PATTERN = "*";
 
     private static final CharMatcher EXPRESSION_MATCHER = CharMatcher.anyOf(ALL_PATTERN + "?[]{}");
@@ -51,7 +48,6 @@ public class MetricTree {
 
     public void search(String query, AppendableResult result) throws IOException {
         String[] levels = MetricUtil.splitToLevels(query);
-        log.info("MetricTree: search query: '{}', levels: '{}'", query, levels);
         search(root, levels, 0, result);
     }
 
@@ -69,16 +65,11 @@ public class MetricTree {
         if (parentDir == null || !parentDir.visible()) {
             return;
         }
-
         boolean isLast = (levelIndex == levels.length - 1);
         String level = levels[levelIndex];
         boolean isPattern = containsExpressions(level);
 
 
-        log.info(
-            "MetricTree: ParentDir: '{}', CurrentLevelIndex: '{}', isLast: '{}', isPattern: '{}', \nResult: '{}'",
-            parentDir, levelIndex, isLast, isPattern, result
-        );
         if (!isPattern) {
             if (parentDir.hasDirs()) {
                 if (isLast) {
@@ -128,11 +119,9 @@ public class MetricTree {
 
     private void appendLimitNotificationsIfNeeded(MetricDir parentDir, AppendableResult result) throws IOException {
         if (maxSubDirsPerDir > 0 && parentDir.hasDirs() && parentDir.getDirs().size() >= maxSubDirsPerDir) {
-            log.info("LimitNotifications: parentDir: '{}', '{}'", parentDir, subdirsPerDirLimitMessage);
             result.appendMetric(new NotificationMetric(parentDir, subdirsPerDirLimitMessage));
         }
         if (maxMetricsPerDir > 0 && parentDir.hasMetrics() && parentDir.getMetrics().size() >= maxMetricsPerDir) {
-            log.info("LimitNotifications: parentDir: '{}', '{}'", parentDir, metricsPerDirLimitMessage);
             result.appendMetric(new NotificationMetric(parentDir, metricsPerDirLimitMessage));
         }
     }
@@ -163,7 +152,6 @@ public class MetricTree {
     }
 
     private static void appendResult(MetricBase metricBase, AppendableResult result) throws IOException {
-        log.info("MetricBase: '{}', ", metricBase);
         if (metricBase != null && metricBase.visible()) {
             result.appendMetric(metricBase);
         }
