@@ -148,9 +148,4 @@ public abstract class MetricDir extends MetricBase {
             return count;
         });
     }
-
-    @Override
-    public String toString() {
-        return getName();
-    }
 }
