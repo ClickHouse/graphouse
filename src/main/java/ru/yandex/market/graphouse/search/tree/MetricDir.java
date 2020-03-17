@@ -6,6 +6,7 @@ import ru.yandex.market.graphouse.search.MetricStatus;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -133,18 +134,8 @@ public abstract class MetricDir extends MetricBase {
     }
 
     private int calculateVisibleCounter() {
-        int count = 0;
-        for (MetricDir metricDir : getDirs().values()) {
-            if (metricDir.visible()) {
-                count++;
-            }
-        }
-
-        for (MetricName metricName : getMetrics().values()) {
-            if (metricName.visible()) {
-                count++;
-            }
-        }
-        return count;
+        return (int) Stream.concat(getDirs().values().stream(), getMetrics().values().stream())
+            .filter(MetricBase::visible)
+            .count();
     }
 }

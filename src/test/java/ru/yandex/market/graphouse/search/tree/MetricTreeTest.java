@@ -217,6 +217,11 @@ public class MetricTreeTest {
         );
     }
 
+    /*
+     * Data is added to cache in random order
+     * because the request to get data from ClickHouse doesn't contain the "ORDER BY" condition
+     * {@link MetricSearch#loadAllMetrics()}
+     */
     @Test
     public void randomOrderStatusOnLoadTest() throws IOException {
         globalTree.modify("one_min.", MetricStatus.SIMPLE);
