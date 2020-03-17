@@ -6,6 +6,7 @@ import ru.yandex.market.graphouse.search.MetricStatus;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -13,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public abstract class MetricDir extends MetricBase {
 
-    private AtomicInteger visibleChildren = new AtomicInteger(-1);
+    private AtomicInteger visibleChildren = new AtomicInteger(0);
 
     public MetricDir(MetricDir parent, String name, MetricStatus status) {
         super(parent, name, status);
@@ -115,37 +116,26 @@ public abstract class MetricDir extends MetricBase {
 
         // if all the metrics in the directory are hidden, then we try to hide it {@link MetricStatus#AUTO_HIDDEN}
         // if there is at least one open metric for the directory, then we try to open it {@link MetricStatus#SIMPLE}
-        initVisibleCounter();
         if (newStatus.visible()) {
             setStatus(MetricStatus.SIMPLE);
             visibleChildren.getAndIncrement();
         } else {
             visibleChildren.getAndUpdate(operand -> {
-                int count = operand - 1;
+                int count;
+                if (operand <= 1) {
+                    count = calculateVisibleCounter();
+                } else {
+                    count = operand - 1;
+                }
                 setStatus(count > 0 ? MetricStatus.SIMPLE : MetricStatus.AUTO_HIDDEN);
                 return count;
             });
         }
     }
 
-    private void initVisibleCounter() {
-        visibleChildren.getAndUpdate(operand -> {
-            if (operand >= 0) {
-                return operand;
-            }
-            int count = 0;
-            for (MetricDir metricDir : getDirs().values()) {
-                if (metricDir.visible()) {
-                    count++;
-                }
-            }
-
-            for (MetricName metricName : getMetrics().values()) {
-                if (metricName.visible()) {
-                    count++;
-                }
-            }
-            return count;
-        });
+    private int calculateVisibleCounter() {
+        return (int) Stream.concat(getDirs().values().stream(), getMetrics().values().stream())
+            .filter(MetricBase::visible)
+            .count();
     }
 }
