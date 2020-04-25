@@ -1,12 +1,5 @@
 package ru.yandex.market.graphouse.server;
 
-import com.google.common.base.Strings;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Value;
-import ru.yandex.market.graphouse.cacher.MetricCacher;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -24,6 +17,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import com.google.common.base.Strings;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Value;
+
+import ru.yandex.market.graphouse.cacher.MetricCacher;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -121,8 +122,8 @@ public class MetricServer implements InitializingBean {
             while (!Thread.interrupted() && !serverSocket.isClosed()) {
                 try {
                     read();
-                } catch (Exception e) {
-                    log.warn("Failed to read data", e);
+                } catch (Throwable t) {
+                    log.warn("Reading from socket has been failed", t);
                 }
             }
             log.info("MetricServerWorker stopped");
