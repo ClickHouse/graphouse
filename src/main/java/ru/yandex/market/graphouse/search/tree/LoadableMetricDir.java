@@ -1,30 +1,41 @@
 package ru.yandex.market.graphouse.search.tree;
 
-import com.google.common.cache.LoadingCache;
-import ru.yandex.market.graphouse.search.MetricStatus;
-
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import com.google.common.util.concurrent.UncheckedExecutionException;
+
+import ru.yandex.market.graphouse.search.MetricStatus;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 25/01/2017
  */
 public class LoadableMetricDir extends MetricDir {
-    private final LoadingCache<MetricDir, DirContent> dirContentProvider;
+    private final AsyncLoadingCache<MetricDir, DirContent> dirContentProvider;
 
     public LoadableMetricDir(MetricDir parent, String name, MetricStatus status,
-                             LoadingCache<MetricDir, DirContent> dirContentProvider) {
+                             AsyncLoadingCache<MetricDir, DirContent> dirContentProvider) {
         super(parent, name, status);
         this.dirContentProvider = dirContentProvider;
     }
 
     private DirContent getContent() {
-        return dirContentProvider.getUnchecked(this);
+        try {
+            return dirContentProvider.get(this).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new UncheckedExecutionException(e);
+        }
     }
 
     private DirContent getContentOrEmpty() {
-        DirContent content = dirContentProvider.getIfPresent(this);
-        return (content == null) ? DirContent.EMPTY : content;
+        try {
+            DirContent content = dirContentProvider.getIfPresent(this).get();
+            return (content == null) ? DirContent.EMPTY : content;
+        } catch (InterruptedException | ExecutionException e) {
+            throw new UncheckedExecutionException(e);
+        }
     }
 
     @Override
