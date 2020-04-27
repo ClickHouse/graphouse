@@ -157,7 +157,6 @@ public class MetricSearch implements InitializingBean, Runnable {
 
         dirContentProvider = Caffeine.newBuilder()
             .expireAfterAccess(dirContentCacheTimeMinutes, TimeUnit.MINUTES)
-            .softValues()
             .recordStats()
             .buildAsync((dir) -> dirContentBatcher.loadDirContent(dir));
 
