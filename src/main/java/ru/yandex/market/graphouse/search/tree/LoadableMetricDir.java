@@ -1,6 +1,7 @@
 package ru.yandex.market.graphouse.search.tree;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
@@ -31,8 +32,12 @@ public class LoadableMetricDir extends MetricDir {
 
     private DirContent getContentOrEmpty() {
         try {
-            DirContent content = dirContentProvider.getIfPresent(this).get();
-            return (content == null) ? DirContent.EMPTY : content;
+            CompletableFuture<DirContent> content = dirContentProvider.getIfPresent(this);
+            if (content == null) {
+                return DirContent.EMPTY;
+            }
+            DirContent dirContent = content.get();
+            return (dirContent == null) ? DirContent.EMPTY : dirContent;
         } catch (InterruptedException | ExecutionException e) {
             throw new UncheckedExecutionException(e);
         }
@@ -87,6 +92,4 @@ public class LoadableMetricDir extends MetricDir {
         }
         return count;
     }
-
-
 }
