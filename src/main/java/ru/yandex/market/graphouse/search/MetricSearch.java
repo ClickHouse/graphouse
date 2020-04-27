@@ -1,37 +1,5 @@
 package ru.yandex.market.graphouse.search;
 
-import com.google.common.base.Stopwatch;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowCallbackHandler;
-import org.springframework.util.StopWatch;
-import ru.yandex.market.graphouse.MetricUtil;
-import ru.yandex.market.graphouse.MetricValidator;
-import ru.yandex.market.graphouse.monitoring.Monitoring;
-import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
-import ru.yandex.market.graphouse.retention.RetentionProvider;
-import ru.yandex.market.graphouse.search.tree.DirContent;
-import ru.yandex.market.graphouse.search.tree.DirContentBatcher;
-import ru.yandex.market.graphouse.search.tree.InMemoryMetricDir;
-import ru.yandex.market.graphouse.search.tree.LoadableMetricDir;
-import ru.yandex.market.graphouse.search.tree.MetricDescription;
-import ru.yandex.market.graphouse.search.tree.MetricDir;
-import ru.yandex.market.graphouse.search.tree.MetricDirFactory;
-import ru.yandex.market.graphouse.search.tree.MetricName;
-import ru.yandex.market.graphouse.search.tree.MetricTree;
-import ru.yandex.market.graphouse.statistics.InstantMetric;
-import ru.yandex.market.graphouse.statistics.StatisticsService;
-import ru.yandex.market.graphouse.utils.AppendableList;
-import ru.yandex.market.graphouse.utils.AppendableResult;
-import ru.yandex.market.graphouse.utils.AppendableWrapper;
-
 import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -52,6 +20,38 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.base.Stopwatch;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
+import org.springframework.util.StopWatch;
+
+import ru.yandex.market.graphouse.MetricUtil;
+import ru.yandex.market.graphouse.MetricValidator;
+import ru.yandex.market.graphouse.monitoring.Monitoring;
+import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
+import ru.yandex.market.graphouse.search.tree.DirContent;
+import ru.yandex.market.graphouse.search.tree.DirContentBatcher;
+import ru.yandex.market.graphouse.search.tree.InMemoryMetricDir;
+import ru.yandex.market.graphouse.search.tree.LoadableMetricDir;
+import ru.yandex.market.graphouse.search.tree.MetricDescription;
+import ru.yandex.market.graphouse.search.tree.MetricDir;
+import ru.yandex.market.graphouse.search.tree.MetricDirFactory;
+import ru.yandex.market.graphouse.search.tree.MetricName;
+import ru.yandex.market.graphouse.search.tree.MetricTree;
+import ru.yandex.market.graphouse.statistics.InstantMetric;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
+import ru.yandex.market.graphouse.utils.AppendableList;
+import ru.yandex.market.graphouse.utils.AppendableResult;
+import ru.yandex.market.graphouse.utils.AppendableWrapper;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -91,9 +91,6 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Value("${graphouse.tree.dir-content.cache-time-minutes}")
     private int dirContentCacheTimeMinutes;
 
-    @Value("${graphouse.tree.dir-content.cache-concurrency-level}")
-    private int dirContentCacheConcurrencyLevel;
-
     @Value("${graphouse.tree.dir-content.batcher.max-parallel-requests}")
     private int dirContentBatcherMaxParallelRequest;
 
@@ -113,7 +110,7 @@ public class MetricSearch implements InitializingBean, Runnable {
     private int maxMetricsPerDir;
 
 
-    private LoadingCache<MetricDir, DirContent> dirContentProvider;
+    private AsyncLoadingCache<MetricDir, DirContent> dirContentProvider;
     private MetricDirFactory metricDirFactory;
 
     private DirContentBatcher dirContentBatcher;
@@ -158,17 +155,11 @@ public class MetricSearch implements InitializingBean, Runnable {
             dirContentBatcherAggregationTimeMillis
         );
 
-        dirContentProvider = CacheBuilder.newBuilder()
+        dirContentProvider = Caffeine.newBuilder()
             .expireAfterAccess(dirContentCacheTimeMinutes, TimeUnit.MINUTES)
             .softValues()
             .recordStats()
-            .concurrencyLevel(dirContentCacheConcurrencyLevel)
-            .build(new CacheLoader<MetricDir, DirContent>() {
-                @Override
-                public DirContent load(MetricDir dir) throws Exception {
-                    return dirContentBatcher.loadDirContent(dir);
-                }
-            });
+            .buildAsync((dir) -> dirContentBatcher.loadDirContent(dir));
 
         metricTree = new MetricTree(metricDirFactory, retentionProvider, maxSubDirsPerDir, maxMetricsPerDir);
 
@@ -438,7 +429,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             try {
                 log.info(
                     "Actual metrics count = " + metricTree.metricCount() + ", dir count: " + metricTree.dirCount()
-                        + ", cache stats: " + dirContentProvider.stats().toString()
+                        + ", cache stats: " + dirContentProvider.synchronous().stats().toString()
                 );
                 loadNewMetrics();
                 saveUpdatedMetrics();

@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import com.google.common.base.Strings;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
@@ -79,7 +80,11 @@ public class MetricServer implements InitializingBean {
 
         log.info("Starting " + threadCount + " metric server threads");
 
-        readersExecutorService = Executors.newFixedThreadPool(threadCount);
+        readersExecutorService = Executors.newFixedThreadPool(
+            threadCount,
+            new ThreadFactoryBuilder().setNameFormat("reader-thread-%d").build()
+        );
+
         for (int i = 0; i < threadCount; i++) {
             readersExecutorService.submit(new MetricServerWorker());
         }
@@ -91,24 +96,22 @@ public class MetricServer implements InitializingBean {
             // Queue is limited so that we won't eat all available memory if we are reading metrics from sockets faster
             // than we are able to write them to ClickHouse.
             new ArrayBlockingQueue<>(10 * threadCount),
+            new ThreadFactoryBuilder().setNameFormat("writer-thread-%d").build(),
             // Whenever a task is rejected because the task queue is full we will run it in the thread that attempted to
             // enqueue it. This ensures that (1) we won't just ignore rejected tasks and (2) we will stop reading new
             // metrics from sockets when the queue is full.
             new ThreadPoolExecutor.CallerRunsPolicy()
         );
 
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            @Override
-            public void run() {
-                log.info("Shutting down metric server");
-                readersExecutorService.shutdownNow();
-                writersExecutorService.shutdownNow();
-                try {
-                    serverSocket.close();
-                } catch (IOException ignored) {
-                }
-                log.info("Metric server stopped");
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Shutting down metric server");
+            readersExecutorService.shutdownNow();
+            writersExecutorService.shutdownNow();
+            try {
+                serverSocket.close();
+            } catch (IOException ignored) {
             }
+            log.info("Metric server stopped");
         }));
         log.info("Metric server started on port " + port);
     }
