@@ -104,7 +104,7 @@ public class MetricServer implements InitializingBean {
         );
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            log.info("Shutting down metric server.");
+            log.info("Shutting down metric server");
             readersExecutorService.shutdownNow();
             writersExecutorService.shutdownNow();
             try {
