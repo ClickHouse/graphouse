@@ -111,7 +111,7 @@ public class MetricServer implements InitializingBean {
                 serverSocket.close();
             } catch (IOException ignored) {
             }
-            log.info("Metric server stopped");
+            log.info("Metric server stopped.");
         }));
         log.info("Metric server started on port " + port);
     }
