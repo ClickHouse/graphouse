@@ -7,6 +7,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
@@ -126,7 +127,7 @@ public class MetricServer implements InitializingBean {
                 try {
                     read();
                 } catch (Throwable t) {
-                    log.warn("Reading from socket has been failed", t);
+                    log.warn("Reading from socket has been failed. Metrics size: " + metrics.size(), t);
                 }
             }
             log.info("MetricServerWorker stopped");
@@ -156,8 +157,10 @@ public class MetricServer implements InitializingBean {
                 }
             } catch (SocketTimeoutException e) {
                 log.warn("Socket timeout from " + socket.getRemoteSocketAddress().toString());
+            } catch (SocketException e) {
+                log.warn("Socket exception from " + socket.getRemoteSocketAddress().toString());
             } finally {
-                socket.close();
+                safeSocketClose(socket);
             }
             submitAndClearMetrics();
         }
@@ -176,6 +179,14 @@ public class MetricServer implements InitializingBean {
                         .collect(Collectors.toList())
                 )
             );
+        }
+    }
+
+    private void safeSocketClose(Socket socket) {
+        try {
+            socket.close();
+        } catch (IOException e) {
+            log.warn("Error on socket close", e);
         }
     }
 
