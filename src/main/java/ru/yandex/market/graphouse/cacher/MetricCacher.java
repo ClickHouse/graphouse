@@ -12,8 +12,8 @@ import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
 import ru.yandex.market.graphouse.statistics.AccumulatedMetric;
-import ru.yandex.market.graphouse.statistics.StatisticsService;
 import ru.yandex.market.graphouse.statistics.InstantMetric;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +65,7 @@ public class MetricCacher implements Runnable, InitializingBean {
     private BlockingQueue<Metric> metricQueue;
     private final AtomicInteger activeWriters = new AtomicInteger(0);
     private final AtomicInteger activeOutputMetrics = new AtomicInteger(0);
+    private volatile boolean shutdown = false;
 
     private ExecutorService executorService;
 
@@ -84,32 +85,47 @@ public class MetricCacher implements Runnable, InitializingBean {
     }
 
     @Override
-    public void afterPropertiesSet() throws Exception {
+    public void afterPropertiesSet() {
         metricQueue = new ArrayBlockingQueue<>(queueSize);
         semaphore.release(queueSize);
         executorService = Executors.newFixedThreadPool(maxOutputThreads);
         monitoring.addUnit(metricCacherQueryUnit);
         new Thread(this, "Metric cacher thread").start();
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            log.info("Shutting down metric cacher. Saving all cached metrics...");
-            while (!(metricQueue.isEmpty() && (activeOutputMetrics.get() == 0))) {
-                log.info((metricQueue.size() + activeOutputMetrics.get()) + " metrics remaining");
-                createBatches(true);
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ignored) {
-                }
+    }
+
+    public void flushAndShutdown() {
+        log.info("Shutting down metric cacher. Saving all cached metrics...");
+        shutdown = true;
+        flushOutputMetrics();
+        executorService.shutdown();
+        statisticsService.shutdownService();
+        awaitSaveCompletion();
+        log.info("Metric cacher stopped");
+    }
+
+    private void flushOutputMetrics() {
+        while (hasOutputMetrics()) {
+            log.info((metricQueue.size() + activeOutputMetrics.get()) + " metrics remaining");
+            createBatches(true);
+            try {
+                TimeUnit.MILLISECONDS.sleep(100);
+            } catch (InterruptedException ignored) {
             }
-            executorService.shutdown();
-            while (!executorService.isTerminated()) {
-                log.info("Awaiting save completion");
-                try {
-                    executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
-                } catch (InterruptedException ignored) {
-                }
+        }
+    }
+
+    private void awaitSaveCompletion() {
+        while (!executorService.isTerminated()) {
+            log.info("Awaiting save completion");
+            try {
+                executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException ignored) {
             }
-            log.info("Metric cacher stopped");
-        }));
+        }
+    }
+
+    private boolean hasOutputMetrics() {
+        return !(metricQueue.isEmpty() && (activeOutputMetrics.get() == 0));
     }
 
     public void submitMetric(Metric metric) {
@@ -139,14 +155,20 @@ public class MetricCacher implements Runnable, InitializingBean {
     public void run() {
         while (!Thread.interrupted()) {
             try {
-                Thread.sleep(1);
+                TimeUnit.MILLISECONDS.sleep(1);
                 createBatches(false);
             } catch (InterruptedException ignored) {
             }
         }
     }
 
-    private boolean needBatch() {
+    private boolean needBatch(boolean force) {
+        if (force) {
+            return !metricQueue.isEmpty();
+        } else if (shutdown) {
+            return false;
+        }
+
         if (metricQueue.size() >= maxBatchSize) {
             return true;
         }
@@ -178,7 +200,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         int metricsInBatches = 0;
         Stopwatch stopwatch = Stopwatch.createStarted();
 
-        while ((needBatch() || force) && activeWriters.get() < maxOutputThreads) {
+        while (needBatch(force) && activeWriters.get() < maxOutputThreads) {
             List<Metric> metrics = createBatch();
             if (metrics.isEmpty()) {
                 continue;
@@ -233,7 +255,7 @@ public class MetricCacher implements Runnable, InitializingBean {
         public void run() {
             while (!trySaveMetrics()) {
                 try {
-                    Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+                    TimeUnit.SECONDS.sleep(1);
                 } catch (InterruptedException ignored) {
                 }
             }

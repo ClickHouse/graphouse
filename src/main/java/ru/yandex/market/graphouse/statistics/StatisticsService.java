@@ -9,17 +9,13 @@ import java.util.function.Supplier;
 public interface StatisticsService {
     /**
      * Accumulates metric
-     *
-     * @param metric
-     * @param value
      */
     void accumulateMetric(AccumulatedMetric metric, double value);
 
     /**
      * Registers instant metric supplier
-     *
-     * @param metric
-     * @param supplier
      */
     void registerInstantMetric(InstantMetric metric, Supplier<Double> supplier);
+
+    void shutdownService();
 }
