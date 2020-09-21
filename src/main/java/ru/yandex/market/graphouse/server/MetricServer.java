@@ -1,5 +1,13 @@
 package ru.yandex.market.graphouse.server;
 
+import com.google.common.base.Strings;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Value;
+import ru.yandex.market.graphouse.cacher.MetricCacher;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -18,15 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import com.google.common.base.Strings;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Value;
-
-import ru.yandex.market.graphouse.cacher.MetricCacher;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -51,6 +50,9 @@ public class MetricServer implements InitializingBean {
     @Value("${graphouse.cacher.read-batch-size}")
     private int readBatchSize;
 
+    @Value("${graphouse.cacher.forced-stop-timeout-sec:120}")
+    private int forcedStopTimeoutSec;
+
     @Value("${graphouse.log.remote-socket-address:false}")
     private boolean shouldLogRemoteSocketAddress;
 
@@ -60,6 +62,8 @@ public class MetricServer implements InitializingBean {
 
     private final MetricCacher metricCacher;
     private final MetricFactory metricFactory;
+
+    private volatile boolean forceStopReadersExecutorService = false;
 
     public MetricServer(MetricCacher metricCacher, MetricFactory metricFactory) {
         this.metricCacher = metricCacher;
@@ -104,17 +108,44 @@ public class MetricServer implements InitializingBean {
             new ThreadPoolExecutor.CallerRunsPolicy()
         );
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            log.info("Shutting down metric server");
-            readersExecutorService.shutdownNow();
-            writersExecutorService.shutdownNow();
-            try {
-                serverSocket.close();
-            } catch (IOException ignored) {
-            }
-            log.info("Metric server stopped");
-        }));
+        Runtime.getRuntime().addShutdownHook(new Thread(this::shutdownService));
         log.info("Metric server started on port " + port);
+    }
+
+    private void shutdownService() {
+        log.info("Shutting down metric server");
+        readersExecutorService.shutdownNow();
+        writersExecutorService.shutdownNow();
+        try {
+            serverSocket.close();
+        } catch (IOException ignored) {
+        }
+        if (forcedStopTimeoutSec > 0) {
+            waitAndForceStopReadersExecutorService();
+        }
+        awaitTermination(readersExecutorService, "reader");
+        awaitTermination(writersExecutorService, "writer");
+        metricCacher.flushAndShutdown();
+        log.info("Metric server stopped");
+    }
+
+    private void awaitTermination(ExecutorService executorService, String serviceName) {
+        while (!executorService.isTerminated()) {
+            log.info("Awaiting {} completion", serviceName);
+            try {
+                executorService.awaitTermination(100, TimeUnit.MICROSECONDS);
+            } catch (InterruptedException ignored) {
+            }
+        }
+    }
+
+    private void waitAndForceStopReadersExecutorService() {
+        try {
+            TimeUnit.SECONDS.sleep(forcedStopTimeoutSec);
+        } catch (InterruptedException ignored) {
+        }
+
+        forceStopReadersExecutorService = true;
     }
 
     private class MetricServerWorker implements Runnable {
@@ -154,6 +185,10 @@ public class MetricServer implements InitializingBean {
                     if (metrics.size() >= readBatchSize) {
                         submitAndClearMetrics();
                     }
+                    if (needInterrupt()) {
+                        log.warn("MetricServerWorker was stopped");
+                        break;
+                    }
                 }
             } catch (SocketTimeoutException e) {
                 log.warn("Socket timeout from " + socket.getRemoteSocketAddress().toString());
@@ -163,6 +198,10 @@ public class MetricServer implements InitializingBean {
                 safeSocketClose(socket);
             }
             submitAndClearMetrics();
+        }
+
+        private boolean needInterrupt() {
+            return forceStopReadersExecutorService && Thread.interrupted();
         }
 
         private void submitAndClearMetrics() {

@@ -1,5 +1,8 @@
 package ru.yandex.market.graphouse.statistics;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,6 +16,7 @@ import java.util.function.Supplier;
  * @date 22.12.17
  */
 public class StatisticsServiceImpl implements StatisticsService {
+    private static final Logger log = LogManager.getLogger();
     private List<StatisticsCounter> counters;
     private ScheduledExecutorService scheduler;
     private final Map<InstantMetric, Supplier<Double>> instantMetricsSuppliers = new ConcurrentHashMap<>();
@@ -22,12 +26,23 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         this.counters = counters;
         this.counters.forEach(StatisticsCounter::initialize);
-        this.counters.forEach(counter ->
-            this.scheduler.scheduleAtFixedRate(
-                () -> counter.flush(this.instantMetricsSuppliers), counter.getFlushPeriodSeconds(),
-                counter.getFlushPeriodSeconds(), TimeUnit.SECONDS
-            )
+        this.counters.forEach(this::scheduleStatisticsCounter);
+    }
+
+    private void scheduleStatisticsCounter(StatisticsCounter counter) {
+        this.scheduler.scheduleAtFixedRate(
+            () -> counter.flush(this.instantMetricsSuppliers),
+            counter.getFlushPeriodSeconds(),
+            counter.getFlushPeriodSeconds(),
+            TimeUnit.SECONDS
         );
+    }
+
+    @Override
+    public void shutdownService() {
+        log.info("Shutting down statistics service");
+        scheduler.shutdown();
+        log.info("Statistics service stopped");
     }
 
     @Override
