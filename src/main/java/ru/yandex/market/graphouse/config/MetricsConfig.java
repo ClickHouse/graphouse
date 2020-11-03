@@ -37,6 +37,9 @@ public class MetricsConfig {
     private JdbcTemplate clickHouseJdbcTemplate;
 
     @Autowired
+    private JdbcTemplate clickHouseJdbcTemplateSearch;
+
+    @Autowired
     private StatisticsService statisticsService;
 
     @Value("${graphouse.clickhouse.data-table}")
@@ -63,7 +66,7 @@ public class MetricsConfig {
     @Bean
     public MetricSearch metricSearch() {
         return new MetricSearch(
-            clickHouseJdbcTemplate, monitoring, ping,
+            clickHouseJdbcTemplateSearch, monitoring, ping,
             metricValidator(), retentionProvider(), statisticsService
         );
     }

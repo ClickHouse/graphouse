@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.config;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.junit.Assert;
 import org.junit.Test;
 import ru.yandex.clickhouse.BalancedClickhouseDataSource;
@@ -33,5 +34,20 @@ public class DbConfigTest {
         Assert.assertTrue(ds instanceof BalancedClickhouseDataSource);
         BalancedClickhouseDataSource cds = (BalancedClickhouseDataSource) ds;
         Assert.assertEquals(Arrays.asList("jdbc:clickhouse://host1:42/db", "jdbc:clickhouse://host2:42/db"), cds.getAllClickhouseUrls());
+    }
+
+    @Test
+    public void clickHouseSearchDataSource() {
+        DbConfig dbConfig = new DbConfig();
+        DataSource hds = dbConfig.clickHouseSearchDataSource(
+            "host1", 42, "db", 60, 10, 0, 60, -1, new ClickHouseProperties(), null, null
+        );
+        Assert.assertTrue(hds instanceof HikariDataSource);
+        DataSource ds = ((HikariDataSource) hds).getDataSource();
+        Assert.assertTrue(ds instanceof ClickHouseDataSource);
+        ClickHouseDataSource cds = (ClickHouseDataSource) ds;
+        Assert.assertEquals("host1", cds.getHost());
+        Assert.assertEquals("db", cds.getDatabase());
+        Assert.assertEquals(42, cds.getPort());
     }
 }
