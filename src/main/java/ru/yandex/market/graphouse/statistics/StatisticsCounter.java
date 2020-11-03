@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AtomicDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import ru.yandex.clickhouse.util.apache.StringUtils;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
 import ru.yandex.market.graphouse.search.MetricSearch;
@@ -47,16 +48,39 @@ public class StatisticsCounter {
         Arrays.stream(AccumulatedMetric.values()).forEach(metric -> metricsCounters.put(metric, new AtomicDouble()));
     }
 
-    public void initialize() {
+    public void initialize(String hostname) {
+        String hostPrefix = prefix;
+        if (!StringUtils.isBlank(hostname)) {
+            hostPrefix += ".hosts." + escapeHostname(hostname);
+        }
+
         for (AccumulatedMetric metric : AccumulatedMetric.values()) {
-            String name = String.format("%s.accumulated.%s", prefix, metric.name().toLowerCase());
+            String name = String.format("%s.accumulated.%s", hostPrefix, metric.name().toLowerCase());
             loadMetric(name, description -> accumulatedMetricsDescriptions.put(metric, description));
         }
 
         for (InstantMetric metric : InstantMetric.values()) {
-            String name = String.format("%s.instant.%s", prefix, metric.name().toLowerCase());
+            String name = String.format("%s.instant.%s", hostPrefix, metric.name().toLowerCase());
             loadMetric(name, description -> instantMetricsDescriptions.put(metric, description));
         }
+    }
+
+    private String escapeHostname(String hostname) {
+        hostname = hostname
+            .replace('.', '_')
+            .replace('/', '_')
+            .replace('\\', '_')
+            .replace('(', '_')
+            .replace(')', '_')
+            .replace(' ', '_')
+            .replace('*', 'X')
+            .replace(':', '_')
+            .replace(';', '_')
+            .replace("!", "");
+        if (hostname.charAt(0) == '_') {
+            hostname = hostname.substring(1);
+        }
+        return hostname;
     }
 
     public void accumulateMetric(AccumulatedMetric metric, double value) {
