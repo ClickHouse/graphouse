@@ -1,13 +1,12 @@
 package ru.yandex.market.graphouse.search.tree;
 
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import com.google.common.util.concurrent.UncheckedExecutionException;
+import ru.yandex.market.graphouse.search.MetricStatus;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-
-import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.google.common.util.concurrent.UncheckedExecutionException;
-
-import ru.yandex.market.graphouse.search.MetricStatus;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -31,16 +30,12 @@ public class LoadableMetricDir extends MetricDir {
     }
 
     private DirContent getContentOrEmpty() {
-        try {
-            CompletableFuture<DirContent> content = dirContentProvider.getIfPresent(this);
-            if (content == null) {
-                return DirContent.EMPTY;
-            }
-            DirContent dirContent = content.get();
-            return (dirContent == null) ? DirContent.EMPTY : dirContent;
-        } catch (InterruptedException | ExecutionException e) {
-            throw new UncheckedExecutionException(e);
+        CompletableFuture<DirContent> content = dirContentProvider.getIfPresent(this);
+        if (content == null) {
+            return DirContent.EMPTY;
         }
+        DirContent dirContent = content.getNow(DirContent.EMPTY);
+        return (dirContent == null) ? DirContent.EMPTY : dirContent;
     }
 
     @Override
