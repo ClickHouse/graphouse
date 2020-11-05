@@ -1,5 +1,36 @@
 package ru.yandex.market.graphouse.search;
 
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.base.Stopwatch;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
+import org.springframework.util.StopWatch;
+import ru.yandex.market.graphouse.MetricUtil;
+import ru.yandex.market.graphouse.MetricValidator;
+import ru.yandex.market.graphouse.monitoring.Monitoring;
+import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
+import ru.yandex.market.graphouse.retention.RetentionProvider;
+import ru.yandex.market.graphouse.search.tree.DirContent;
+import ru.yandex.market.graphouse.search.tree.DirContentBatcher;
+import ru.yandex.market.graphouse.search.tree.InMemoryMetricDir;
+import ru.yandex.market.graphouse.search.tree.LoadableMetricDir;
+import ru.yandex.market.graphouse.search.tree.MetricDescription;
+import ru.yandex.market.graphouse.search.tree.MetricDir;
+import ru.yandex.market.graphouse.search.tree.MetricDirFactory;
+import ru.yandex.market.graphouse.search.tree.MetricName;
+import ru.yandex.market.graphouse.search.tree.MetricTree;
+import ru.yandex.market.graphouse.statistics.InstantMetric;
+import ru.yandex.market.graphouse.statistics.StatisticsService;
+import ru.yandex.market.graphouse.utils.AppendableList;
+import ru.yandex.market.graphouse.utils.AppendableResult;
+import ru.yandex.market.graphouse.utils.AppendableWrapper;
+
 import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -20,38 +51,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.base.Stopwatch;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowCallbackHandler;
-import org.springframework.util.StopWatch;
-
-import ru.yandex.market.graphouse.MetricUtil;
-import ru.yandex.market.graphouse.MetricValidator;
-import ru.yandex.market.graphouse.monitoring.Monitoring;
-import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
-import ru.yandex.market.graphouse.retention.RetentionProvider;
-import ru.yandex.market.graphouse.search.tree.DirContent;
-import ru.yandex.market.graphouse.search.tree.DirContentBatcher;
-import ru.yandex.market.graphouse.search.tree.InMemoryMetricDir;
-import ru.yandex.market.graphouse.search.tree.LoadableMetricDir;
-import ru.yandex.market.graphouse.search.tree.MetricDescription;
-import ru.yandex.market.graphouse.search.tree.MetricDir;
-import ru.yandex.market.graphouse.search.tree.MetricDirFactory;
-import ru.yandex.market.graphouse.search.tree.MetricName;
-import ru.yandex.market.graphouse.search.tree.MetricTree;
-import ru.yandex.market.graphouse.statistics.InstantMetric;
-import ru.yandex.market.graphouse.statistics.StatisticsService;
-import ru.yandex.market.graphouse.utils.AppendableList;
-import ru.yandex.market.graphouse.utils.AppendableResult;
-import ru.yandex.market.graphouse.utils.AppendableWrapper;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -109,6 +108,8 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Value("${graphouse.tree.max-metrics-per-dir}")
     private int maxMetricsPerDir;
 
+    @Value("${graphouse.search.query-retry-count}")
+    private int queryRetryCount;
 
     private AsyncLoadingCache<MetricDir, DirContent> dirContentProvider;
     private MetricDirFactory metricDirFactory;
@@ -117,9 +118,14 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     AtomicInteger numberOfLoadedMetrics = new AtomicInteger();
 
-    public MetricSearch(JdbcTemplate clickHouseJdbcTemplate, Monitoring monitoring, Monitoring ping,
-                        MetricValidator metricValidator, RetentionProvider retentionProvider,
-                        StatisticsService statisticsService) {
+    public MetricSearch(
+        JdbcTemplate clickHouseJdbcTemplate,
+        Monitoring monitoring,
+        Monitoring ping,
+        MetricValidator metricValidator,
+        RetentionProvider retentionProvider,
+        StatisticsService statisticsService
+    ) {
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
         this.ping = ping;
@@ -216,7 +222,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         String dirFilter = dirs.stream().map(MetricDir::getName).collect(Collectors.joining("','", "'", "'"));
 
         DirContentRequestRowCallbackHandler metricHandler = new DirContentRequestRowCallbackHandler(dirs);
-        clickHouseJdbcTemplate.query(
+        executeQuery(
             "SELECT parent, name, argMax(status, updated) AS last_status FROM " + metricsTable +
                 " PREWHERE parent IN (" + dirFilter + ") WHERE status != ? GROUP BY parent, name ORDER BY parent",
             metricHandler,
@@ -234,6 +240,33 @@ public class MetricSearch implements InitializingBean, Runnable {
 
         return metricHandler.getResult();
 
+    }
+
+    private void executeQuery(String sql, RowCallbackHandler handler, Object... args) {
+        int attempts = 0;
+        while (!tryExecuteQuery(sql, handler, args)) {
+            try {
+                attempts++;
+                if (attempts >= queryRetryCount) {
+                    log.error("Can't execute query");
+                    break;
+                } else {
+                    TimeUnit.SECONDS.sleep(1);
+                }
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+    }
+
+    private boolean tryExecuteQuery(String sql, RowCallbackHandler handler, Object... args) {
+        try {
+            clickHouseJdbcTemplate.query(sql, handler, args);
+        } catch (RuntimeException e) {
+            log.error("Failed to execute query. Waiting 1 second before retry", e);
+            return false;
+        }
+        return true;
     }
 
     private class DirContentRequestRowCallbackHandler implements RowCallbackHandler {
@@ -327,7 +360,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         for (int level = 1; ; level++) {
             log.info("Loading metrics for level " + level);
             final AtomicInteger levelCount = new AtomicInteger(0);
-            clickHouseJdbcTemplate.query(
+            executeQuery(
                 "SELECT name, argMax(status, updated) as last_status " +
                     "FROM " + metricsTable + " PREWHERE level = ? WHERE status != ? GROUP BY name",
                 new MetricRowCallbackHandler(levelCount),
@@ -357,7 +390,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         log.info("Loading updated metric names from db...");
         final AtomicInteger metricCount = new AtomicInteger(0);
 
-        clickHouseJdbcTemplate.query(
+        executeQuery(
             "SELECT name, argMax(status, updated) as last_status FROM " + metricsTable +
                 " PREWHERE updated >= toDateTime(?) GROUP BY name",
             new MetricRowCallbackHandler(metricCount),
