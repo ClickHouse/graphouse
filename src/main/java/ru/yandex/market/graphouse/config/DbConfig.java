@@ -2,6 +2,7 @@ package ru.yandex.market.graphouse.config;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -52,13 +53,14 @@ public class DbConfig {
     }
 
     @Bean
-    public DataSource clickHouseDataSource(@Value("${graphouse.clickhouse.hosts}") String hostsString,
-                                           @Value("${graphouse.clickhouse.port}") int port,
-                                           @Value("${graphouse.clickhouse.db}") String db,
-                                           @Value("${graphouse.clickhouse.host-ping-rate-seconds}") int pingRateSeconds,
-                                           ClickHouseProperties clickHouseProperties,
-                                           Monitoring monitoring,
-                                           @Qualifier("ping") Monitoring ping
+    public DataSource clickHouseDataSource(
+        @Value("${graphouse.clickhouse.hosts}") String hostsString,
+        @Value("${graphouse.clickhouse.port}") int port,
+        @Value("${graphouse.clickhouse.db}") String db,
+        @Value("${graphouse.clickhouse.host-ping-rate-seconds}") int pingRateSeconds,
+        ClickHouseProperties clickHouseProperties,
+        Monitoring monitoring,
+        @Qualifier("ping") Monitoring ping
     ) {
         List<String> hosts = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(hostsString);
         Preconditions.checkArgument(!hosts.isEmpty(), "ClickHouse host(s) not provided.");
@@ -66,6 +68,76 @@ public class DbConfig {
             String url = ClickhouseJdbcUrlParser.JDBC_CLICKHOUSE_PREFIX + "//" + hosts.get(0) + ":" + port + "/" + db;
             return new ClickHouseDataSource(url, clickHouseProperties);
         }
+
+        return createBalancedClickhouseDataSource(
+            hostsString, port, db, pingRateSeconds, clickHouseProperties, monitoring, ping
+        );
+    }
+
+    @Bean
+    public DataSource clickHouseSearchDataSource(
+        @Value("${graphouse.clickhouse.hosts}") String hostsString,
+        @Value("${graphouse.clickhouse.port}") int port,
+        @Value("${graphouse.clickhouse.db}") String db,
+        @Value("${graphouse.tree.clickhouse.pool.max-life-time-seconds}") long maxLifeTimeSeconds,
+        @Value("${graphouse.tree.clickhouse.pool.max-pool-size}") int maxPoolSize,
+        @Value("${graphouse.tree.clickhouse.pool.minimum-idle}") int minimumIdle,
+        @Value("${graphouse.tree.clickhouse.pool.validation-timeout-seconds}") int validationTimeoutSeconds,
+        @Value("${graphouse.clickhouse.host-ping-rate-seconds}") int pingRateSeconds,
+        ClickHouseProperties clickHouseProperties,
+        Monitoring monitoring,
+        @Qualifier("ping") Monitoring ping
+    ) {
+        List<String> hosts = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(hostsString);
+        Preconditions.checkArgument(!hosts.isEmpty(), "ClickHouse host(s) not provided.");
+        if (hosts.size() == 1) {
+            String url = ClickhouseJdbcUrlParser.JDBC_CLICKHOUSE_PREFIX + "//" + hosts.get(0) + ":" + port + "/" + db;
+            ClickHouseDataSource ds = new ClickHouseDataSource(url, clickHouseProperties);
+            return createClickHouseDataSourcePool(
+                ds,
+                clickHouseProperties.getConnectionTimeout(),
+                maxLifeTimeSeconds,
+                maxPoolSize,
+                minimumIdle,
+                validationTimeoutSeconds
+            );
+        }
+
+        return createBalancedClickhouseDataSource(
+            hostsString, port, db, pingRateSeconds, clickHouseProperties, monitoring, ping
+        );
+    }
+
+    private DataSource createClickHouseDataSourcePool(
+        ClickHouseDataSource ds,
+        long connectionTimeoutMs,
+        long maxLifeTimeSeconds,
+        int maxPoolSize,
+        int minimumIdle,
+        int validationTimeoutSeconds
+    ) {
+        HikariDataSource hds = new HikariDataSource();
+        hds.setDataSource(ds);
+        hds.setConnectionTimeout(connectionTimeoutMs);
+        hds.setMaxLifetime(TimeUnit.SECONDS.toMillis(maxLifeTimeSeconds)); // does not affect running queries
+        hds.setMaximumPoolSize(maxPoolSize);
+        hds.setMinimumIdle(minimumIdle);
+        hds.setValidationTimeout(TimeUnit.SECONDS.toMillis(validationTimeoutSeconds));
+        hds.setAutoCommit(true);
+
+        return hds;
+    }
+
+    private DataSource createBalancedClickhouseDataSource(
+        String hostsString,
+        int port,
+        String db,
+        int pingRateSeconds,
+        ClickHouseProperties clickHouseProperties,
+        Monitoring monitoring,
+        Monitoring ping
+    ) {
+        List<String> hosts = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(hostsString);
         String url = ClickhouseJdbcUrlParser.JDBC_CLICKHOUSE_PREFIX + "//" +
             hosts.stream().map(host -> host + ":" + port).collect(Collectors.joining(",")) +
             "/" + db;
@@ -102,10 +174,21 @@ public class DbConfig {
     @Bean
     public JdbcTemplate clickHouseJdbcTemplateAutohide(
         DataSource clickHouseDataSource,
-        @Value("${graphouse.autohide.clickhouse.query-timeout-seconds}") int autoHideQueryTimeoutSeconds) {
+        @Value("${graphouse.autohide.clickhouse.query-timeout-seconds}") int autoHideQueryTimeoutSeconds
+    ) {
         final JdbcTemplate jdbcTemplate = new JdbcTemplate();
         jdbcTemplate.setDataSource(clickHouseDataSource);
         jdbcTemplate.setQueryTimeout(autoHideQueryTimeoutSeconds);
+        return jdbcTemplate;
+    }
+
+    @Bean
+    public JdbcTemplate clickHouseJdbcTemplateSearch(
+        DataSource clickHouseSearchDataSource,
+        @Value("${graphouse.clickhouse.query-timeout-seconds}") int queryTimeoutSeconds) {
+        final JdbcTemplate jdbcTemplate = new JdbcTemplate();
+        jdbcTemplate.setDataSource(clickHouseSearchDataSource);
+        jdbcTemplate.setQueryTimeout(queryTimeoutSeconds);
         return jdbcTemplate;
     }
 
