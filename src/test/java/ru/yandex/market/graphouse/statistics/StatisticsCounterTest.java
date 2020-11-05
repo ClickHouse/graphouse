@@ -28,6 +28,9 @@ public class StatisticsCounterTest {
     @Captor
     private ArgumentCaptor<List<Metric>> metricsCaptor;
 
+    @Captor
+    private ArgumentCaptor<String> nameCaptor;
+
     @Mock
     private MetricCacher metricCacher;
 
@@ -45,7 +48,7 @@ public class StatisticsCounterTest {
     @Test
     public void savesAccumulatedMetrics() {
         StatisticsCounter counter = new StatisticsCounter("test", 5, metricSearch, metricCacher);
-        counter.initialize();
+        counter.initialize(null);
 
         counter.accumulateMetric(AccumulatedMetric.NUMBER_OF_WEB_REQUESTS, 1);
         counter.accumulateMetric(AccumulatedMetric.NUMBER_OF_WEB_REQUESTS, 2);
@@ -64,7 +67,7 @@ public class StatisticsCounterTest {
     @Test
     public void savesInstantMetrics() {
         StatisticsCounter counter = new StatisticsCounter("test", 5, metricSearch, metricCacher);
-        counter.initialize();
+        counter.initialize(null);
 
         Map<InstantMetric, Supplier<Double>> instantMetricsSuppliers = new HashMap<>();
         instantMetricsSuppliers.put(InstantMetric.METRIC_CACHE_QUEUE_SIZE, () -> 2d);
@@ -77,5 +80,25 @@ public class StatisticsCounterTest {
             .findFirst().orElse(0d);
 
         Assert.assertEquals(2, (int) valueCounter);
+    }
+
+    @Test
+    public void testInitializeEmptyHostname() {
+        StatisticsCounter counter = new StatisticsCounter("test", 5, metricSearch, metricCacher);
+        counter.initialize(null);
+        Mockito.verify(metricSearch, Mockito.atLeastOnce()).add(nameCaptor.capture());
+        nameCaptor.getAllValues().forEach(
+            name -> Assert.assertTrue(name.matches("test\\.(accumulated|instant)\\.\\w[\\w_]+\\w"))
+        );
+    }
+
+    @Test
+    public void testInitializeWithHostname() {
+        StatisticsCounter counter = new StatisticsCounter("test", 5, metricSearch, metricCacher);
+        counter.initialize("test.graphouse-1.com");
+        Mockito.verify(metricSearch, Mockito.atLeastOnce()).add(nameCaptor.capture());
+        nameCaptor.getAllValues().forEach(
+            name -> Assert.assertTrue(name.matches("test\\.hosts\\.test_graphouse-1_com\\.(accumulated|instant)\\.\\w[\\w_]+\\w"))
+        );
     }
 }

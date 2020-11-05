@@ -3,6 +3,8 @@ package ru.yandex.market.graphouse.statistics;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,8 +27,18 @@ public class StatisticsServiceImpl implements StatisticsService {
         this.scheduler = Executors.newScheduledThreadPool(counters.size());
 
         this.counters = counters;
-        this.counters.forEach(StatisticsCounter::initialize);
+        String hostname = tryGetLocalHostname();
+        this.counters.forEach(c -> c.initialize(hostname));
         this.counters.forEach(this::scheduleStatisticsCounter);
+    }
+
+    private String tryGetLocalHostname() {
+        try {
+            return InetAddress.getLocalHost().getCanonicalHostName();
+        } catch (UnknownHostException e) {
+            log.warn("Can't get hostname", e);
+        }
+        return null;
     }
 
     private void scheduleStatisticsCounter(StatisticsCounter counter) {
