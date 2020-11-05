@@ -33,7 +33,7 @@ public class GraphouseConfig {
     private MetricSearch metricSearch;
 
     @Autowired
-    private JdbcTemplate clickHouseJdbcTemplate;
+    private JdbcTemplate clickHouseJdbcTemplateAutohide;
 
     @Bean
     @Primary
@@ -42,13 +42,13 @@ public class GraphouseConfig {
     }
 
     @Bean
-    public Monitoring ping(){
+    public Monitoring ping() {
         return new Monitoring();
     }
 
     @Bean(initMethod = "startService")
     public AutoHideService autoHideService() {
-        return new AutoHideService(clickHouseJdbcTemplate, metricSearch);
+        return new AutoHideService(clickHouseJdbcTemplateAutohide, metricSearch);
     }
 
     @Bean
