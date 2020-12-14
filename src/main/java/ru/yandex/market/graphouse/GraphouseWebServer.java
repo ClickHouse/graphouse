@@ -71,6 +71,7 @@ public class GraphouseWebServer {
         context.addServlet(metricSearchServletHolder, "/multiApprove/*");
         context.addServlet(metricSearchServletHolder, "/hide/*");
         context.addServlet(metricSearchServletHolder, "/multiHide/*");
+        context.addServlet(metricSearchServletHolder, "/searchCachedMetrics/*");
 
         ServletHolder monitoringServletHolder = new ServletHolder(monitoringServlet);
         context.addServlet(monitoringServletHolder, "/ping");

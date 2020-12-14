@@ -105,6 +105,7 @@ public class MetricSearchServlet extends HttpServlet {
         resp.getOutputStream().println("GET  /multiApprove?query=<pattern>");
         resp.getOutputStream().println("GET  /hide?name=<metric>");
         resp.getOutputStream().println("GET  /multiHide?query=<pattern>");
+        resp.getOutputStream().println("GET  /searchCachedMetrics?query=<pattern>");
     }
 
     private void modify(HttpServletRequest req, HttpServletResponse resp, MetricStatus status) throws IOException {
