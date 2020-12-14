@@ -35,9 +35,13 @@ public abstract class MetricDir extends MetricBase {
         return parent.isRoot() ? dirName : parent.toString() + dirName;
     }
 
+    public abstract Map<String, MetricDir> maybeGetDirs();
+
     public abstract Map<String, MetricDir> getDirs();
 
     public abstract Map<String, MetricName> getMetrics();
+
+    public abstract Map<String, MetricName> maybeGetMetrics();
 
     public abstract boolean hasDirs();
 

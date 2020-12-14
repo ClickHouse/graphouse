@@ -44,8 +44,18 @@ public class LoadableMetricDir extends MetricDir {
     }
 
     @Override
+    public Map<String, MetricDir> maybeGetDirs() {
+        return getContentOrEmpty().getDirs();
+    }
+
+    @Override
     public Map<String, MetricName> getMetrics() {
         return getContent().getMetrics();
+    }
+
+    @Override
+    public Map<String, MetricName> maybeGetMetrics() {
+        return getContentOrEmpty().getMetrics();
     }
 
     @Override

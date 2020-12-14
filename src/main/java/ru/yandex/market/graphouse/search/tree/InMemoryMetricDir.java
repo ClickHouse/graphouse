@@ -44,7 +44,7 @@ public class InMemoryMetricDir extends MetricDir {
 
     @Override
     public MetricName maybeGetMetric(String name) {
-        if (metrics == null){
+        if (metrics == null) {
             return null;
         }
         return metrics.get(name);
@@ -57,9 +57,19 @@ public class InMemoryMetricDir extends MetricDir {
     }
 
     @Override
+    public Map<String, MetricName> maybeGetMetrics() {
+        return getMetrics();
+    }
+
+    @Override
     public Map<String, MetricDir> getDirs() {
         initDirs();
         return dirs;
+    }
+
+    @Override
+    public Map<String, MetricDir> maybeGetDirs() {
+        return getDirs();
     }
 
     public boolean hasDirs() {

@@ -58,6 +58,9 @@ public class MetricSearchServlet extends HttpServlet {
             case "/multiHide":
                 multiModify(req, resp, MetricStatus.HIDDEN);
                 break;
+            case "/searchCachedMetrics":
+                searchCachedMetrics(req, resp);
+                break;
             default:
                 badRequest(resp);
                 break;
@@ -143,5 +146,28 @@ public class MetricSearchServlet extends HttpServlet {
         }
 
         metricSearch.search(query, writer);
+    }
+
+    private void searchCachedMetrics(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String query = req.getParameter("query");
+        final PrintWriter writer = resp.getWriter();
+
+        if (query == null || query.isEmpty()) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            writer.println(
+                "Usage:\n" +
+                    "GET /searchCachedMetrics?query=<search_query>\n" +
+                    "GET /searchCachedMetrics?query=<search_query>&writeLoadedInfo=true\n"
+            );
+            return;
+        }
+
+        String writeLoadedInfoParam = req.getParameter("writeLoadedInfo");
+        boolean writeLoadedInfo = false;
+        if (writeLoadedInfoParam != null && !writeLoadedInfoParam.isEmpty()) {
+            writeLoadedInfo = Boolean.parseBoolean(writeLoadedInfoParam);
+        }
+
+        metricSearch.searchCachedMetrics(query, writer, writeLoadedInfo);
     }
 }
