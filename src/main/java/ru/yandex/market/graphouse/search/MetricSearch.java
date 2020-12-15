@@ -30,6 +30,7 @@ import ru.yandex.market.graphouse.statistics.StatisticsService;
 import ru.yandex.market.graphouse.utils.AppendableList;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 import ru.yandex.market.graphouse.utils.AppendableWrapper;
+import ru.yandex.market.graphouse.utils.TraceAppendableWrapper;
 
 import java.io.IOException;
 import java.sql.PreparedStatement;
@@ -558,6 +559,10 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     public void search(String query, Appendable result) throws IOException {
         metricTree.search(query, new AppendableWrapper(result));
+    }
+
+    public void searchCachedMetrics(String query, Appendable result, boolean writeLoadedInfo) throws IOException {
+        metricTree.searchCachedMetrics(query, new TraceAppendableWrapper(result, writeLoadedInfo));
     }
 
     public void search(String query, AppendableResult result) throws IOException {

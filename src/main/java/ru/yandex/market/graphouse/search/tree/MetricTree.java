@@ -51,15 +51,18 @@ public class MetricTree {
         search(root, levels, 0, result);
     }
 
+    public void searchCachedMetrics(String query, AppendableResult result) throws IOException {
+        String[] levels = MetricUtil.splitToLevels(query);
+        searchCachedMetrics(root, levels, 0, result);
+    }
+
     /**
-     * Рекурсивный метод для получения списка метрик внутри дерева.
+     * Recursive method for getting a list of metrics inside the tree
      *
-     * @param parentDir  внутри какой директории ищем
-     * @param levels     узлы дерева, каждый может быть задан явно или паттерном, используя *?[]{}
-     *                   Пример: five_min.abo-main.timings-method.*.0_95
-     * @param levelIndex индекс текущего узла
-     * @param result
-     * @throws IOException
+     * @param parentDir  the directory we are searching in
+     * @param levels     tree nodes, each can be set explicitly or by a pattern using *?[]{}
+     *                   Example: five_min.abo-main.timings-method.*.0_95
+     * @param levelIndex index of the current node
      */
     private void search(MetricDir parentDir, String[] levels, int levelIndex, AppendableResult result) throws IOException {
         if (parentDir == null || !parentDir.visible()) {
@@ -73,22 +76,22 @@ public class MetricTree {
         if (!isPattern) {
             if (parentDir.hasDirs()) {
                 if (isLast) {
-                    appendSimpleResult(parentDir.getDirs(), level, result);
+                    appendSimpleResult(parentDir.getDirs(), level, result, false);
                 } else {
                     search(parentDir.getDirs().get(level), levels, levelIndex + 1, result);
                 }
             }
             if (isLast && parentDir.hasMetrics()) {
-                appendSimpleResult(parentDir.getMetrics(), level, result);
+                appendSimpleResult(parentDir.getMetrics(), level, result, false);
             }
         } else if (level.equals(ALL_PATTERN)) {
             if (isLast) {
                 appendLimitNotificationsIfNeeded(parentDir, result);
                 if (parentDir.hasDirs()) {
-                    appendAllResult(parentDir.getDirs(), result);
+                    appendAllResult(parentDir.getDirs(), result, false);
                 }
                 if (parentDir.hasMetrics()) {
-                    appendAllResult(parentDir.getMetrics(), result);
+                    appendAllResult(parentDir.getMetrics(), result, false);
                 }
             } else {
                 for (MetricDir dir : parentDir.getDirs().values()) {
@@ -102,7 +105,7 @@ public class MetricTree {
             }
             if (parentDir.hasDirs()) {
                 if (isLast) {
-                    appendAllPatternResult(parentDir.getDirs(), pathMatcher, result);
+                    appendAllPatternResult(parentDir.getDirs(), pathMatcher, result, false);
                 } else {
                     for (Map.Entry<String, MetricDir> dirEntry : parentDir.getDirs().entrySet()) {
                         if (matches(pathMatcher, dirEntry.getKey())) {
@@ -112,7 +115,66 @@ public class MetricTree {
                 }
             }
             if (isLast && parentDir.hasMetrics()) {
-                appendAllPatternResult(parentDir.getMetrics(), pathMatcher, result);
+                appendAllPatternResult(parentDir.getMetrics(), pathMatcher, result, false);
+            }
+        }
+    }
+
+
+    /**
+     * Extract cached metric from the tree
+     *
+     * @param parentDir  the directory we are searching in
+     * @param levels     tree nodes, each can be set explicitly or by a pattern using *?[]{}
+     *                   Example: five_min.abo-main.timings-method.*.0_95
+     * @param levelIndex index of the current node
+     */
+    private void searchCachedMetrics(MetricDir parentDir, String[] levels, int levelIndex, AppendableResult result) throws IOException {
+        if (parentDir == null) {
+            return;
+        }
+        result.appendMetric(parentDir);
+
+        boolean isLast = (levelIndex == levels.length - 1);
+        String level = levels[levelIndex];
+        boolean isPattern = containsExpressions(level);
+
+        Map<String, MetricDir> dirs = parentDir.maybeGetDirs();
+        Map<String, MetricName> metrics = parentDir.maybeGetMetrics();
+        if (!isPattern) {
+            if (isLast) {
+                appendSimpleResult(dirs, level, result, true);
+            } else {
+                searchCachedMetrics(dirs.get(level), levels, levelIndex + 1, result);
+            }
+            if (isLast) {
+                appendSimpleResult(metrics, level, result, true);
+            }
+        } else if (level.equals(ALL_PATTERN)) {
+            if (isLast) {
+                appendAllResult(dirs, result, true);
+                appendAllResult(metrics, result, true);
+            } else {
+                for (MetricDir dir : dirs.values()) {
+                    searchCachedMetrics(dir, levels, levelIndex + 1, result);
+                }
+            }
+        } else {
+            PathMatcher pathMatcher = createPathMatcher(level);
+            if (pathMatcher == null) {
+                return;
+            }
+            if (isLast) {
+                appendAllPatternResult(dirs, pathMatcher, result, true);
+            } else {
+                for (Map.Entry<String, MetricDir> dirEntry : dirs.entrySet()) {
+                    if (matches(pathMatcher, dirEntry.getKey())) {
+                        searchCachedMetrics(dirEntry.getValue(), levels, levelIndex + 1, result);
+                    }
+                }
+            }
+            if (isLast) {
+                appendAllPatternResult(metrics, pathMatcher, result, true);
             }
         }
     }
@@ -126,33 +188,38 @@ public class MetricTree {
         }
     }
 
-    private <T extends MetricBase> void appendAllPatternResult(Map<String, T> map, PathMatcher pathMatcher,
-                                                               AppendableResult result) throws IOException {
+    private <T extends MetricBase> void appendAllPatternResult(
+        Map<String, T> map, PathMatcher pathMatcher, AppendableResult result, boolean forceAppend
+    ) throws IOException {
         if (map != null) {
             for (MetricBase metricBase : map.values()) {
                 if (matches(pathMatcher, metricBase.name)) {
-                    appendResult(metricBase, result);
+                    appendResult(metricBase, result, forceAppend);
                 }
             }
         }
     }
 
-    private <T extends MetricBase> void appendAllResult(Map<String, T> map, AppendableResult result) throws IOException {
+    private <T extends MetricBase> void appendAllResult(
+        Map<String, T> map, AppendableResult result, boolean forceAppend
+    ) throws IOException {
         if (map != null) {
             for (MetricBase metricBase : map.values()) {
-                appendResult(metricBase, result);
+                appendResult(metricBase, result, forceAppend);
             }
         }
     }
 
-    private <T extends MetricBase> void appendSimpleResult(Map<String, T> map, String name, AppendableResult result) throws IOException {
+    private <T extends MetricBase> void appendSimpleResult(
+        Map<String, T> map, String name, AppendableResult result, boolean forceAppend
+    ) throws IOException {
         if (map != null) {
-            appendResult(map.get(name), result);
+            appendResult(map.get(name), result, forceAppend);
         }
     }
 
-    private static void appendResult(MetricBase metricBase, AppendableResult result) throws IOException {
-        if (metricBase != null && metricBase.visible()) {
+    private static void appendResult(MetricBase metricBase, AppendableResult result, boolean forceAppend) throws IOException {
+        if (metricBase != null && (forceAppend || metricBase.visible())) {
             result.appendMetric(metricBase);
         }
     }
@@ -225,7 +292,7 @@ public class MetricTree {
     }
 
     /**
-     * creates or changes the status of a metric or an entire directory.
+     * Creates or changes the status of a metric or an entire directory
      *
      * @param metric if ends with ".", then it's a directory
      * @param status
@@ -262,11 +329,7 @@ public class MetricTree {
     }
 
     /**
-     * Возвращаем новый статус при изменении метрики, учитывая граф возможных переходов.
-     *
-     * @param oldStatus
-     * @param newStatus
-     * @return
+     * We return a new status when changing the metric, taking into account the graph of possible transitions
      */
     public static MetricStatus selectStatus(MetricStatus oldStatus, MetricStatus newStatus) {
         if (oldStatus == newStatus) {
