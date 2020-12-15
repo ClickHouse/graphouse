@@ -253,7 +253,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             try {
                 attempts++;
                 if (attempts >= queryRetryCount) {
-                    log.error("Can't execute query");
+                    log.error("Can't execute query: \"{}\" with arguments {}", sql, args);
                     break;
                 } else {
                     log.warn("Failed to execute query. Attempt number {}. Waiting {} second before retry", attempts, waitTime);
