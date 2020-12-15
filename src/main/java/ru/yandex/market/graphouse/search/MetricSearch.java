@@ -256,7 +256,10 @@ public class MetricSearch implements InitializingBean, Runnable {
                     log.error("Can't execute query: \"{}\" with arguments {}", sql, args);
                     break;
                 } else {
-                    log.warn("Failed to execute query. Attempt number {}. Waiting {} second before retry", attempts, waitTime);
+                    log.warn(
+                        "Failed to execute query. Attempt number {} / {}. Waiting {} second before retry",
+                        attempts, queryRetryCount, waitTime
+                    );
                     TimeUnit.SECONDS.sleep(waitTime);
                     waitTime += queryRetryIncrementSec;
                 }
