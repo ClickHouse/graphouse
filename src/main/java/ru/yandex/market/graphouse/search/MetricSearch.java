@@ -112,6 +112,9 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Value("${graphouse.search.query-retry-count}")
     private int queryRetryCount;
 
+    @Value("${graphouse.search.query-retry-increment-sec}")
+    private int queryRetryIncrementSec;
+
     private AsyncLoadingCache<MetricDir, DirContent> dirContentProvider;
     private MetricDirFactory metricDirFactory;
 
@@ -245,14 +248,20 @@ public class MetricSearch implements InitializingBean, Runnable {
 
     private void executeQuery(String sql, RowCallbackHandler handler, Object... args) {
         int attempts = 0;
+        int waitTime = 1;
         while (!tryExecuteQuery(sql, handler, args)) {
             try {
                 attempts++;
                 if (attempts >= queryRetryCount) {
-                    log.error("Can't execute query");
+                    log.error("Can't execute query: \"{}\" with arguments {}", sql, args);
                     break;
                 } else {
-                    TimeUnit.SECONDS.sleep(1);
+                    log.warn(
+                        "Failed to execute query. Attempt number {} / {}. Waiting {} second before retry",
+                        attempts, queryRetryCount, waitTime
+                    );
+                    TimeUnit.SECONDS.sleep(waitTime);
+                    waitTime += queryRetryIncrementSec;
                 }
             } catch (InterruptedException e) {
                 break;
@@ -264,7 +273,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         try {
             clickHouseJdbcTemplate.query(sql, handler, args);
         } catch (RuntimeException e) {
-            log.error("Failed to execute query. Waiting 1 second before retry", e);
+            log.error("Failed to execute query", e);
             return false;
         }
         return true;
