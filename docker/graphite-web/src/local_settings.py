@@ -9,6 +9,17 @@ if (os.getenv("MEMCACHE_HOSTS") is not None):
         host.strip() for host in os.getenv("MEMCACHE_HOSTS").split(',')
     ]
 
+    #e.g. 'MEMCACHE_HOSTS' env var should be like this value =>   "hostname_1:port_1,...,hostname_n:port_n", n >= 1
+    if (os.getenv("RESOLVE_MEMCACHE_HOSTS_TO_IPV6") is not None):
+        import socket
+        resolved_hosts = []
+        for mh in MEMCACHE_HOSTS:
+            (host, port) = mh.split(':')
+            (hostName, _, ip) = socket.gethostbyaddr(host)
+            resolved_hosts.append(("inet6:[%s]:%s" % (ip[0], port)))
+
+        MEMCACHE_HOSTS = resolved_hosts
+
 if (os.getenv("DEFAULT_CACHE_DURATION") is not None):
     DEFAULT_CACHE_DURATION = int(os.getenv("CACHE_DURATION"))
 
