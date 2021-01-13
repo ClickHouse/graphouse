@@ -8,7 +8,12 @@
                      filePattern="${sys:app.home}/log/graphouse-%d{yyyy-MM-dd}.log.gz">
             <PatternLayout pattern="%d %-5p [%c{1} %t] %m%n"/>
             <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
-            <DefaultRolloverStrategy max="14"/>
+            <DefaultRolloverStrategy>
+                <Delete basePath="${sys:app.home}" maxDepth="1">
+                    <IfFileName glob="graphouse-*.log.gz"/>
+                    <IfLastModified age="14d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
         </RollingFile>
     </Appenders>
     <Loggers>
