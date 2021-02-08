@@ -1,5 +1,6 @@
 package ru.yandex.market.graphouse.search.tree;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.SettableFuture;
 import org.apache.logging.log4j.LogManager;
@@ -7,7 +8,9 @@ import org.apache.logging.log4j.Logger;
 import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -15,6 +18,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -29,7 +37,7 @@ public class DirContentBatcher {
     private final int maxBatchSize;
     private final int batchAggregationTimeMillis;
 
-    private final AtomicReference<Batch> currentBatch = new AtomicReference<>();
+    private final BatchAtomicReference currentBatch = new BatchAtomicReference();
     private final Semaphore requestSemaphore;
 
     private final ScheduledExecutorService executorService;
@@ -37,11 +45,20 @@ public class DirContentBatcher {
 
     public DirContentBatcher(MetricSearch metricSearch, int maxParallelRequests,
                              int maxBatchSize, int batchAggregationTimeMillis) {
+        this(
+            metricSearch, maxParallelRequests, maxBatchSize, batchAggregationTimeMillis,
+            new Semaphore(maxParallelRequests, true)
+        );
+    }
+
+    @VisibleForTesting
+    DirContentBatcher(MetricSearch metricSearch, int maxParallelRequests,
+                      int maxBatchSize, int batchAggregationTimeMillis, Semaphore requestSemaphore) {
         this.metricSearch = metricSearch;
         this.maxBatchSize = maxBatchSize;
         this.batchAggregationTimeMillis = batchAggregationTimeMillis;
-        executorService = Executors.newScheduledThreadPool(maxParallelRequests);
-        requestSemaphore = new Semaphore(maxParallelRequests, true);
+        this.executorService = Executors.newScheduledThreadPool(maxParallelRequests);
+        this.requestSemaphore = requestSemaphore;
     }
 
 
@@ -59,65 +76,168 @@ public class DirContentBatcher {
             }
         }
 
-        Batch dirBatch = currentBatch.updateAndGet(
-            batch -> {
-                if (batch == null || batch.size() >= maxBatchSize) {
-                    batch = createNewBatch();
-                }
-                batch.addToBatch(dir);
-                return batch;
-            });
+        Batch dirBatch = updateAndGetCurrentBatch(dir);
         return dirBatch.getResult(dir);
     }
 
-    private Batch createNewBatch() {
-        Batch batch = new Batch();
-        executorService.schedule(batch, batchAggregationTimeMillis, TimeUnit.MILLISECONDS);
+    private Batch updateAndGetCurrentBatch(MetricDir dir) {
+        Batch updatedBatch = currentBatch.updateAndGetBatch(
+            this::createNewBatchIfNeed,
+            batch -> {
+                batch.lockForNewRequest();
+                return batch.addToBatch(dir);
+            },
+            Batch::unlockForNewRequest,
+            this::scheduleNewBatch
+        );
+        updatedBatch.unlockForNewRequest();
+        return updatedBatch;
+    }
+
+    @VisibleForTesting
+    Batch createNewBatchIfNeed(Batch batch) {
+        if (batch == null || batch.size() >= maxBatchSize) {
+            return new Batch();
+        }
         return batch;
     }
 
-    private class Batch implements Runnable {
 
-        private Map<MetricDir, SettableFuture<DirContent>> requests = new ConcurrentHashMap<>();
+    private void scheduleNewBatch(Batch batch) {
+        executorService.schedule(batch, batchAggregationTimeMillis, TimeUnit.MILLISECONDS);
+    }
+
+    @VisibleForTesting
+    class Batch implements Runnable {
+        private final ReadWriteLock requestsLock = new ReentrantReadWriteLock();
+        volatile boolean executionStarted = false;
+        final Map<MetricDir, SettableFuture<DirContent>> requests = new ConcurrentHashMap<>();
+        private Set<MetricDir> notLoadedMetricDir = null;
 
         @Override
         public void run() {
             requestSemaphore.acquireUninterruptibly();
             try {
-                currentBatch.getAndUpdate(batch -> (batch == this) ? null : batch); // Removing this batch from current
-                Map<MetricDir, DirContent> dirsContent = metricSearch.loadDirsContent(requests.keySet());
-
-                for (Map.Entry<MetricDir, DirContent> dirDirContentEntry : dirsContent.entrySet()) {
-                    requests.remove(dirDirContentEntry.getKey()).set(dirDirContentEntry.getValue());
-                }
-
-                if (!requests.isEmpty()) {
-                    log.error(requests.size() + " requests without data for dirs: " + requests.entrySet());
-                    throw new IllegalStateException("No data for dirs");
-                }
+                lockRequestsForExecution();
+                executionStarted = true;
+                resetCurrentBatch();
+                loadDirsContent();
             } catch (Exception e) {
-                log.error("Failed to load content for dirs: " + requests.keySet(), e);
-
-                for (SettableFuture<DirContent> settableFuture : requests.values()) {
-                    settableFuture.setException(e);
-                }
+                updateNotLoadedMetrics(e);
             } finally {
+                unlockRequestsAfterExecution();
                 requestSemaphore.release();
             }
         }
 
-        private void addToBatch(MetricDir dir) {
-            requests.computeIfAbsent(dir, metricDir -> SettableFuture.create());
+        private void resetCurrentBatch() {
+            currentBatch.getAndUpdate(batch -> (batch == this) ? null : batch);
         }
 
-        private DirContent getResult(MetricDir dir) throws Exception {
+        private void loadDirsContent() {
+            notLoadedMetricDir = new HashSet<>(requests.keySet());
+            Map<MetricDir, DirContent> dirsContent = metricSearch.loadDirsContent(requests.keySet());
+
+            for (Map.Entry<MetricDir, DirContent> dirDirContentEntry : dirsContent.entrySet()) {
+                SettableFuture<DirContent> dirContent = requests.get(dirDirContentEntry.getKey());
+                if (dirContent != null) {
+                    dirContent.set(dirDirContentEntry.getValue());
+                    notLoadedMetricDir.remove(dirDirContentEntry.getKey());
+                }
+            }
+
+            if (!notLoadedMetricDir.isEmpty()) {
+                log.error(notLoadedMetricDir.size() + " requests without data for dirs: " + notLoadedMetricDir);
+                throw new IllegalStateException("No data for dirs");
+            }
+        }
+
+        private void updateNotLoadedMetrics(Exception e) {
+            log.error("Failed to load content for dirs: " + requests.keySet(), e);
+
+            if (notLoadedMetricDir == null) {
+                for (SettableFuture<DirContent> settableFuture : requests.values()) {
+                    settableFuture.setException(e);
+                }
+            } else {
+                for (MetricDir metricDir : notLoadedMetricDir) {
+                    requests.get(metricDir).setException(e);
+                }
+            }
+        }
+
+        public boolean addToBatch(MetricDir dir) {
+            if (executionStarted) {
+                return false;
+            }
+            requests.computeIfAbsent(dir, metricDir -> SettableFuture.create());
+            return true;
+        }
+
+        public DirContent getResult(MetricDir dir) throws Exception {
             Future<DirContent> future = requests.get(dir);
             Preconditions.checkNotNull(future);
             return future.get();
         }
 
-        private int size() {
+        public int size() {
             return requests.size();
+        }
+
+        public void lockForNewRequest() {
+            requestsLock.readLock().lock();
+        }
+
+        public void unlockForNewRequest() {
+            requestsLock.readLock().unlock();
+        }
+
+        private void lockRequestsForExecution() {
+            requestsLock.writeLock().lock();
+        }
+
+        private void unlockRequestsAfterExecution() {
+            requestsLock.writeLock().unlock();
+        }
+    }
+
+    private static class BatchAtomicReference extends AtomicReference<Batch> {
+
+        /**
+         * Atomically updates the current value with the results of
+         * applying the given function, returning the updated value. The
+         * functions may be re-applied when attempted updates fail due to contention among threads
+         * or received false value from {@param checkUpdatePermissionFunction}
+         *
+         * @param finalizeAfterRejectedFunction function to clear the new value from the previous update attempt
+         * @param updateFunction                a side-effect-free function
+         * @param checkSetPermissionFunction    checking the permission before setting a new value
+         * @param postUpdateForNewBatchFunction function for an action with a new value after update
+         * @return the updated value
+         */
+        public final Batch updateAndGetBatch(
+            UnaryOperator<Batch> updateFunction,
+            Function<Batch, Boolean> checkSetPermissionFunction,
+            Consumer<Batch> finalizeAfterRejectedFunction,
+            Consumer<Batch> postUpdateForNewBatchFunction
+        ) {
+            boolean allowToSet, newBatchCreated;
+            Batch prev, next = null;
+            do {
+                if (next != null) {
+                    finalizeAfterRejectedFunction.accept(next);
+                }
+                prev = get();
+                next = updateFunction.apply(prev);
+                newBatchCreated = prev != next;
+                allowToSet = checkSetPermissionFunction.apply(next);
+            } while (!allowToSet || !compareAndSet(prev, next));
+
+            if (newBatchCreated) {
+                postUpdateForNewBatchFunction.accept(next);
+            }
+
+            return next;
         }
     }
 }

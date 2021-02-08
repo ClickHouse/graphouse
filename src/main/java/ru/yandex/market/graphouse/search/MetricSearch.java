@@ -345,7 +345,7 @@ public class MetricSearch implements InitializingBean, Runnable {
         }
 
         private void flushResult() {
-            if (currentDirName != null) {
+            if (currentDirName != null && currentDir != null) {
                 result.put(currentDir, new DirContent(currentDirs, currentMetrics));
             }
             currentDirName = null;
