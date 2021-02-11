@@ -55,21 +55,26 @@ class GraphouseMultiFetcher(object):
                 'Maximum body size {} exceeded'.format(max_data_size)
             )
 
-    def fetch(self, path, reqkey, start_time, end_time):
+    def fetch(self, path, reqkey, start_time, end_time, requestContext=None):
         if path in self.result:
             return self.result[path]
 
-        if reqkey is None:
-            reqkey = str(uuid.uuid4())
+        reqkey = reqkey or str(uuid.uuid4())
+
+        requestContext = requestContext or {}
+        maxDataPoints = requestContext.get('maxDataPoints')
 
         profilingTime = {'start': time.time()}
 
         try:
             query = {
-                        'start': start_time,
-                        'end': end_time,
-                        'reqKey': reqkey
-                    }
+                'start': start_time,
+                'end': end_time,
+                'reqKey': reqkey,
+            }
+            if maxDataPoints:
+                query['maxDataPoints'] = maxDataPoints
+
             data = {'metrics': ','.join(self.paths)}
             request_url = graphouse_url + "/metricData"
             request = requests.post(request_url, params=query, data=data)
@@ -248,7 +253,10 @@ class GraphouseFinder(BaseFinder, Store):
           }
         """
 
-        log.debug('Multifetcher, patterns={}'.format(patterns))
+        log.debug(
+            'Multifetcher, patterns={}, requestContext={}'
+            .format(patterns, requestContext)
+        )
         profilingTime = {'start': time.time()}
 
         requestContext = requestContext or {}
@@ -287,7 +295,7 @@ class GraphouseFinder(BaseFinder, Store):
                 'Fetch values for reqkey={} for {} metrics'.format(
                     reqkey, len(sub.nodes)
                 ),
-                sub.nodes[0].path, reqkey, start_time, end_time
+                sub.nodes[0].path, reqkey, start_time, end_time, requestContext
             ) for sub in subreqs if sub.nodes
         ]
         profilingTime['gen_fetch'] = time.time()
