@@ -1,7 +1,7 @@
 FROM ubuntu:xenial
 
 ARG graphouse_branch=master
-ARG graphite_branch=1.1.5
+ARG graphite_branch=1.1.7
 
 RUN apt-get -y update && \
     apt-get -y install python3-dev python3-pip libcairo2-dev libffi-dev libpq-dev python3-requests build-essential && \
