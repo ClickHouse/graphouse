@@ -2,22 +2,30 @@ FROM ubuntu:xenial
 
 ARG graphouse_branch=master
 ARG graphite_branch=1.1.7
+ARG python_ver=3.7
 
 RUN apt-get -y update && \
-    apt-get -y install python3-dev python3-pip libcairo2-dev libffi-dev libpq-dev python3-requests build-essential && \
+    apt-get -y install libcairo2-dev libffi-dev libpq-dev build-essential && \
     apt-get -y install git nginx uwsgi sqlite3 curl nano net-tools telnet bind9-host psmisc && \
     apt-get clean
 
+#installing python $python_ver for xenial
+RUN apt-get update && apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install -y python$python_ver python$python_ver-dev python$python_ver-distutils python3-requests python3-pip
+
+RUN ln -sfn /usr/bin/python$python_ver /usr/bin/python3 && \
+    ln -sfn /usr/bin/python3 /usr/bin/python && \
+    ln -sfn /usr/bin/pip3 /usr/bin/pip
+
+RUN pip install --upgrade setuptools
 
 RUN git clone -b $graphite_branch --depth 1 https://github.com/graphite-project/graphite-web.git /usr/local/src/graphite-web && \
     git clone -b $graphouse_branch --depth 1 https://github.com/yandex/graphouse.git /usr/local/src/graphouse
 
 WORKDIR /usr/local/src/graphite-web
 
-
-RUN sed -i -e 's/whitenoise/whitenoise==3.3.1/g; s/cairocffi/cairocffi==0.9.0/g' requirements.txt  && \
- pip3 install -r requirements.txt psycopg2 tornado gevent eventlet && \
- python3 ./setup.py install
+RUN pip3 install -r requirements.txt psycopg2 tornado gevent eventlet
+RUN python3 ./setup.py install
 
 WORKDIR /opt/graphite/webapp
 RUN mkdir -p /var/log/graphite/ && \
