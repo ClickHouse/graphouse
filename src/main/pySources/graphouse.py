@@ -1,12 +1,13 @@
 import time
 import traceback  # noqa: F401
-import requests
 import uuid
 
+import requests
 from django.conf import settings
 from graphite.intervals import IntervalSet, Interval
 from graphite.logger import log
 from graphite.node import LeafNode, BranchNode
+
 try:
     from graphite.worker_pool.pool import (
         Job, get_pool, pool_exec as worker_pool_exec
@@ -19,17 +20,26 @@ except ImportError:
         def __init__(self):
             pass
 
+
     class Store(object):
         pass
 
-    log.debug = log.warning = log.info
 
+    log.debug = log.warning = log.info
 
 graphouse_url = getattr(settings, 'GRAPHOUSE_URL', 'http://localhost:2005')
 # Amount of threads used to fetch data from graphouse
-parallel_jobs = getattr(settings, 'GRAPHOUSE_PARALLEL_JOBS', 2)
+parallel_jobs_for_fast_pool = getattr(settings, 'GRAPHOUSE_PARALLEL_JOBS_TO_USE_FAST_POOL', 10)
+parallel_jobs_for_slow_pool = getattr(settings, 'GRAPHOUSE_PARALLEL_JOBS_TO_USE_SLOW_POOL', 2)
 # See graphouse.http.max-form-context-size-bytes property
 max_data_size = getattr(settings, 'GRAPHOUSE_MAX_FORM_SIZE', 500000)
+# the number of nodes should be set to limit memory consumption.
+# Nodes mean how many metrics will be unfolded by wildcards
+max_allowed_nodes_count = getattr(settings, 'GRAPHOUSE_MAX_NODES_COUNT', 25000)
+# Big requests (with many nodes / wildcards) might cause stuck all other requests,
+# so it's a reason to put them to another pool.
+nodes_count_to_use_slow_pool = getattr(settings, 'GRAPHOUSE_NODES_COUNT_TO_USE_SLOW_POOL', 5000)
+
 GRAPHITE_VERSION = tuple(
     int(i) for i in getattr(settings, 'WEBAPP_VERSION').split('.')
 )
@@ -55,59 +65,53 @@ class GraphouseMultiFetcher(object):
                 'Maximum body size {} exceeded'.format(max_data_size)
             )
 
-    def fetch(self, path, reqkey, start_time, end_time):
+    def fetch(self, path, req_key, start_time, end_time):
         if path in self.result:
             return self.result[path]
 
-        if reqkey is None:
-            reqkey = str(uuid.uuid4())
+        if req_key is None:
+            req_key = str(uuid.uuid4())
 
-        profilingTime = {'start': time.time()}
+        profiling_time = {'start': time.time()}
 
         try:
             query = {
-                        'start': start_time,
-                        'end': end_time,
-                        'reqKey': reqkey
-                    }
+                'start': start_time,
+                'end': end_time,
+                'reqKey': req_key
+            }
             data = {'metrics': ','.join(self.paths)}
             request_url = graphouse_url + "/metricData"
             request = requests.post(request_url, params=query, data=data)
 
-            log.debug(
-                'DEBUG:graphouse_data_query: {} parameters {}, data {}'
-                .format(request_url, query, data)
-            )
+            log.debug('DEBUG:graphouse_data_query: {} parameters {}, data {}'.format(request_url, query, data))
 
             request.raise_for_status()
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout
         ) as e:
-            log.warning('CRITICAL:graphouse_data_query: Connection error: {}'
-                        .format(str(e)))
+            log.warning('CRITICAL:graphouse_data_query: Connection error: {}'.format(str(e)))
             raise
         except requests.exceptions.HTTPError as e:
-            log.warning('CRITICAL:graphouse_data_query: {}, message: {}'
-                        .format(str(e), request.text))
+            log.warning('CRITICAL:graphouse_data_query: {}, message: {}'.format(str(e), request.text))
             raise
         except Exception:
             log.warning('Unexpected exception!', exc_info=True)
             raise
 
-        profilingTime['fetch'] = time.time()
+        profiling_time['fetch'] = time.time()
 
         try:
             metrics_object = request.json()
         except Exception:
             log.warning(
                 'CRITICAL:graphouse_parse: '
-                "can't parse json from graphouse answer, got '{}'"
-                .format(request.text)
+                "can't parse json from graphouse answer, got '{}'".format(request.text)
             )
             raise
 
-        profilingTime['parse'] = time.time()
+        profiling_time['parse'] = time.time()
 
         for node in self.nodes:
             metric_object = metrics_object.get(node.path)
@@ -123,16 +127,16 @@ class GraphouseMultiFetcher(object):
                     metric_object.get("points"),
                 )
 
-        profilingTime['convert'] = time.time()
+        profiling_time['convert'] = time.time()
 
         log.debug(
             'DEBUG:graphouse_time:[{}] full = {} '
             'fetch = {}, parse = {}, convert = {}'.format(
-                reqkey,
-                profilingTime['convert'] - profilingTime['start'],
-                profilingTime['fetch'] - profilingTime['start'],
-                profilingTime['parse'] - profilingTime['fetch'],
-                profilingTime['convert'] - profilingTime['parse']
+                req_key,
+                profiling_time['convert'] - profiling_time['start'],
+                profiling_time['fetch'] - profiling_time['start'],
+                profiling_time['parse'] - profiling_time['fetch'],
+                profiling_time['convert'] - profiling_time['parse']
             )
         )
 
@@ -155,6 +159,8 @@ class GraphouseFinder(BaseFinder, Store):
         Explicit execution of BaseFinder.__init__ only
         '''
         BaseFinder.__init__(self)
+        self.pool_name = 'graphouse'
+        self.thread_count = 10
 
     def _search_request(self, pattern):
         request = requests.post(
@@ -165,6 +171,20 @@ class GraphouseFinder(BaseFinder, Store):
         result = (pattern, request.text.split('\n'))
         return result
 
+    def prepare_fast_pool(self, req_key):
+        self.pool_name = 'graphouse_fast_requests_pool'
+
+        if settings.USE_WORKER_POOL:
+            self.thread_count = min(parallel_jobs_for_fast_pool, settings.POOL_MAX_WORKERS)
+        log.debug('DEBUG[{}]: Using fast pool with "{}" threads'.format(req_key, self.thread_count))
+
+    def prepare_slow_pool(self, req_key):
+        self.pool_name = 'graphouse_slow_requests_pool'
+
+        if settings.USE_WORKER_POOL:
+            self.thread_count = min(parallel_jobs_for_slow_pool, settings.POOL_MAX_WORKERS)
+        log.debug('DEBUG[{}]: Using slow pool with "{}" threads'.format(req_key, self.thread_count))
+
     def pool_exec(self, jobs, timeout):
         '''
         Overwrite of pool_exec from Store to get another workers pool
@@ -172,12 +192,8 @@ class GraphouseFinder(BaseFinder, Store):
         if not jobs:
             return []
 
-        thread_count = 0
-        if settings.USE_WORKER_POOL:
-            thread_count = min(parallel_jobs, settings.POOL_MAX_WORKERS)
-
         return worker_pool_exec(
-            get_pool('graphouse', thread_count), jobs, timeout
+            get_pool(self.pool_name, self.thread_count), jobs, timeout
         )
 
     def find_nodes(self, query):
@@ -205,13 +221,13 @@ class GraphouseFinder(BaseFinder, Store):
                         GraphouseReader(metric, fetcher=fetcher)
                     )
 
-    def find_multi(self, patterns, reqkey=None):
+    def find_multi(self, patterns, req_key=None):
         '''
         This method processed in graphite 1.1 and newer from self.fetch
         Returns:
             Generator of (pattern, [nodes])
         '''
-        reqkey = reqkey or uuid.uuid4()
+        req_key = req_key or uuid.uuid4()
         jobs = [
             Job(self._search_request,
                 'Query graphouse for {}'.format(pattern), pattern)
@@ -220,7 +236,7 @@ class GraphouseFinder(BaseFinder, Store):
 
         results = self.wait_jobs(
             jobs, getattr(settings, 'FIND_TIMEOUT'),
-            'Find nodes for {} request'.format(reqkey)
+            'Find nodes for {} request'.format(req_key)
         )
 
         for pattern, metric_names in results:
@@ -248,29 +264,52 @@ class GraphouseFinder(BaseFinder, Store):
           }
         """
 
-        log.debug('Multifetcher, patterns={}'.format(patterns))
-        profilingTime = {'start': time.time()}
+        req_key = uuid.uuid4()
+        log.debug('reqKey:{},  Multifetcher, patternCount: {},  patterns={}'.format(req_key, len(patterns), patterns))
 
+        profiling_time = {'start': time.time()}
         requestContext = requestContext or {}
-        reqkey = uuid.uuid4()
+        context_to_log = requestContext.copy()
+        context_to_log['prefetched'] = {}
+        log.debug('reqKey:{},  requestContext:{}'.format(req_key, context_to_log))
+
         results = []
 
-        find_results = self.find_multi(patterns, reqkey)
-        profilingTime['find'] = time.time()
+        find_results = self.find_multi(patterns, req_key)
+        profiling_time['find'] = time.time()
 
         current_fetcher = GraphouseMultiFetcher()
-        subreqs = [current_fetcher]
+        sub_reqs = [current_fetcher]
+        find_results_count = 0
+        total_nodes_count = 0
+        processed_nodes_count = 0
 
         for pair in find_results:
+            find_results_count += 1
             pattern = pair[0]
             nodes = pair[1]
-            log.debug('Results from find_multy={}'.format(pattern, nodes))
+            total_nodes_count += len(nodes)
+            log.debug(
+                'reqKey:{} Results from find_multi, pattern:{}, nodesCount:{}'.format(req_key, pattern, len(nodes))
+            )
+
             for node in nodes:
+                if processed_nodes_count >= max_allowed_nodes_count:
+                    if getattr(settings, 'GRAPHOUSE_NODES_LIMIT_EXCEEDED_POLICY', 'EXCEPTION') == 'EXCEPTION':
+                        raise Exception(
+                            'Max nodes (wildcards / substitutions) "{}" exceeded by patterns:{}'.format(
+                                max_allowed_nodes_count, patterns
+                            )
+                        )
+                    else:  # CUT_BY_LIMIT
+                        break
+
                 try:
                     current_fetcher.append(node)
                 except OverflowError:
                     current_fetcher = GraphouseMultiFetcher()
-                    subreqs.append(current_fetcher)
+                    sub_reqs.append(current_fetcher)
+                    log.debug('reqKey:{},  subreq size:{}'.format(req_key, len(sub_reqs)))
                     current_fetcher.append(node)
                 results.append(
                     {
@@ -280,43 +319,55 @@ class GraphouseFinder(BaseFinder, Store):
                         'fetcher': current_fetcher,
                     }
                 )
+                processed_nodes_count += 1
+
+        msg = ""
+        if total_nodes_count > max_allowed_nodes_count:
+            msg = ", nodes count will be limited with max allowed limit: {}".format(max_allowed_nodes_count)
+
+        log.debug('reqKey:{} find_results count:{}, total Nodes Count: {}{}'
+                  .format(req_key, find_results_count, total_nodes_count, msg))
 
         jobs = [
             Job(
                 sub.fetch,
-                'Fetch values for reqkey={} for {} metrics'.format(
-                    reqkey, len(sub.nodes)
+                'Fetch values for reqKey={} for {} metrics'.format(
+                    req_key, len(sub.nodes)
                 ),
-                sub.nodes[0].path, reqkey, start_time, end_time
-            ) for sub in subreqs if sub.nodes
+                sub.nodes[0].path, req_key, start_time, end_time
+            ) for sub in sub_reqs if sub.nodes
         ]
-        profilingTime['gen_fetch'] = time.time()
+        profiling_time['gen_fetch'] = time.time()
 
         # Fetch everything in parallel
+        if total_nodes_count >= nodes_count_to_use_slow_pool:
+            self.prepare_slow_pool(req_key)
+        else:
+            self.prepare_fast_pool(req_key)
+
         _ = self.wait_jobs(
             jobs,
-            getattr(settings, 'FETCH_TIMEOUT'),
-            'Multifetch for request key {}'.format(reqkey)
+            getattr(settings, 'FETCH_TIMEOUT', 120),
+            'Multifetch for request key {}'.format(req_key)
         )
-        profilingTime['fetch'] = time.time()
+        profiling_time['fetch'] = time.time()
 
         for result in results:
             result['time_info'], result['values'] = result['fetcher'].fetch(
-                result['path'], reqkey, start_time, end_time
+                result['path'], req_key, start_time, end_time
             )
-        profilingTime['fill'] = time.time()
+        profiling_time['fill'] = time.time()
 
         log.debug(
-            'DEBUG:graphouse_multifetch[{}]: full={}, find={}, '
+            'DEBUG:graphouse_multifetch[{}]: full(unprocessed "yield")={}, find={}, '
             'generetion_fetch_jobs={}, fetch_graphouse_parallel={}, '
-            'parse_values={}'
-            .format(
-                reqkey,
-                profilingTime['fill'] - profilingTime['start'],
-                profilingTime['find'] - profilingTime['start'],
-                profilingTime['gen_fetch'] - profilingTime['find'],
-                profilingTime['fetch'] - profilingTime['gen_fetch'],
-                profilingTime['fill'] - profilingTime['fetch'],
+            'parse_values={}'.format(
+                req_key,
+                profiling_time['fill'] - profiling_time['start'],
+                profiling_time['find'] - profiling_time['start'],
+                profiling_time['gen_fetch'] - profiling_time['find'],
+                profiling_time['fetch'] - profiling_time['gen_fetch'],
+                profiling_time['fill'] - profiling_time['fetch'],
             )
         )
 
@@ -360,4 +411,5 @@ class GraphouseReader(object):
 
 if GRAPHITE_VERSION[:2] <= (1, 0):
     import graphite.readers
+
     graphite.readers.MultiReader = GraphouseReader
