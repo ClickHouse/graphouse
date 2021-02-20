@@ -37,7 +37,7 @@ if os.getenv("GRAPHOUSE_MAX_FORM_SIZE") is not None:
     GRAPHOUSE_MAX_FORM_SIZE = int(os.getenv("GRAPHOUSE_MAX_FORM_SIZE"))
 
 if os.getenv("USE_WORKER_POOL") is not None:
-    USE_WORKER_POOL = os.getenv("USE_WORKER_POOL") == 'True'
+    USE_WORKER_POOL = os.getenv("USE_WORKER_POOL").lower() == 'true'
 
 if os.getenv("POOL_MAX_WORKERS") is not None:
     POOL_MAX_WORKERS = int(os.getenv("POOL_MAX_WORKERS"))
