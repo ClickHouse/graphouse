@@ -34,35 +34,35 @@ if os.getenv("GRAPHOUSE_URL") is not None:
 
 #metric size in bytes to send to graphouse to fetch data
 if os.getenv("GRAPHOUSE_MAX_FORM_SIZE") is not None:
-    GRAPHOUSE_MAX_FORM_SIZE = os.getenv("GRAPHOUSE_MAX_FORM_SIZE")
+    GRAPHOUSE_MAX_FORM_SIZE = int(os.getenv("GRAPHOUSE_MAX_FORM_SIZE"))
 
 if os.getenv("USE_WORKER_POOL") is not None:
-    USE_WORKER_POOL = os.getenv("USE_WORKER_POOL")
+    USE_WORKER_POOL = os.getenv("USE_WORKER_POOL") == 'True'
 
 if os.getenv("POOL_MAX_WORKERS") is not None:
-    POOL_MAX_WORKERS = os.getenv("POOL_MAX_WORKERS")
+    POOL_MAX_WORKERS = int(os.getenv("POOL_MAX_WORKERS"))
 
 if os.getenv("GRAPHOUSE_PARALLEL_JOBS_TO_USE_FAST_POOL") is not None:
-    GRAPHOUSE_PARALLEL_JOBS_TO_USE_FAST_POOL = os.getenv("GRAPHOUSE_PARALLEL_JOBS_TO_USE_FAST_POOL")
+    GRAPHOUSE_PARALLEL_JOBS_TO_USE_FAST_POOL = int(os.getenv("GRAPHOUSE_PARALLEL_JOBS_TO_USE_FAST_POOL"))
 
 if os.getenv("GRAPHOUSE_PARALLEL_JOBS_TO_USE_SLOW_POOL") is not None:
-    GRAPHOUSE_PARALLEL_JOBS_TO_USE_SLOW_POOL = os.getenv("GRAPHOUSE_PARALLEL_JOBS_TO_USE_SLOW_POOL")
+    GRAPHOUSE_PARALLEL_JOBS_TO_USE_SLOW_POOL = int(os.getenv("GRAPHOUSE_PARALLEL_JOBS_TO_USE_SLOW_POOL"))
 
 if os.getenv("GRAPHOUSE_NODES_COUNT_TO_USE_SLOW_POOL") is not None:
-    GRAPHOUSE_NODES_COUNT_TO_USE_SLOW_POOL = os.getenv("GRAPHOUSE_NODES_COUNT_TO_USE_SLOW_POOL")
+    GRAPHOUSE_NODES_COUNT_TO_USE_SLOW_POOL = int(os.getenv("GRAPHOUSE_NODES_COUNT_TO_USE_SLOW_POOL"))
 
 if os.getenv("GRAPHOUSE_MAX_NODES_COUNT") is not None:
-    GRAPHOUSE_MAX_NODES_COUNT = os.getenv("GRAPHOUSE_MAX_NODES_COUNT")
+    GRAPHOUSE_MAX_NODES_COUNT = int(os.getenv("GRAPHOUSE_MAX_NODES_COUNT"))
 
 # by default: EXCEPTION, another policy is CUT_BY_LIMIT
 if os.getenv("GRAPHOUSE_NODES_LIMIT_EXCEEDED_POLICY") is not None:
     GRAPHOUSE_NODES_LIMIT_EXCEEDED_POLICY = os.getenv("GRAPHOUSE_NODES_LIMIT_EXCEEDED_POLICY")
 
 if os.getenv("FIND_TIMEOUT") is not None:
-    FIND_TIMEOUT = os.getenv("FIND_TIMEOUT")
+    FIND_TIMEOUT = int(os.getenv("FIND_TIMEOUT"))
 
 if os.getenv("FETCH_TIMEOUT") is not None:
-    FETCH_TIMEOUT = os.getenv("FETCH_TIMEOUT")
+    FETCH_TIMEOUT = int(os.getenv("FETCH_TIMEOUT"))
 
 
 if os.getenv("TIME_ZONE") is not None:
