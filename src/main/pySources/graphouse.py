@@ -39,6 +39,9 @@ max_allowed_nodes_count = getattr(settings, 'GRAPHOUSE_MAX_NODES_COUNT', 25000)
 # Big requests (with many nodes / wildcards) might cause stuck all other requests,
 # so it's a reason to put them to another pool.
 nodes_count_to_use_slow_pool = getattr(settings, 'GRAPHOUSE_NODES_COUNT_TO_USE_SLOW_POOL', 5000)
+find_timeout_seconds = getattr(settings, 'FIND_TIMEOUT', 60)
+nodes_limit_exceeded_policy = getattr(settings, 'GRAPHOUSE_NODES_LIMIT_EXCEEDED_POLICY', 'EXCEPTION')
+fetch_timeout_seconds = getattr(settings, 'FETCH_TIMEOUT', 600)
 
 GRAPHITE_VERSION = tuple(
     int(i) for i in getattr(settings, 'WEBAPP_VERSION').split('.')
@@ -235,7 +238,7 @@ class GraphouseFinder(BaseFinder, Store):
         ]
 
         results = self.wait_jobs(
-            jobs, getattr(settings, 'FIND_TIMEOUT'),
+            jobs, find_timeout_seconds,
             'Find nodes for {} request'.format(req_key)
         )
 
@@ -295,7 +298,7 @@ class GraphouseFinder(BaseFinder, Store):
 
             for node in nodes:
                 if processed_nodes_count >= max_allowed_nodes_count:
-                    if getattr(settings, 'GRAPHOUSE_NODES_LIMIT_EXCEEDED_POLICY', 'EXCEPTION') == 'EXCEPTION':
+                    if nodes_limit_exceeded_policy == 'EXCEPTION':
                         raise Exception(
                             'Max nodes (wildcards / substitutions) "{}" exceeded by patterns:{}'.format(
                                 max_allowed_nodes_count, patterns
@@ -347,7 +350,7 @@ class GraphouseFinder(BaseFinder, Store):
 
         _ = self.wait_jobs(
             jobs,
-            getattr(settings, 'FETCH_TIMEOUT', 120),
+            fetch_timeout_seconds,
             'Multifetch for request key {}'.format(req_key)
         )
         profiling_time['fetch'] = time.time()
