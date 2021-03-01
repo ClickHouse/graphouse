@@ -4,7 +4,8 @@ ARG USER=graphouse
 ARG GRAPHOUSE_ROOT=/opt/graphouse
 
 RUN apt-get update && \
-    apt-get install --no-install-recommends --allow-unauthenticated -y apt-transport-https git ca-certificates curl nano net-tools telnet bind9-host less vim && \
+    apt-get install --no-install-recommends --allow-unauthenticated -y apt-transport-https git ca-certificates \
+    curl nano net-tools telnet bind9-host less vim locales && \
     rm -rf /var/lib/apt/lists/* /var/cache/debconf && \
     apt-get clean
 
