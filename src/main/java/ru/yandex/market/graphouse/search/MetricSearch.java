@@ -1,26 +1,5 @@
 package ru.yandex.market.graphouse.search;
 
-import java.io.IOException;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
@@ -33,7 +12,6 @@ import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.util.StopWatch;
-
 import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
@@ -54,6 +32,27 @@ import ru.yandex.market.graphouse.utils.AppendableList;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 import ru.yandex.market.graphouse.utils.AppendableWrapper;
 import ru.yandex.market.graphouse.utils.TraceAppendableWrapper;
+
+import java.io.IOException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -144,9 +143,8 @@ public class MetricSearch implements InitializingBean, Runnable {
 
         this.statisticsService.registerInstantMetric(InstantMetric.NUMBER_OF_LOADED_METRICS,
             () -> (double) numberOfLoadedMetrics.get());
+
         monitoring.addUnit(metricSearchUnit);
-        metricSearchUnit.setWarningTimeout(3 * saveIntervalSeconds, TimeUnit.SECONDS);
-        metricSearchUnit.setCriticalTimeout(10 * saveIntervalSeconds, TimeUnit.SECONDS);
         ping.addUnit(metricTreeInitUnit);
         metricTreeInitUnit.critical("Initializing");
     }
@@ -180,6 +178,9 @@ public class MetricSearch implements InitializingBean, Runnable {
         dirContentProvider = dirContentProviderBuilder.buildAsync((dir) -> dirContentBatcher.loadDirContent(dir));
 
         metricTree = new MetricTree(metricDirFactory, retentionProvider, maxSubDirsPerDir, maxMetricsPerDir);
+
+        metricSearchUnit.setWarningTimeout(3 * saveIntervalSeconds, TimeUnit.SECONDS);
+        metricSearchUnit.setCriticalTimeout(10 * saveIntervalSeconds, TimeUnit.SECONDS);
 
         new Thread(this, "MetricSearch thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
