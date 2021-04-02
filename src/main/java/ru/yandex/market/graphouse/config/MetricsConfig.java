@@ -82,9 +82,10 @@ public class MetricsConfig {
 
     @Bean
     public MetricDataService dataService(@Value("${graphouse.clickhouse.data-read-table}") String graphiteDataReadTable,
-                                         @Value("${graphouse.metric-data.max-points-per-metric}") int maxPointsPerMetric) {
+                                         @Value("${graphouse.metric-data.max-points-per-metric}") int maxPointsPerMetric,
+                                         @Value("${graphouse.clickhouse.use-sharding}") boolean useSharding) {
         return new MetricDataService(
-            metricSearch(), clickHouseJdbcTemplate, graphiteDataReadTable, maxPointsPerMetric
+            metricSearch(), clickHouseJdbcTemplate, graphiteDataReadTable, maxPointsPerMetric, useSharding
         );
     }
 

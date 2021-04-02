@@ -75,7 +75,7 @@ ORDER BY (metric, timestamp)
 SETTINGS index_granularity = 8192;
 
 
-CREATE TABLE graphite.data
+CREATE TABLE graphite.data_write
 (
     metric String,
     value Float64,
@@ -84,8 +84,37 @@ CREATE TABLE graphite.data
     updated UInt32
 )
 ENGINE Distributed(CLICKHOUSE_CLUSTER_NAME, 'graphite', 'data_lr', sipHash64(metric));
+
+CREATE VIEW graphite.data_view
+(
+    `metric` String,
+    `value` Float64,
+    `timestamp` UInt32,
+    `date` Date
+) AS
+SELECT
+    metric,
+    timestamp,
+    argMax(value, updated) AS value,
+    date
+FROM graphite.data_lr
+GROUP BY
+    metric,
+    timestamp,
+    date;
+
+CREATE TABLE graphite.data_view_distributed
+(
+    `metric` String,
+    `value` Float64,
+    `timestamp` UInt32,
+    `date` Date
+)
+ENGINE = Distributed(CLICKHOUSE_CLUSTER_NAME, 'graphite', 'data_view', sipHash64(metric))
 ```
 
 Don't forget to replace ```CLICKHOUSE_CLUSTER_NAME``` with name from you config.
+
+You have to set the property graphouse.clickhouse.use-sharding=true and use different tables for reads and writes.
 
 **Notice**: We use sharding only for ```data```, couse ```metrics``` is small and contains only metric names.
