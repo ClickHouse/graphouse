@@ -14,6 +14,7 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.springframework.beans.factory.annotation.Value;
 import ru.yandex.market.graphouse.data.MetricDataServiceServlet;
+import ru.yandex.market.graphouse.save.OnRecordMetricCacheServlet;
 import ru.yandex.market.graphouse.search.MetricSearchServlet;
 
 /**
@@ -38,15 +39,20 @@ public class GraphouseWebServer {
 
     private final MetricSearchServlet metricSearchServlet;
     private final MonitoringServlet monitoringServlet;
+    private final OnRecordMetricCacheServlet onRecordMetricCacheServlet;
 
     private final MetricDataServiceServlet metricDataServiceServlet;
 
-    public GraphouseWebServer(MetricSearchServlet metricSearchServlet,
-                              MonitoringServlet monitoringServlet,
-                              MetricDataServiceServlet metricDataServiceServlet) {
+    public GraphouseWebServer(
+        MetricSearchServlet metricSearchServlet,
+        MonitoringServlet monitoringServlet,
+        MetricDataServiceServlet metricDataServiceServlet,
+        OnRecordMetricCacheServlet onRecordMetricCacheServlet
+    ) {
         this.metricSearchServlet = metricSearchServlet;
         this.monitoringServlet = monitoringServlet;
         this.metricDataServiceServlet = metricDataServiceServlet;
+        this.onRecordMetricCacheServlet = onRecordMetricCacheServlet;
     }
 
     private void startServer() throws Exception {
@@ -79,6 +85,9 @@ public class GraphouseWebServer {
 
         ServletHolder metricDataServletHolder = new ServletHolder(metricDataServiceServlet);
         context.addServlet(metricDataServletHolder, "/metricData");
+
+        ServletHolder onRecordMetricProviderServletHolder = new ServletHolder(onRecordMetricCacheServlet);
+        context.addServlet(onRecordMetricProviderServletHolder, "/checkOnRecordCache/*");
 
         HandlerCollection handlers = new HandlerCollection();
         handlers.setHandlers(new Handler[]{context, new DefaultHandler()});

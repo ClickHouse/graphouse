@@ -10,9 +10,11 @@ import org.springframework.jdbc.core.RowCallbackHandler;
 import ru.yandex.market.graphouse.MetricValidator;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
+import ru.yandex.market.graphouse.save.OnRecordCacheUpdater;
+import ru.yandex.market.graphouse.save.UpdateMetricQueueService;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricStatus;
-import ru.yandex.market.graphouse.statistics.StatisticsService;
+import ru.yandex.market.graphouse.statistics.LoadedMetricsCounter;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -106,11 +108,15 @@ public class DirContentBatcherTest {
             .query(Mockito.anyString(), Mockito.any(RowCallbackHandler.class), Mockito.any());
         return new MetricSearch(
             clickHouseJdbcTemplate,
+            Mockito.mock(UpdateMetricQueueService.class),
             Mockito.mock(Monitoring.class),
             Mockito.mock(Monitoring.class),
             Mockito.mock(MetricValidator.class),
             Mockito.mock(RetentionProvider.class),
-            Mockito.mock(StatisticsService.class)
+            Mockito.mock(LoadedMetricsCounter.class),
+            Mockito.mock(OnRecordCacheUpdater.class),
+            "metrics",
+            null
         );
     }
 

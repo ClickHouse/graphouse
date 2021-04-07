@@ -14,8 +14,14 @@ import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.retention.ClickHouseRetentionProvider;
 import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
+import ru.yandex.market.graphouse.save.OnRecordCacheUpdater;
+import ru.yandex.market.graphouse.save.OnRecordMetricProvider;
+import ru.yandex.market.graphouse.save.UpdateMetricQueueService;
+import ru.yandex.market.graphouse.save.banned.BannedMetricCache;
 import ru.yandex.market.graphouse.search.MetricSearch;
-import ru.yandex.market.graphouse.server.MetricFactory;
+import ru.yandex.market.graphouse.server.OnRecordCacheBasedMetricFactory;
+import ru.yandex.market.graphouse.server.SearchCacheBasedMetricFactory;
+import ru.yandex.market.graphouse.statistics.LoadedMetricsCounter;
 import ru.yandex.market.graphouse.statistics.StatisticsService;
 
 /**
@@ -37,10 +43,16 @@ public class MetricsConfig {
     private JdbcTemplate clickHouseJdbcTemplate;
 
     @Autowired
+    private JdbcTemplate clickHouseJdbcTemplateOnRecord;
+
+    @Autowired
     private JdbcTemplate clickHouseJdbcTemplateSearch;
 
     @Autowired
     private StatisticsService statisticsService;
+
+    @Autowired
+    private LoadedMetricsCounter loadedMetricsCounter;
 
     @Value("${graphouse.clickhouse.data-table}")
     private String graphiteDataTable;
@@ -63,11 +75,31 @@ public class MetricsConfig {
     @Value("${graphouse.metric-validation.regexp}")
     private String metricRegexp;
 
+    @Value("${graphouse.clickhouse.metric-tree-table}")
+    private String metricsTable;
+
+    @Value("${graphouse.on-record-metric-cache.enable}")
+    private boolean onRecordCacheEnable;
+
     @Bean
-    public MetricSearch metricSearch() {
+    public UpdateMetricQueueService updateMetricQueueService() {
+        return new UpdateMetricQueueService(
+            statisticsService,
+            metricsTable,
+            clickHouseJdbcTemplateSearch
+        );
+    }
+
+    @Bean
+    public MetricSearch metricSearch(
+        OnRecordCacheUpdater onRecordCacheUpdater,
+        UpdateMetricQueueService updateMetricQueueService,
+        @Value("${graphouse.search.directories-for-cache:}") String directoriesForSearchCache
+    ) {
         return new MetricSearch(
-            clickHouseJdbcTemplateSearch, monitoring, ping,
-            metricValidator(), retentionProvider(), statisticsService
+            clickHouseJdbcTemplateSearch, updateMetricQueueService, monitoring, ping,
+            metricValidator(), retentionProvider(), loadedMetricsCounter,
+            onRecordCacheUpdater, metricsTable, directoriesForSearchCache
         );
     }
 
@@ -81,10 +113,13 @@ public class MetricsConfig {
     }
 
     @Bean
-    public MetricDataService dataService(@Value("${graphouse.clickhouse.data-read-table}") String graphiteDataReadTable,
-                                         @Value("${graphouse.metric-data.max-points-per-metric}") int maxPointsPerMetric) {
+    public MetricDataService dataService(
+        @Value("${graphouse.clickhouse.data-read-table}") String graphiteDataReadTable,
+        @Value("${graphouse.metric-data.max-points-per-metric}") int maxPointsPerMetric,
+        MetricSearch metricSearch
+    ) {
         return new MetricDataService(
-            metricSearch(), clickHouseJdbcTemplate, graphiteDataReadTable, maxPointsPerMetric
+            metricSearch, clickHouseJdbcTemplate, graphiteDataReadTable, maxPointsPerMetric
         );
     }
 
@@ -99,9 +134,103 @@ public class MetricsConfig {
     }
 
     @Bean
-    public MetricFactory metricFactory(@Value("${graphouse.host-metric-redirect.enabled}") boolean redirectHostMetrics,
-                                       @Value("${graphouse.host-metric-redirect.dir}") String hostMetricDir,
-                                       @Value("${graphouse.host-metric-redirect.postfixes}") String hostPostfixes) {
-        return new MetricFactory(metricSearch(), metricValidator(), redirectHostMetrics, hostMetricDir, hostPostfixes);
+    public SearchCacheBasedMetricFactory metricFactory(
+        @Value("${graphouse.host-metric-redirect.enabled}") boolean redirectHostMetrics,
+        @Value("${graphouse.host-metric-redirect.dir}") String hostMetricDir,
+        @Value("${graphouse.host-metric-redirect.postfixes}") String hostPostfixes,
+        MetricSearch metricSearch
+    ) {
+        return new SearchCacheBasedMetricFactory(
+            metricSearch,
+            metricValidator(),
+            redirectHostMetrics,
+            hostMetricDir,
+            hostPostfixes
+        );
+    }
+
+    @Bean
+    public OnRecordCacheBasedMetricFactory onRecordCacheBasedMetricFactory(
+        @Value("${graphouse.host-metric-redirect.enabled}") boolean redirectHostMetrics,
+        @Value("${graphouse.host-metric-redirect.dir}") String hostMetricDir,
+        @Value("${graphouse.host-metric-redirect.postfixes}") String hostPostfixes,
+        SearchCacheBasedMetricFactory searchCacheBasedMetricFactory,
+        OnRecordMetricProvider onRecordMetricProvider,
+        @Value("${graphouse.search.directories-for-cache:}") String directoriesForSearchCache
+    ) {
+        return new OnRecordCacheBasedMetricFactory(
+            metricValidator(),
+            redirectHostMetrics,
+            hostMetricDir,
+            hostPostfixes,
+            searchCacheBasedMetricFactory,
+            onRecordMetricProvider,
+            onRecordCacheEnable,
+            directoriesForSearchCache
+        );
+    }
+
+    @Bean
+    public BannedMetricCache bannedMetricCache() {
+        return new BannedMetricCache();
+    }
+
+    @Bean
+    public OnRecordMetricProvider onRecordMetricProvider(
+        BannedMetricCache bannedMetricCache,
+        UpdateMetricQueueService updateMetricQueueService,
+        @Value("${graphouse.on-record-metric-provider.cache-expire-time-minutes}") int cacheExpireTimeMinutes,
+        @Value("${graphouse.on-record-metric-provider.max-cache-size}") int maxCacheSize,
+        @Value("${graphouse.tree.max-subdirs-per-dir}") int maxSubDirsPerDir,
+        @Value("${graphouse.tree.max-metrics-per-dir}") int maxMetricsPerDir,
+        @Value("${graphouse.on-record-metric-provider.batcher.query-retry-count}") int queryRetryCount,
+        @Value("${graphouse.on-record-metric-provider.batcher.query-retry-increment-sec}") int queryRetryIncrementSec,
+        @Value("${graphouse.on-record-metric-provider.batcher.max-parallel-requests}") int maxParallelRequests,
+        @Value("${graphouse.on-record-metric-provider.batcher.max-batches-count}") int maxMaxBatchesCount,
+        @Value("${graphouse.on-record-metric-provider.batcher.max-batch-size}") int maxBatchSize,
+        @Value("${graphouse.on-record-metric-provider.batcher.aggregation-time-millis}") int batchAggregationTimeMillis
+    ) {
+        return new OnRecordMetricProvider(
+            onRecordCacheEnable,
+            bannedMetricCache,
+            loadedMetricsCounter,
+            updateMetricQueueService,
+            clickHouseJdbcTemplateOnRecord,
+            metricValidator(),
+            metricsTable,
+            cacheExpireTimeMinutes,
+            maxCacheSize,
+            maxSubDirsPerDir,
+            maxMetricsPerDir,
+            queryRetryCount,
+            queryRetryIncrementSec,
+            maxParallelRequests,
+            maxMaxBatchesCount,
+            maxBatchSize,
+            batchAggregationTimeMillis
+        );
+    }
+
+    @Bean
+    public OnRecordCacheUpdater onRecordCacheUpdater(
+        OnRecordMetricProvider metricProvider,
+        BannedMetricCache bannedMetricCache,
+        @Value("${graphouse.on-record-metric-cache.refresh-seconds}") int refreshSeconds,
+        @Value("${graphouse.on-record-metric-cache.query-retry-count}") int queryRetryCount,
+        @Value("${graphouse.on-record-metric-cache.max-batch-size}") long maxBatchSize
+    ) {
+        return new OnRecordCacheUpdater(
+            metricProvider,
+            bannedMetricCache,
+            onRecordCacheEnable,
+            ping,
+            monitoring,
+            maxDots + 1,
+            clickHouseJdbcTemplate,
+            metricsTable,
+            refreshSeconds,
+            queryRetryCount,
+            maxBatchSize
+        );
     }
 }

@@ -320,24 +320,12 @@ public class MetricTree {
                     metricBase = dir.getOrCreateMetric(level, status, retentionProvider, maxMetricsPerDir);
                 }
                 if (metricBase != null) {
-                    metricBase.setStatus(selectStatus(metricBase.getStatus(), status));
+                    metricBase.setStatus(MetricStatus.selectStatus(metricBase.getStatus(), status));
                 }
                 return metricBase;
             }
         }
         throw new IllegalStateException();
-    }
-
-    /**
-     * We return a new status when changing the metric, taking into account the graph of possible transitions
-     */
-    public static MetricStatus selectStatus(MetricStatus oldStatus, MetricStatus newStatus) {
-        if (oldStatus == newStatus) {
-            return oldStatus;
-        }
-
-        List<MetricStatus> restricted = MetricStatus.RESTRICTED_GRAPH_EDGES.get(oldStatus);
-        return restricted == null || !restricted.contains(newStatus) ? newStatus : oldStatus;
     }
 
     @VisibleForTesting

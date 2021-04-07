@@ -3,20 +3,21 @@ package ru.yandex.market.graphouse.search;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
-import com.google.common.base.Stopwatch;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.util.StopWatch;
 import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.MetricValidator;
+import ru.yandex.market.graphouse.data.ClickHouseDirContentLoader;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
 import ru.yandex.market.graphouse.monitoring.MonitoringUnit;
 import ru.yandex.market.graphouse.retention.RetentionProvider;
+import ru.yandex.market.graphouse.save.OnRecordCacheUpdater;
+import ru.yandex.market.graphouse.save.UpdateMetricQueueService;
 import ru.yandex.market.graphouse.search.tree.DirContent;
 import ru.yandex.market.graphouse.search.tree.DirContentBatcher;
 import ru.yandex.market.graphouse.search.tree.InMemoryMetricDir;
@@ -26,61 +27,62 @@ import ru.yandex.market.graphouse.search.tree.MetricDir;
 import ru.yandex.market.graphouse.search.tree.MetricDirFactory;
 import ru.yandex.market.graphouse.search.tree.MetricName;
 import ru.yandex.market.graphouse.search.tree.MetricTree;
-import ru.yandex.market.graphouse.statistics.InstantMetric;
-import ru.yandex.market.graphouse.statistics.StatisticsService;
+import ru.yandex.market.graphouse.server.MetricDescriptionProvider;
+import ru.yandex.market.graphouse.statistics.LoadedMetricsCounter;
 import ru.yandex.market.graphouse.utils.AppendableList;
 import ru.yandex.market.graphouse.utils.AppendableResult;
 import ru.yandex.market.graphouse.utils.AppendableWrapper;
 import ru.yandex.market.graphouse.utils.TraceAppendableWrapper;
 
 import java.io.IOException;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 07/04/15
  */
-public class MetricSearch implements InitializingBean, Runnable {
+public class MetricSearch implements InitializingBean, Runnable, MetricDescriptionProvider {
 
     private static final Logger log = LogManager.getLogger();
 
-    private static final int BATCH_SIZE = 5_000;
-    private static final int MAX_METRICS_PER_SAVE = 1_000_000;
-
-    private final JdbcTemplate clickHouseJdbcTemplate;
+    private final ClickHouseDirContentLoader clickHouseDirContentLoader;
     private final Monitoring monitoring;
     private final Monitoring ping;
     private final MetricValidator metricValidator;
     private final RetentionProvider retentionProvider;
-    private final StatisticsService statisticsService;
+    private final OnRecordCacheUpdater onRecordCacheUpdater;
+    private final UpdateMetricQueueService updateMetricQueue;
 
     private final MonitoringUnit metricSearchUnit = new MonitoringUnit("MetricSearch", 2, TimeUnit.MINUTES);
     private final MonitoringUnit metricTreeInitUnit = new MonitoringUnit("MetricTreeInit");
     private MetricTree metricTree;
-    private final Queue<MetricDescription> updateQueue = new ConcurrentLinkedQueue<>();
 
     private int lastUpdatedTimestampSeconds = 0;
 
     @Value("${graphouse.search.refresh-seconds}")
     private int saveIntervalSeconds;
+
+    @Value("${graphouse.search.warn-delay-seconds}")
+    private int warnSaveDelaySeconds;
+
+    @Value("${graphouse.search.crit-delay-seconds}")
+    private int critSaveDelaySeconds;
+
     /**
      * Задержка на запись, репликацию, синхронизацию
      */
@@ -104,7 +106,6 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Value("${graphouse.tree.dir-content.batcher.aggregation-time-millis}")
     private int dirContentBatcherAggregationTimeMillis;
 
-    @Value("${graphouse.clickhouse.metric-tree-table}")
     private String metricsTable;
 
     @Value("${graphouse.tree.max-subdirs-per-dir}")
@@ -119,39 +120,61 @@ public class MetricSearch implements InitializingBean, Runnable {
     @Value("${graphouse.search.query-retry-increment-sec}")
     private int queryRetryIncrementSec;
 
+    @Value("${graphouse.search.max-metrics-per-query}")
+    private int maxMetricsPerQuery;
+
+    @Value("${graphouse.on-record-metric-cache.enable}")
+    private boolean onRecordCacheEnable;
+
     private AsyncLoadingCache<MetricDir, DirContent> dirContentProvider;
     private MetricDirFactory metricDirFactory;
+    private final Pattern directoriesForSearchCache;
 
     private DirContentBatcher dirContentBatcher;
 
-    AtomicInteger numberOfLoadedMetrics = new AtomicInteger();
-
     public MetricSearch(
         JdbcTemplate clickHouseJdbcTemplate,
+        UpdateMetricQueueService updateMetricQueue,
         Monitoring monitoring,
         Monitoring ping,
         MetricValidator metricValidator,
         RetentionProvider retentionProvider,
-        StatisticsService statisticsService
+        LoadedMetricsCounter loadedMetricsCounter,
+        OnRecordCacheUpdater onRecordCacheUpdater,
+        String metricsTable,
+        String directoriesForSearchCache
     ) {
-        this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
         this.monitoring = monitoring;
         this.ping = ping;
         this.metricValidator = metricValidator;
         this.retentionProvider = retentionProvider;
-        this.statisticsService = statisticsService;
+        this.onRecordCacheUpdater = onRecordCacheUpdater;
+        this.metricsTable = metricsTable;
 
-        this.statisticsService.registerInstantMetric(InstantMetric.NUMBER_OF_LOADED_METRICS,
-            () -> (double) numberOfLoadedMetrics.get());
+        this.updateMetricQueue = updateMetricQueue;
+        this.clickHouseDirContentLoader = new ClickHouseDirContentLoader(
+            clickHouseJdbcTemplate,
+            queryRetryCount,
+            queryRetryIncrementSec,
+            metricsTable,
+            loadedMetricsCounter
+        );
 
         monitoring.addUnit(metricSearchUnit);
         ping.addUnit(metricTreeInitUnit);
         metricTreeInitUnit.critical("Initializing");
+
+        if (directoriesForSearchCache == null || directoriesForSearchCache.isEmpty()) {
+            this.directoriesForSearchCache = null;
+        } else {
+            this.directoriesForSearchCache = MetricUtil.createStartWithDirectoryPattern(
+                directoriesForSearchCache.split(",")
+            );
+        }
     }
 
     @Override
     public void afterPropertiesSet() throws Exception {
-
         metricDirFactory = (parent, name, status) -> {
             int level = parent.getLevel() + 1;
             if (level < inMemoryLevelsCount) {
@@ -179,117 +202,29 @@ public class MetricSearch implements InitializingBean, Runnable {
 
         metricTree = new MetricTree(metricDirFactory, retentionProvider, maxSubDirsPerDir, maxMetricsPerDir);
 
-        metricSearchUnit.setWarningTimeout(3 * saveIntervalSeconds, TimeUnit.SECONDS);
-        metricSearchUnit.setCriticalTimeout(10 * saveIntervalSeconds, TimeUnit.SECONDS);
+
+        if (warnSaveDelaySeconds > 0) {
+            metricSearchUnit.setWarningTimeout(warnSaveDelaySeconds, TimeUnit.SECONDS);
+        }
+        if (critSaveDelaySeconds > 0) {
+            metricSearchUnit.setCriticalTimeout(critSaveDelaySeconds, TimeUnit.SECONDS);
+        }
 
         new Thread(this, "MetricSearch thread").start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down Metric search");
-            saveUpdatedMetrics();
+            updateMetricQueue.saveUpdatedMetrics();
             log.info("Metric search stopped");
         }));
     }
 
-    private void saveMetrics(List<MetricDescription> metrics) {
-        if (metrics.isEmpty()) {
-            return;
-        }
-
-        final String sql = "INSERT INTO " + metricsTable
-            + " (name, level, parent, status, updated) VALUES (?, ?, ?, ?, ?)";
-
-        final int batchesCount = (metrics.size() - 1) / BATCH_SIZE + 1;
-
-        for (int batchNum = 0; batchNum < batchesCount; batchNum++) {
-
-            int firstIndex = batchNum * BATCH_SIZE;
-            int lastIndex = firstIndex + BATCH_SIZE;
-
-            lastIndex = (lastIndex <= metrics.size()) ? lastIndex : metrics.size();
-            final List<MetricDescription> batchList = metrics.subList(firstIndex, lastIndex);
-
-            BatchPreparedStatementSetter batchSetter = new BatchPreparedStatementSetter() {
-                @Override
-                public void setValues(PreparedStatement ps, int i) throws SQLException {
-                    MetricDescription metricDescription = batchList.get(i);
-                    MetricDescription parent = metricDescription.getParent();
-                    ps.setString(1, metricDescription.getName());
-                    ps.setInt(2, metricDescription.getLevel());
-                    ps.setString(3, (parent != null) ? parent.getName() : "");
-                    ps.setString(4, metricDescription.getStatus().name());
-                    ps.setTimestamp(5, new Timestamp(metricDescription.getUpdateTimeMillis()));
-                }
-
-                @Override
-                public int getBatchSize() {
-                    return batchList.size();
-                }
-            };
-
-            clickHouseJdbcTemplate.batchUpdate(sql, batchSetter);
-        }
-    }
-
     public Map<MetricDir, DirContent> loadDirsContent(Set<MetricDir> dirs) {
-        Stopwatch stopwatch = Stopwatch.createStarted();
-
-        String dirFilter = dirs.stream().map(MetricDir::getName).collect(Collectors.joining("','", "'", "'"));
-
         DirContentRequestRowCallbackHandler metricHandler = new DirContentRequestRowCallbackHandler(dirs);
-        executeQuery(
-            "SELECT parent, name, argMax(status, updated) AS last_status FROM " + metricsTable +
-                " PREWHERE parent IN (" + dirFilter + ") WHERE status != ? GROUP BY parent, name ORDER BY parent",
-            metricHandler,
-            MetricStatus.AUTO_HIDDEN.name()
-        );
-
-        stopwatch.stop();
-        log.info(
-            "Loaded metrics for " + dirs.size() + " dirs: " + dirs
-                + " (" + metricHandler.getDirCount() + " dirs, "
-                + metricHandler.getMetricCount() + " metrics) in " + stopwatch.toString()
-        );
-
-        numberOfLoadedMetrics.addAndGet(metricHandler.getMetricCount());
-
+        clickHouseDirContentLoader.loadDirsContent(dirs, metricHandler);
         return metricHandler.getResult();
-
     }
 
-    private void executeQuery(String sql, RowCallbackHandler handler, Object... args) {
-        int attempts = 0;
-        int waitTime = 1;
-        while (!tryExecuteQuery(sql, handler, args)) {
-            try {
-                attempts++;
-                if (attempts >= queryRetryCount) {
-                    log.error("Can't execute query: \"{}\" with arguments {}", sql, args);
-                    break;
-                } else {
-                    log.warn(
-                        "Failed to execute query. Attempt number {} / {}. Waiting {} second before retry",
-                        attempts, queryRetryCount, waitTime
-                    );
-                    TimeUnit.SECONDS.sleep(waitTime);
-                    waitTime += queryRetryIncrementSec;
-                }
-            } catch (InterruptedException e) {
-                break;
-            }
-        }
-    }
-
-    private boolean tryExecuteQuery(String sql, RowCallbackHandler handler, Object... args) {
-        try {
-            clickHouseJdbcTemplate.query(sql, handler, args);
-        } catch (RuntimeException e) {
-            log.error("Failed to execute query", e);
-            return false;
-        }
-        return true;
-    }
-
-    private class DirContentRequestRowCallbackHandler implements RowCallbackHandler {
+    private class DirContentRequestRowCallbackHandler implements ClickHouseDirContentLoader.DirContentRowCallbackHandler {
 
         private final Map<String, MetricDir> dirNames;
         private final Map<MetricDir, DirContent> result = new HashMap<>();
@@ -360,10 +295,12 @@ public class MetricSearch implements InitializingBean, Runnable {
             return result;
         }
 
+        @Override
         public int getMetricCount() {
             return metricCount;
         }
 
+        @Override
         public int getDirCount() {
             return dirCount;
         }
@@ -380,10 +317,10 @@ public class MetricSearch implements InitializingBean, Runnable {
         for (int level = 1; ; level++) {
             log.info("Loading metrics for level " + level);
             final AtomicInteger levelCount = new AtomicInteger(0);
-            executeQuery(
+            clickHouseDirContentLoader.executeQuery(
                 "SELECT name, argMax(status, updated) as last_status " +
                     "FROM " + metricsTable + " PREWHERE level = ? WHERE status != ? GROUP BY name",
-                new MetricRowCallbackHandler(levelCount),
+                new MetricRowCallbackHandler(levelCount, false),
                 level, MetricStatus.AUTO_HIDDEN.name()
             );
 
@@ -406,33 +343,81 @@ public class MetricSearch implements InitializingBean, Runnable {
         metricTreeInitUnit.ok();
     }
 
-    private void loadUpdatedMetrics(int startTimestampSeconds) {
+    private void loadUpdatedMetrics(int startTimestampSeconds, int endTimestampSeconds) {
         log.info("Loading updated metric names from db...");
+
+        if (maxMetricsPerQuery > 0) {
+            loadUpdatedMetricsWithBatches(startTimestampSeconds, endTimestampSeconds);
+        } else {
+            loadUpdatedMetricsWithSingleQuery(startTimestampSeconds, endTimestampSeconds);
+        }
+    }
+
+    private void loadUpdatedMetricsWithSingleQuery(int startTimestampSeconds, int endTimestampSeconds) {
         final AtomicInteger metricCount = new AtomicInteger(0);
 
-        executeQuery(
+        clickHouseDirContentLoader.executeQuery(
             "SELECT name, argMax(status, updated) as last_status FROM " + metricsTable +
-                " PREWHERE updated >= toDateTime(?) GROUP BY name",
-            new MetricRowCallbackHandler(metricCount),
-            startTimestampSeconds
+                " PREWHERE updated >= toDateTime(?) and updated <= toDateTime(?)" +
+                " GROUP BY name",
+            new MetricRowCallbackHandler(metricCount, true),
+            startTimestampSeconds, endTimestampSeconds
         );
         log.info("Loaded complete. Total " + metricCount.get() + " metrics");
     }
 
+    private void loadUpdatedMetricsWithBatches(int startTimestampSeconds, int endTimestampSeconds) {
+        int totalMetricCount = 0;
+        AtomicInteger metricCount;
+        int offset = 0;
+
+        do {
+            metricCount = new AtomicInteger(0);
+            clickHouseDirContentLoader.executeQuery(
+                "SELECT name, argMax(status, updated) as last_status FROM " + metricsTable +
+                    " PREWHERE updated >= toDateTime(?) and updated <= toDateTime(?)" +
+                    " GROUP BY name" +
+                    " ORDER BY name" +
+                    " LIMIT ? OFFSET ?",
+                new MetricRowCallbackHandler(metricCount, true),
+                startTimestampSeconds, endTimestampSeconds, maxMetricsPerQuery, offset
+            );
+            offset += maxMetricsPerQuery;
+            totalMetricCount += metricCount.get();
+            log.info("Loaded " + metricCount.get() + " metrics");
+        } while (metricCount.get() > 0);
+
+        log.info("Loaded complete. Total " + totalMetricCount + " metrics");
+    }
+
     private class MetricRowCallbackHandler implements RowCallbackHandler {
 
+        private final boolean updatedMetrics;
         private final AtomicInteger metricCount;
 
-        public MetricRowCallbackHandler(AtomicInteger metricCount) {
+        public MetricRowCallbackHandler(AtomicInteger metricCount, boolean updatedMetrics) {
             this.metricCount = metricCount;
+            this.updatedMetrics = updatedMetrics;
         }
 
         @Override
         public void processRow(ResultSet rs) throws SQLException {
             String metric = rs.getString("name");
             MetricStatus status = MetricStatus.valueOf(rs.getString("last_status"));
-            processMetric(metric, status);
 
+            if (onRecordCacheEnable && updatedMetrics) {
+                processUpdatedMetric(metric, status);
+            } else {
+                processMetric(metric, status);
+            }
+        }
+
+        private void processUpdatedMetric(String metric, MetricStatus status) {
+            if (directoriesForSearchCache == null || !directoriesForSearchCache.matcher(metric).find()) {
+                updateOnRecordCache(metric, status);
+            } else {
+                processMetric(metric, status);
+            }
         }
 
         protected void processMetric(String metric, MetricStatus status) {
@@ -452,25 +437,9 @@ public class MetricSearch implements InitializingBean, Runnable {
                 log.info("Loaded " + metricCount.get() + " metrics...");
             }
         }
-    }
 
-    private void saveUpdatedMetrics() {
-        if (updateQueue.isEmpty()) {
-            log.info("No new metric names to save");
-            return;
-        }
-        log.info("Saving new metric names to db. Current count: " + updateQueue.size());
-        List<MetricDescription> metrics = new ArrayList<>();
-        MetricDescription metric;
-        while (metrics.size() <= MAX_METRICS_PER_SAVE && (metric = updateQueue.poll()) != null) {
-            metrics.add(metric);
-        }
-        try {
-            saveMetrics(metrics);
-            log.info("Saved " + metrics.size() + " metric names");
-        } catch (Exception e) {
-            log.error("Failed to save metrics to database", e);
-            updateQueue.addAll(metrics);
+        private void updateOnRecordCache(String metric, MetricStatus status) {
+            onRecordCacheUpdater.tryToUpdateMetricCache(metric, status);
         }
     }
 
@@ -479,46 +448,71 @@ public class MetricSearch implements InitializingBean, Runnable {
         log.info("Metric search thread started");
         while (!Thread.interrupted()) {
             try {
-                CacheStats stats = dirContentProvider.synchronous().stats();
-                log.info(
-                    "Actual metrics count = {} , dir count: {}, hitRate: {}, requestCount: {}, cache stats: {}",
-                    metricTree.metricCount(), metricTree.dirCount(), stats.hitRate(), stats.requestCount(),
-                    stats.toString()
-                );
-                loadNewMetrics();
-                saveUpdatedMetrics();
+                updateMetricsState();
                 metricSearchUnit.ok();
             } catch (Exception e) {
                 log.error("Failed to update metric search", e);
                 metricSearchUnit.critical("Failed to update metric search: " + e.getMessage(), e);
             }
             try {
-                Thread.sleep(TimeUnit.SECONDS.toMillis(saveIntervalSeconds));
+                TimeUnit.SECONDS.sleep(saveIntervalSeconds);
             } catch (InterruptedException ignored) {
             }
         }
         log.info("Metric search thread finished");
-
     }
 
-    public void loadNewMetrics() {
-        int timeSeconds = (int) (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())) - updateDelaySeconds;
-        if (isMetricTreeLoaded()) {
-            loadUpdatedMetrics(lastUpdatedTimestampSeconds);
-        } else {
+    private void updateMetricsState() {
+        CacheStats stats = dirContentProvider.synchronous().stats();
+        log.info(
+            "Actual metrics count = {} , dir count: {}, hitRate: {}, requestCount: {}, cache stats: {}",
+            metricTree.metricCount(), metricTree.dirCount(), stats.hitRate(), stats.requestCount(),
+            stats.toString()
+        );
+
+        long loadNewMetricsMs = loadNewMetrics();
+        long updateMetricsMs = updateMetricQueue.saveUpdatedMetrics();
+
+
+        long executionSeconds = TimeUnit.MILLISECONDS.toSeconds(loadNewMetricsMs + updateMetricsMs);
+        if (executionSeconds > warnSaveDelaySeconds) {
+            log.warn(
+                "Execution time exceeded: {} s. Load metrics: {} s. Update metrics: {}s.",
+                executionSeconds,
+                TimeUnit.MILLISECONDS.toSeconds(loadNewMetricsMs),
+                TimeUnit.MILLISECONDS.toSeconds(updateMetricsMs)
+            );
+        }
+    }
+
+    public long loadNewMetrics() {
+        long startTimestampMs = System.currentTimeMillis();
+
+        int currentTimestampSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
+        int timeSeconds = currentTimestampSeconds - updateDelaySeconds;
+        if (!isMetricTreeLoaded()) {
             loadAllMetrics();
+        } else {
+            loadUpdatedMetrics(lastUpdatedTimestampSeconds, currentTimestampSeconds);
         }
         lastUpdatedTimestampSeconds = timeSeconds;
+
+        return System.currentTimeMillis() - startTimestampMs;
     }
 
     public MetricDescription maybeFindMetric(String[] levels) {
         return metricTree.maybeFindMetric(levels);
     }
 
+    @Override
+    public MetricDescription getMetricDescription(String name) {
+        return add(name);
+    }
+
     public MetricDescription add(String metric) {
         long currentTimeMillis = System.currentTimeMillis();
         MetricDescription metricDescription = metricTree.add(metric);
-        addUpdatedMetrics(currentTimeMillis, metricDescription, updateQueue);
+        updateMetricQueue.addUpdatedMetrics(currentTimeMillis, metricDescription);
         return metricDescription;
     }
 
@@ -570,7 +564,7 @@ public class MetricSearch implements InitializingBean, Runnable {
             addUpdatedMetrics(currentTimeMillis, metricDescription, metricDescriptions);
 
         }
-        saveMetrics(metricDescriptions);
+        updateMetricQueue.saveMetrics(metricDescriptions);
         if (metrics.size() == 1) {
             log.info("Updated metric '" + metrics.get(0) + "', status: " + status.name());
         } else {

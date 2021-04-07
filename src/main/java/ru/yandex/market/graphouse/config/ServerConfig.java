@@ -11,10 +11,14 @@ import ru.yandex.market.graphouse.cacher.MetricCacher;
 import ru.yandex.market.graphouse.data.MetricDataService;
 import ru.yandex.market.graphouse.data.MetricDataServiceServlet;
 import ru.yandex.market.graphouse.monitoring.Monitoring;
+import ru.yandex.market.graphouse.save.OnRecordCacheUpdater;
+import ru.yandex.market.graphouse.save.OnRecordMetricProvider;
+import ru.yandex.market.graphouse.save.OnRecordMetricCacheServlet;
 import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.MetricSearchServlet;
-import ru.yandex.market.graphouse.server.MetricFactory;
 import ru.yandex.market.graphouse.server.MetricServer;
+import ru.yandex.market.graphouse.server.OnRecordCacheBasedMetricFactory;
+import ru.yandex.market.graphouse.server.SearchCacheBasedMetricFactory;
 import ru.yandex.market.graphouse.statistics.StatisticsService;
 
 /**
@@ -28,13 +32,22 @@ public class ServerConfig {
     private MetricSearch metricSearch;
 
     @Autowired
+    private OnRecordCacheUpdater onRecordCacheUpdater;
+
+    @Autowired
+    private OnRecordMetricProvider onRecordMetricProvider;
+
+    @Autowired
     private MetricCacher metricCacher;
 
     @Autowired
     private MetricDataService metricDataService;
 
     @Autowired
-    private MetricFactory metricFactory;
+    private SearchCacheBasedMetricFactory searchMetricFactory;
+
+    @Autowired
+    private OnRecordCacheBasedMetricFactory onRecordMetricFactory;
 
     @Autowired
     private Monitoring monitoring;
@@ -61,11 +74,22 @@ public class ServerConfig {
             metricDataService, maxMetricsPerQuery, responseBufferSizeBytes
         );
 
-        return new GraphouseWebServer(metricSearchServlet, monitoringServlet, metricDataServiceServlet);
+        OnRecordMetricCacheServlet onRecordMetricCacheServlet = new OnRecordMetricCacheServlet(
+            onRecordCacheUpdater, onRecordMetricProvider, statisticsService
+        );
+
+        return new GraphouseWebServer(
+            metricSearchServlet,
+            monitoringServlet,
+            metricDataServiceServlet,
+            onRecordMetricCacheServlet
+        );
     }
 
     @Bean
-    public MetricServer metricServer() {
-        return new MetricServer(metricCacher, metricFactory);
+    public MetricServer metricServer(
+        @Value("${graphouse.on-record-metric-cache.enable}") boolean onRecordCacheEnable
+    ) {
+        return new MetricServer(metricCacher, onRecordCacheEnable ? onRecordMetricFactory : searchMetricFactory);
     }
 }
