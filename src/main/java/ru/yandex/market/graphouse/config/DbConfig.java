@@ -88,6 +88,63 @@ public class DbConfig {
         Monitoring monitoring,
         @Qualifier("ping") Monitoring ping
     ) {
+        return tryToCreateClickHouseDataSourcePool(
+            hostsString,
+            port,
+            db,
+            maxLifeTimeSeconds,
+            maxPoolSize,
+            minimumIdle,
+            validationTimeoutSeconds,
+            pingRateSeconds,
+            clickHouseProperties,
+            monitoring,
+            ping
+        );
+    }
+
+    @Bean
+    public DataSource clickHouseOnRecordDataSource(
+        @Value("${graphouse.clickhouse.hosts}") String hostsString,
+        @Value("${graphouse.clickhouse.port}") int port,
+        @Value("${graphouse.clickhouse.db}") String db,
+        @Value("${graphouse.on-record-tree.clickhouse.pool.max-life-time-seconds}") long maxLifeTimeSeconds,
+        @Value("${graphouse.on-record-tree.clickhouse.pool.max-pool-size}") int maxPoolSize,
+        @Value("${graphouse.on-record-tree.clickhouse.pool.minimum-idle}") int minimumIdle,
+        @Value("${graphouse.on-record-tree.clickhouse.pool.validation-timeout-seconds}") int validationTimeoutSeconds,
+        @Value("${graphouse.clickhouse.host-ping-rate-seconds}") int pingRateSeconds,
+        ClickHouseProperties clickHouseProperties,
+        Monitoring monitoring,
+        @Qualifier("ping") Monitoring ping
+    ) {
+        return tryToCreateClickHouseDataSourcePool(
+            hostsString,
+            port,
+            db,
+            maxLifeTimeSeconds,
+            maxPoolSize,
+            minimumIdle,
+            validationTimeoutSeconds,
+            pingRateSeconds,
+            clickHouseProperties,
+            monitoring,
+            ping
+        );
+    }
+
+    private DataSource tryToCreateClickHouseDataSourcePool(
+        String hostsString,
+        int port,
+        String db,
+        long maxLifeTimeSeconds,
+        int maxPoolSize,
+        int minimumIdle,
+        int validationTimeoutSeconds,
+        int pingRateSeconds,
+        ClickHouseProperties clickHouseProperties,
+        Monitoring monitoring,
+        Monitoring ping
+    ) {
         List<String> hosts = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(hostsString);
         Preconditions.checkArgument(!hosts.isEmpty(), "ClickHouse host(s) not provided.");
         if (hosts.size() == 1) {
@@ -185,9 +242,21 @@ public class DbConfig {
     @Bean
     public JdbcTemplate clickHouseJdbcTemplateSearch(
         DataSource clickHouseSearchDataSource,
-        @Value("${graphouse.clickhouse.query-timeout-seconds}") int queryTimeoutSeconds) {
+        @Value("${graphouse.clickhouse.query-timeout-seconds}") int queryTimeoutSeconds
+    ) {
         final JdbcTemplate jdbcTemplate = new JdbcTemplate();
         jdbcTemplate.setDataSource(clickHouseSearchDataSource);
+        jdbcTemplate.setQueryTimeout(queryTimeoutSeconds);
+        return jdbcTemplate;
+    }
+
+    @Bean
+    public JdbcTemplate clickHouseJdbcTemplateOnRecord(
+        DataSource clickHouseOnRecordDataSource,
+        @Value("${graphouse.clickhouse.query-timeout-seconds}") int queryTimeoutSeconds
+    ) {
+        final JdbcTemplate jdbcTemplate = new JdbcTemplate();
+        jdbcTemplate.setDataSource(clickHouseOnRecordDataSource);
         jdbcTemplate.setQueryTimeout(queryTimeoutSeconds);
         return jdbcTemplate;
     }

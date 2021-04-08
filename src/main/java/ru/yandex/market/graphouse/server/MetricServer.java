@@ -72,7 +72,7 @@ public class MetricServer implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        log.info("Starting metric server on port: " + port);
+        log.info("Starting metric server on port: {} with factory {}", port, metricFactory.getClass().getSimpleName());
         serverSocket = new ServerSocket();
         SocketAddress socketAddress;
 

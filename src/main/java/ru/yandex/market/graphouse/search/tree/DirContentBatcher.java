@@ -5,6 +5,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.SettableFuture;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import ru.yandex.market.graphouse.data.BatchAtomicReference;
 import ru.yandex.market.graphouse.search.MetricSearch;
 
 import java.util.Collections;
@@ -17,12 +18,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.UnaryOperator;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -37,7 +34,7 @@ public class DirContentBatcher {
     private final int maxBatchSize;
     private final int batchAggregationTimeMillis;
 
-    private final BatchAtomicReference currentBatch = new BatchAtomicReference();
+    private final BatchAtomicReference<Batch> currentBatch = new BatchAtomicReference<>();
     private final Semaphore requestSemaphore;
 
     private final ScheduledExecutorService executorService;
@@ -103,8 +100,10 @@ public class DirContentBatcher {
     }
 
 
-    private void scheduleNewBatch(Batch batch) {
-        executorService.schedule(batch, batchAggregationTimeMillis, TimeUnit.MILLISECONDS);
+    private void scheduleNewBatch(Batch batch, boolean newBatch) {
+        if (newBatch) {
+            executorService.schedule(batch, batchAggregationTimeMillis, TimeUnit.MILLISECONDS);
+        }
     }
 
     @VisibleForTesting
@@ -198,46 +197,6 @@ public class DirContentBatcher {
 
         private void unlockRequestsAfterExecution() {
             requestsLock.writeLock().unlock();
-        }
-    }
-
-    private static class BatchAtomicReference extends AtomicReference<Batch> {
-
-        /**
-         * Atomically updates the current value with the results of
-         * applying the given function, returning the updated value. The
-         * functions may be re-applied when attempted updates fail due to contention among threads
-         * or received false value from {@param checkUpdatePermissionFunction}
-         *
-         * @param finalizeAfterRejectedFunction function to clear the new value from the previous update attempt
-         * @param updateFunction                a side-effect-free function
-         * @param checkSetPermissionFunction    checking the permission before setting a new value
-         * @param postUpdateForNewBatchFunction function for an action with a new value after update
-         * @return the updated value
-         */
-        public final Batch updateAndGetBatch(
-            UnaryOperator<Batch> updateFunction,
-            Function<Batch, Boolean> checkSetPermissionFunction,
-            Consumer<Batch> finalizeAfterRejectedFunction,
-            Consumer<Batch> postUpdateForNewBatchFunction
-        ) {
-            boolean allowToSet, newBatchCreated;
-            Batch prev, next = null;
-            do {
-                if (next != null) {
-                    finalizeAfterRejectedFunction.accept(next);
-                }
-                prev = get();
-                next = updateFunction.apply(prev);
-                newBatchCreated = prev != next;
-                allowToSet = checkSetPermissionFunction.apply(next);
-            } while (!allowToSet || !compareAndSet(prev, next));
-
-            if (newBatchCreated) {
-                postUpdateForNewBatchFunction.accept(next);
-            }
-
-            return next;
         }
     }
 }

@@ -1,6 +1,7 @@
 package ru.yandex.market.graphouse.cacher;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
@@ -88,7 +89,10 @@ public class MetricCacher implements Runnable, InitializingBean {
     public void afterPropertiesSet() {
         metricQueue = new ArrayBlockingQueue<>(queueSize);
         semaphore.release(queueSize);
-        executorService = Executors.newFixedThreadPool(maxOutputThreads);
+        executorService = Executors.newFixedThreadPool(
+            maxOutputThreads,
+            new ThreadFactoryBuilder().setNameFormat("output-thread-%d").build()
+        );
         monitoring.addUnit(metricCacherQueryUnit);
         new Thread(this, "Metric cacher thread").start();
     }

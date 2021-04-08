@@ -1,6 +1,7 @@
 package ru.yandex.market.graphouse.search.tree;
 
 import ru.yandex.clickhouse.util.ClickHouseRowBinaryStream;
+import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.search.MetricStatus;
 
 import java.io.IOException;
@@ -10,6 +11,7 @@ import java.io.IOException;
  * @date 02/09/15
  */
 public interface MetricDescription {
+    byte LEVEL_SPLITTER = (byte) MetricUtil.LEVEL_SPLITTER;
 
     String getName();
 

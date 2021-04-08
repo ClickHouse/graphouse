@@ -42,7 +42,7 @@ public class StatisticsCounterTest {
 
     @Before
     public void setup() {
-        Mockito.when(metricSearch.add(Mockito.anyString())).thenReturn(metricDescription);
+        Mockito.when(metricSearch.getMetricDescription(Mockito.anyString())).thenReturn(metricDescription);
     }
 
     @Test
@@ -86,7 +86,7 @@ public class StatisticsCounterTest {
     public void testInitializeEmptyHostname() {
         StatisticsCounter counter = new StatisticsCounter("test", 5, metricSearch, metricCacher);
         counter.initialize(null);
-        Mockito.verify(metricSearch, Mockito.atLeastOnce()).add(nameCaptor.capture());
+        Mockito.verify(metricSearch, Mockito.atLeastOnce()).getMetricDescription(nameCaptor.capture());
         nameCaptor.getAllValues().forEach(
             name -> Assert.assertTrue(name.matches("test\\.(accumulated|instant)\\.\\w[\\w_]+\\w"))
         );
@@ -96,7 +96,7 @@ public class StatisticsCounterTest {
     public void testInitializeWithHostname() {
         StatisticsCounter counter = new StatisticsCounter("test", 5, metricSearch, metricCacher);
         counter.initialize("test.graphouse-1.com");
-        Mockito.verify(metricSearch, Mockito.atLeastOnce()).add(nameCaptor.capture());
+        Mockito.verify(metricSearch, Mockito.atLeastOnce()).getMetricDescription(nameCaptor.capture());
         nameCaptor.getAllValues().forEach(
             name -> Assert.assertTrue(name.matches("test\\.hosts\\.test_graphouse-1_com\\.(accumulated|instant)\\.\\w[\\w_]+\\w"))
         );

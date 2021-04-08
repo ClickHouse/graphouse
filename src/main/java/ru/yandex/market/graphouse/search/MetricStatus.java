@@ -1,6 +1,10 @@
 package ru.yandex.market.graphouse.search;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
@@ -34,7 +38,11 @@ public enum MetricStatus {
      * Метрика может быть автоматически скрыта в {@link ru.yandex.market.graphouse.AutoHideService}
      * Аналогично, при появлении новых значений будет открыта {@link #SIMPLE}
      */
-    AUTO_HIDDEN;
+    AUTO_HIDDEN,
+    /**
+     * Internal status is not stored in the database
+     */
+    AUTO_BAN;
 
 
     public static final Map<MetricStatus, List<MetricStatus>> RESTRICTED_GRAPH_EDGES = new EnumMap<>(
@@ -43,6 +51,7 @@ public enum MetricStatus {
 
     static {
         RESTRICTED_GRAPH_EDGES.put(MetricStatus.BAN, Arrays.asList(MetricStatus.SIMPLE, MetricStatus.AUTO_HIDDEN));
+        RESTRICTED_GRAPH_EDGES.put(MetricStatus.AUTO_BAN, Arrays.asList(MetricStatus.SIMPLE, MetricStatus.AUTO_HIDDEN));
         RESTRICTED_GRAPH_EDGES.put(MetricStatus.HIDDEN, Collections.singletonList(MetricStatus.AUTO_HIDDEN));
         RESTRICTED_GRAPH_EDGES.put(MetricStatus.APPROVED, Arrays.asList(MetricStatus.SIMPLE, MetricStatus.AUTO_HIDDEN));
     }
@@ -56,6 +65,7 @@ public enum MetricStatus {
             case APPROVED:
                 return true;
             case BAN:
+            case AUTO_BAN:
             case HIDDEN:
             case AUTO_HIDDEN:
                 return false;
@@ -72,9 +82,23 @@ public enum MetricStatus {
                 return true;
             case SIMPLE:
             case AUTO_HIDDEN:
+            case AUTO_BAN:
                 return false;
             default:
                 throw new IllegalStateException();
         }
+    }
+
+
+    /**
+     * We return a new status when changing the metric, taking into account the graph of possible transitions
+     */
+    public static MetricStatus selectStatus(MetricStatus oldStatus, MetricStatus newStatus) {
+        if (oldStatus == newStatus) {
+            return oldStatus;
+        }
+
+        List<MetricStatus> restricted = MetricStatus.RESTRICTED_GRAPH_EDGES.get(oldStatus);
+        return restricted == null || !restricted.contains(newStatus) ? newStatus : oldStatus;
     }
 }

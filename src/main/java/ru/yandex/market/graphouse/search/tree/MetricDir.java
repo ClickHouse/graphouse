@@ -13,8 +13,9 @@ import java.util.stream.Stream;
  * @date 25/01/2017
  */
 public abstract class MetricDir extends MetricBase {
+    private static final String ROOT_NAME = "ROOT";
 
-    private AtomicInteger visibleChildren = new AtomicInteger(0);
+    private final AtomicInteger visibleChildren = new AtomicInteger(0);
 
     public MetricDir(MetricDir parent, String name, MetricStatus status) {
         super(parent, name, status);
@@ -28,7 +29,7 @@ public abstract class MetricDir extends MetricBase {
     @Override
     public String getName() {
         if (isRoot()) {
-            return "ROOT";
+            return ROOT_NAME;
         }
 
         final String dirName = name + MetricUtil.LEVEL_SPLITTER;

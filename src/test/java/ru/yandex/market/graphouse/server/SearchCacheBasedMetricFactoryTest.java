@@ -8,9 +8,9 @@ import static org.junit.Assert.assertEquals;
  * @author Dmitry Andreev <a href="mailto:AndreevDm@yandex-team.ru"></a>
  * @date 08/05/15
  */
-public class MetricFactoryTest {
+public class SearchCacheBasedMetricFactoryTest {
 
-    private MetricFactory factory = new MetricFactory(null, null, true, "HOST", "yandex_net,yandex_ru");
+    private SearchCacheBasedMetricFactory factory = new SearchCacheBasedMetricFactory(null, null, true, "HOST", "yandex_net,yandex_ru");
 
     @Test
     public void testProcessName() throws Exception {

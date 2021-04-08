@@ -7,8 +7,8 @@ import org.apache.logging.log4j.Logger;
 import ru.yandex.clickhouse.util.apache.StringUtils;
 import ru.yandex.market.graphouse.Metric;
 import ru.yandex.market.graphouse.cacher.MetricCacher;
-import ru.yandex.market.graphouse.search.MetricSearch;
 import ru.yandex.market.graphouse.search.tree.MetricDescription;
+import ru.yandex.market.graphouse.server.MetricDescriptionProvider;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,20 +30,24 @@ public class StatisticsCounter {
     private final int flushPeriodSeconds;
 
     private final MetricCacher metricCacher;
-    private final MetricSearch metricSearch;
+    private final MetricDescriptionProvider metricDescriptionProvider;
 
     private final Map<AccumulatedMetric, MetricDescription> accumulatedMetricsDescriptions = new HashMap<>();
     private final Map<InstantMetric, MetricDescription> instantMetricsDescriptions = new HashMap<>();
     private final Map<AccumulatedMetric, AtomicDouble> metricsCounters = new HashMap<>();
 
-    public StatisticsCounter(String prefix, int flushPeriodSeconds,
-                             MetricSearch metricSearch, MetricCacher metricCacher) {
+    public StatisticsCounter(
+        String prefix,
+        int flushPeriodSeconds,
+        MetricDescriptionProvider metricDescriptionProvider,
+        MetricCacher metricCacher
+    ) {
         Preconditions.checkArgument(flushPeriodSeconds > 0);
 
         this.prefix = prefix;
         this.flushPeriodSeconds = flushPeriodSeconds;
         this.metricCacher = metricCacher;
-        this.metricSearch = metricSearch;
+        this.metricDescriptionProvider = metricDescriptionProvider;
 
         Arrays.stream(AccumulatedMetric.values()).forEach(metric -> metricsCounters.put(metric, new AtomicDouble()));
     }
@@ -98,7 +102,7 @@ public class StatisticsCounter {
     }
 
     private void loadMetric(String name, Consumer<MetricDescription> save) {
-        MetricDescription description = this.metricSearch.add(name);
+        MetricDescription description = this.metricDescriptionProvider.getMetricDescription(name);
 
         if (description != null) {
             save.accept(description);
