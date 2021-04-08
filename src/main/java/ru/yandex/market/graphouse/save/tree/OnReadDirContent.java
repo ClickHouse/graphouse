@@ -13,10 +13,10 @@ public class OnReadDirContent {
     private static final Logger log = LogManager.getLogger();
 
     private final OnReadDirContentBatcher dirContentBatcher;
-    private volatile ConcurrentMap<String, OnRecordMetricDescription> dirs;
-    private volatile ConcurrentMap<String, OnRecordMetricDescription> metrics;
+    private volatile ConcurrentMap<String, OnRecordMetricDescription> dirs = null;
+    private volatile ConcurrentMap<String, OnRecordMetricDescription> metrics = null;
+    private volatile Future<OnReadDirContent> loadFuture = null;
     private volatile boolean loaded;
-    private volatile Future<OnReadDirContent> loadFuture;
 
     public OnReadDirContent() {
         this(null);
@@ -24,10 +24,7 @@ public class OnReadDirContent {
 
     public OnReadDirContent(OnReadDirContentBatcher dirContentBatcher) {
         this.dirContentBatcher = dirContentBatcher;
-        this.dirs = null;
-        this.metrics = null;
         this.loaded = dirContentBatcher == null;
-        this.loadFuture = null;
     }
 
     public OnRecordMetricDescription getDescription(String name, boolean dir) {

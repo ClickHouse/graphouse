@@ -134,7 +134,7 @@ public class OnRecordCacheUpdater implements InitializingBean, Runnable {
         MetricStatusHandler metricStatusHandler = new MetricStatusHandler();
 
         for (int level = 1; level <= maxLevel; level++) {
-            boolean levelLoaded = loadMetricsForLevel(metricStatusHandler, level);
+            boolean levelLoaded = loadBannedMetricsForLevel(metricStatusHandler, level);
             if (!levelLoaded) {
                 String errorMessage = "Can't load banned metrics on level: " + level;
                 log.error(errorMessage);
@@ -147,13 +147,13 @@ public class OnRecordCacheUpdater implements InitializingBean, Runnable {
         banCacheInitialized = true;
     }
 
-    private boolean loadMetricsForLevel(MetricStatusHandler handler, int level) {
+    private boolean loadBannedMetricsForLevel(MetricStatusHandler handler, int level) {
         long offset = 0;
         boolean loaded;
 
         do {
             handler.reset();
-            boolean batchLoaded = loadBatchMetricsForLevel(handler, level, offset);
+            boolean batchLoaded = loadBatchOfBannedMetricsForLevel(handler, level, offset);
             if (!batchLoaded) {
                 return false;
             }
@@ -164,7 +164,7 @@ public class OnRecordCacheUpdater implements InitializingBean, Runnable {
         return true;
     }
 
-    private boolean loadBatchMetricsForLevel(RowCallbackHandler handler, int level, long offset) {
+    private boolean loadBatchOfBannedMetricsForLevel(RowCallbackHandler handler, int level, long offset) {
         String dirsWithBanStatesQuery = "SELECT" +
             "     name," +
             "     argMax(status, updated) AS last_status" +
