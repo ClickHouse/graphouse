@@ -61,6 +61,9 @@ public class MetricSearchServlet extends HttpServlet {
             case "/searchCachedMetrics":
                 searchCachedMetrics(req, resp);
                 break;
+            case "/metricTreeState":
+                printMetricTreeState(resp);
+                break;
             default:
                 badRequest(resp);
                 break;
@@ -106,6 +109,7 @@ public class MetricSearchServlet extends HttpServlet {
         resp.getOutputStream().println("GET  /hide?name=<metric>");
         resp.getOutputStream().println("GET  /multiHide?query=<pattern>");
         resp.getOutputStream().println("GET  /searchCachedMetrics?query=<pattern>");
+        resp.getOutputStream().println("GET  /metricTreeState");
     }
 
     private void modify(HttpServletRequest req, HttpServletResponse resp, MetricStatus status) throws IOException {
@@ -170,5 +174,9 @@ public class MetricSearchServlet extends HttpServlet {
         }
 
         metricSearch.searchCachedMetrics(query, writer, writeLoadedInfo);
+    }
+
+    private void printMetricTreeState(HttpServletResponse resp) throws IOException {
+        resp.getOutputStream().println(metricSearch.getMetricTreeState());
     }
 }
