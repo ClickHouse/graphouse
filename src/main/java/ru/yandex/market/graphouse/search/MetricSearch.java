@@ -114,6 +114,9 @@ public class MetricSearch implements InitializingBean, Runnable, MetricDescripti
     @Value("${graphouse.tree.max-metrics-per-dir}")
     private int maxMetricsPerDir;
 
+    @Value("${graphouse.search.log-metrics-tree-state}")
+    private boolean logMetricTreeState;
+
     @Value("${graphouse.search.query-retry-count}")
     private int queryRetryCount;
 
@@ -463,12 +466,9 @@ public class MetricSearch implements InitializingBean, Runnable, MetricDescripti
     }
 
     private void updateMetricsState() {
-        CacheStats stats = dirContentProvider.synchronous().stats();
-        log.info(
-            "Actual metrics count = {} , dir count: {}, hitRate: {}, requestCount: {}, cache stats: {}",
-            metricTree.metricCount(), metricTree.dirCount(), stats.hitRate(), stats.requestCount(),
-            stats.toString()
-        );
+        if (logMetricTreeState) {
+            log.info(getMetricTreeState());
+        }
 
         long loadNewMetricsMs = loadNewMetrics();
         long updateMetricsMs = updateMetricQueue.saveUpdatedMetrics();
@@ -483,6 +483,24 @@ public class MetricSearch implements InitializingBean, Runnable, MetricDescripti
                 TimeUnit.MILLISECONDS.toSeconds(updateMetricsMs)
             );
         }
+    }
+
+    /**
+     * Returns metrics tree statistics and cache state.
+     * WARN: This can be a heavy operation.
+     *
+     * @return metrics tree statistics and cache state
+     */
+    public String getMetricTreeState() {
+        CacheStats stats = dirContentProvider.synchronous().stats();
+        return String.format(
+            "Actual metrics count = %d, dir count: %d, hitRate: %f, requestCount: %d, cache stats: %s",
+            metricTree.metricCount(),
+            metricTree.dirCount(),
+            stats.hitRate(),
+            stats.requestCount(),
+            stats
+        );
     }
 
     public long loadNewMetrics() {

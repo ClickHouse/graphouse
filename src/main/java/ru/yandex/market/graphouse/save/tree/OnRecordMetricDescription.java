@@ -279,7 +279,7 @@ public class OnRecordMetricDescription implements MetricDescription {
             if (d1 == d2) {
                 return true;
             }
-            if (!d1.getName().equals(d2.getName())) {
+            if (!d1.name.equals(d2.name)) {
                 return false;
             }
             d1 = d1.getParent();
