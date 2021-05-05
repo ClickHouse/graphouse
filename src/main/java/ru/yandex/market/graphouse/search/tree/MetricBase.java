@@ -59,12 +59,18 @@ public abstract class MetricBase implements MetricDescription {
     }
 
     public void setStatus(MetricStatus newStatus) {
+        setStatus(newStatus, newStatus);
+    }
+
+    protected void setStatus(MetricStatus newStatus, MetricStatus eventStatus) {
         newStatus = MetricStatus.selectStatus(status, newStatus);
         if (status != newStatus) {
             MetricStatus oldStatus = status;
             status = newStatus;
             updateTimeMillis = System.currentTimeMillis();
-            parent.notifyChildStatusChange(this, oldStatus);
+            parent.notifyChildStatusChange(this, oldStatus, eventStatus);
+        } else if (eventStatus.visible()) {
+            parent.notifyChildStatusChange(this, status, eventStatus);
         }
     }
 

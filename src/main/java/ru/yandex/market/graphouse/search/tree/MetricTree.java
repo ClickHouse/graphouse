@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
@@ -25,7 +24,7 @@ public class MetricTree {
     public static final String ALL_PATTERN = "*";
 
     private static final CharMatcher EXPRESSION_MATCHER = CharMatcher.anyOf(ALL_PATTERN + "?[]{}");
-    private final MetricDir root = new InMemoryMetricDir(null, "", MetricStatus.SIMPLE);
+    final MetricDir root = new InMemoryMetricDir(null, "", MetricStatus.SIMPLE);
 
     private final MetricDirFactory metricDirFactory;
     private final RetentionProvider retentionProvider;

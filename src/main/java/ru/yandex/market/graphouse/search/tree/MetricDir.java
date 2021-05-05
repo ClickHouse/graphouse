@@ -71,7 +71,7 @@ public abstract class MetricDir extends MetricBase {
             internName,
             s -> metricDirFactory.createMetricDir(MetricDir.this, internName, status)
         );
-        notifyChildStatusChange(dir, null); //Can be false call, but its ok
+        notifyChildStatusChange(dir, null, dir.getStatus()); //Can be false call, but its ok
         return dir;
     }
 
@@ -90,7 +90,7 @@ public abstract class MetricDir extends MetricBase {
             internName,
             s -> new MetricName(this, internName, status, retentionProvider.getRetention(getName() + name))
         );
-        notifyChildStatusChange(metric, null); //Can be false call, but its ok
+        notifyChildStatusChange(metric, null, metric.getStatus()); //Can be false call, but its ok
         return metric;
     }
 
@@ -98,8 +98,12 @@ public abstract class MetricDir extends MetricBase {
     /**
      * if all the metrics in the directory are hidden, then we try to hide it {@link MetricStatus#AUTO_HIDDEN}.
      * if there is at least one open metric for the directory, then we try to open it {@link MetricStatus#SIMPLE}.
+     *
+     * @param metricBase  - updated child metric
+     * @param oldStatus   - metricBase old status, may be null
+     * @param eventStatus - new status triggered event
      */
-    public void notifyChildStatusChange(MetricBase metricBase, MetricStatus oldStatus) {
+    public void notifyChildStatusChange(MetricBase metricBase, MetricStatus oldStatus, MetricStatus eventStatus) {
         if (isRoot()) {
             return;
         }
@@ -116,13 +120,16 @@ public abstract class MetricDir extends MetricBase {
         }
 
         if (oldStatus != null && oldStatus.visible() == newStatus.visible()) {
+            if (eventStatus.visible()) {
+                tryOpenHiddenDirectories(eventStatus);
+            }
             return;
         }
 
         // if all the metrics in the directory are hidden, then we try to hide it {@link MetricStatus#AUTO_HIDDEN}
         // if there is at least one open metric for the directory, then we try to open it {@link MetricStatus#SIMPLE}
         if (newStatus.visible()) {
-            setStatus(MetricStatus.SIMPLE);
+            setStatus(MetricStatus.SIMPLE, eventStatus);
             visibleChildren.getAndIncrement();
         } else {
             visibleChildren.getAndUpdate(operand -> {
@@ -132,9 +139,22 @@ public abstract class MetricDir extends MetricBase {
                 } else {
                     count = operand - 1;
                 }
-                setStatus(count > 0 ? MetricStatus.SIMPLE : MetricStatus.AUTO_HIDDEN);
+                setStatus(count > 0 ? MetricStatus.SIMPLE : MetricStatus.AUTO_HIDDEN, eventStatus);
                 return count;
             });
+        }
+    }
+
+    private void tryOpenHiddenDirectories(MetricStatus eventStatus) {
+        // if some metric change status to visible, then we try to open all parent directories
+        MetricStatus currentStatus = getStatus();
+        if (MetricStatus.BAN == currentStatus || MetricStatus.AUTO_BAN == currentStatus) {
+            return;
+        }
+        if (MetricStatus.HIDDEN == currentStatus || MetricStatus.AUTO_HIDDEN == currentStatus) {
+            setStatus(MetricStatus.SIMPLE, eventStatus);
+        } else {
+            parent.notifyChildStatusChange(this, currentStatus, eventStatus);
         }
     }
 
