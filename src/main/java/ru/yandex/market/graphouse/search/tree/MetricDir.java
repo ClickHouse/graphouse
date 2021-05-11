@@ -148,13 +148,16 @@ public abstract class MetricDir extends MetricBase {
     private void tryOpenHiddenDirectories(MetricStatus eventStatus) {
         // if some metric change status to visible, then we try to open all parent directories
         MetricStatus currentStatus = getStatus();
-        if (MetricStatus.BAN == currentStatus || MetricStatus.AUTO_BAN == currentStatus) {
-            return;
-        }
-        if (MetricStatus.HIDDEN == currentStatus || MetricStatus.AUTO_HIDDEN == currentStatus) {
-            setStatus(MetricStatus.SIMPLE, eventStatus);
-        } else {
-            parent.notifyChildStatusChange(this, currentStatus, eventStatus);
+        switch (currentStatus) {
+            case BAN:
+            case AUTO_BAN:
+                break;
+            case HIDDEN:
+            case AUTO_HIDDEN:
+                setStatus(MetricStatus.SIMPLE, eventStatus);
+                break;
+            default:
+                parent.notifyChildStatusChange(this, currentStatus, eventStatus);
         }
     }
 

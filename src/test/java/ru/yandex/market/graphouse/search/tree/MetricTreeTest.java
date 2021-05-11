@@ -3,7 +3,6 @@ package ru.yandex.market.graphouse.search.tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import org.junit.Assert;
 import org.junit.Test;
 import ru.yandex.market.graphouse.MetricUtil;
 import ru.yandex.market.graphouse.retention.DefaultRetentionProvider;
@@ -17,60 +16,30 @@ import java.nio.file.PathMatcher;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class MetricTreeTest {
     private final MetricTreeExt globalTree = new MetricTreeExt(InMemoryMetricDir::new, new DefaultRetentionProvider(), -1, -1);
 
-    public static Pattern createPattern(final String globPattern) {
-        String result = globPattern.replace("*", "[-_0-9a-zA-Z]*");
-        result = result.replace("?", "[-_0-9a-zA-Z]");
-        try {
-            return Pattern.compile(result);
-        } catch (PatternSyntaxException e) {
-            return null;
-        }
-    }
-
-    @Test
-    public void testGlob() {
-        Multimap<String, String> pattern2Candidates = generate();
-        for (Map.Entry<String, Collection<String>> pattern2CandidatesMap : pattern2Candidates.asMap().entrySet()) {
-            String glob = pattern2CandidatesMap.getKey();
-            Pattern pattern = createPattern(glob);
-            if (pattern == null) {
-                System.out.println("Wrong pattern " + glob);
-                continue;
-            }
-            for (String node : pattern2CandidatesMap.getValue()) {
-                System.out.printf("%40s\t%40s\t%s%n", glob, node, pattern.matcher(node).matches());
-            }
-        }
-    }
-
     @Test
     public void testGlobPath() {
-        PathMatcher matcher = MetricTree.createPathMatcher("asdf[");
-        assertNull(matcher);
+        assertNull(MetricTree.createPathMatcher("asdf["));
 
         Multimap<String, String> pattern2Candidates = generate();
         for (Map.Entry<String, Collection<String>> pattern2CandidatesMap : pattern2Candidates.asMap().entrySet()) {
             String glob = pattern2CandidatesMap.getKey();
-            matcher = MetricTree.createPathMatcher(glob);
-            if (matcher == null) {
-                System.out.println("Wrong pattern " + glob);
-                continue;
-            }
-            for (String node : pattern2CandidatesMap.getValue()) {
-                System.out.printf("%40s\t%40s\t%s%n", glob, node, MetricTree.matches(matcher, node));
-            }
+            PathMatcher matcher = MetricTree.createPathMatcher(glob);
+
+            assertNotNull(matcher);
+            pattern2CandidatesMap.getValue().forEach(
+                node -> assertTrue(MetricTree.matches(matcher, node))
+            );
         }
     }
 
@@ -167,8 +136,8 @@ public class MetricTreeTest {
     private void checkStatus(String metric, MetricStatus status) {
         String[] nameSplits = MetricUtil.splitToLevels(metric);
         MetricDescription metricDescription = globalTree.maybeFindDir(nameSplits);
-        Assert.assertNotNull(metricDescription);
-        Assert.assertEquals(status, metricDescription.getStatus());
+        assertNotNull(metricDescription);
+        assertEquals(status, metricDescription.getStatus());
     }
 
     private void search(String pattern, String... expected) throws IOException {
@@ -191,32 +160,32 @@ public class MetricTreeTest {
         MetricTree tree = new MetricTree(InMemoryMetricDir::new, new DefaultRetentionProvider(), dirLimit, metricLimit);
 
         for (int i = 0; i <= dirLimit * 2; i++) {
-            Assert.assertEquals(i < dirLimit, tree.add("dir.subdir" + i + ".") != null);
+            assertEquals(i < dirLimit, tree.add("dir.subdir" + i + ".") != null);
         }
-        Assert.assertNotNull(tree.modify("dir.approved-dir.", MetricStatus.APPROVED));
-        Assert.assertNotNull(tree.modify("dir.ban-dir.", MetricStatus.BAN));
+        assertNotNull(tree.modify("dir.approved-dir.", MetricStatus.APPROVED));
+        assertNotNull(tree.modify("dir.ban-dir.", MetricStatus.BAN));
 
         for (int i = 0; i <= metricLimit * 2; i++) {
-            Assert.assertEquals(i < metricLimit, tree.add("dir.metric" + i) != null);
+            assertEquals(i < metricLimit, tree.add("dir.metric" + i) != null);
         }
 
-        Assert.assertNotNull(tree.modify("dir.approved-metric", MetricStatus.APPROVED));
-        Assert.assertNotNull(tree.modify("dir.banned-metric", MetricStatus.BAN));
+        assertNotNull(tree.modify("dir.approved-metric", MetricStatus.APPROVED));
+        assertNotNull(tree.modify("dir.banned-metric", MetricStatus.BAN));
 
         MetricDir dir = (MetricDir) tree.add("dir.");
 
-        Assert.assertEquals(7, dir.getDirs().size());
-        Assert.assertEquals(12, dir.getMetrics().size());
+        assertEquals(7, dir.getDirs().size());
+        assertEquals(12, dir.getMetrics().size());
 
-        Assert.assertNull(tree.add("dir.one-more-subdir.a.b.c"));
-        Assert.assertNotNull(tree.modify("dir.one-more-subdir.a.b.c", MetricStatus.APPROVED));
+        assertNull(tree.add("dir.one-more-subdir.a.b.c"));
+        assertNotNull(tree.modify("dir.one-more-subdir.a.b.c", MetricStatus.APPROVED));
 
         //Run once more to check that already added metric works
         for (int i = 0; i <= dirLimit * 2; i++) {
-            Assert.assertEquals(i < dirLimit, tree.add("dir.subdir" + i + ".") != null);
+            assertEquals(i < dirLimit, tree.add("dir.subdir" + i + ".") != null);
         }
         for (int i = 0; i <= metricLimit * 2; i++) {
-            Assert.assertEquals(i < metricLimit, tree.add("dir.metric" + i) != null);
+            assertEquals(i < metricLimit, tree.add("dir.metric" + i) != null);
         }
     }
 
@@ -234,7 +203,7 @@ public class MetricTreeTest {
         }
         AppendableList dirList = new AppendableList();
         tree.search("dir.*", dirList);
-        Assert.assertEquals(
+        assertEquals(
             Arrays.asList(
                 "dir._SUBDIRS_LIMIT_REACHED_MAX_1",
                 "dir._METRICS_LIMIT_REACHED_MAX_2",
