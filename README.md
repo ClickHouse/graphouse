@@ -22,5 +22,5 @@ Comparing Graphouse with [common Graphite architecture](https://github.com/graph
 
 Contacts
 --------
-If you have any questions, feel free to join our Telegram chat
+If you have any questions, feel free to join our Telegram chat:
 https://t.me/graphouse
