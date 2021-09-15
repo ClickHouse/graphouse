@@ -9,7 +9,7 @@
             <PatternLayout pattern="%d %-5p [%c{1} %t] %m%n"/>
             <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
             <DefaultRolloverStrategy>
-                <Delete basePath="${sys:app.home}" maxDepth="1">
+                <Delete basePath="${sys:app.home}/log" maxDepth="1">
                     <IfFileName glob="graphouse-*.log.gz"/>
                     <IfLastModified age="14d"/>
                 </Delete>
