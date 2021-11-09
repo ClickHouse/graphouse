@@ -23,6 +23,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -59,6 +60,12 @@ public class MetricCacher implements Runnable, InitializingBean {
 
     @Value("${graphouse.cacher.max-output-threads}")
     private int maxOutputThreads = 2;
+
+    @Value("${graphouse.cacher.min-retry-millis}")
+    private int retryMillis = 1000;
+
+    @Value("${graphouse.cacher.retry-interval-millis}")
+    private int retryIntervalMillis = 3000;
 
     private final AtomicLong lastBatchTimeMillis = new AtomicLong(System.currentTimeMillis());
     private final MonitoringUnit metricCacherQueryUnit = new MonitoringUnit("MetricCacherQueue", 2, TimeUnit.MINUTES);
@@ -259,7 +266,9 @@ public class MetricCacher implements Runnable, InitializingBean {
         public void run() {
             while (!trySaveMetrics()) {
                 try {
-                    TimeUnit.SECONDS.sleep(1);
+                    TimeUnit.MILLISECONDS.sleep(
+                        retryMillis + ThreadLocalRandom.current().nextInt(retryIntervalMillis)
+                    );
                 } catch (InterruptedException ignored) {
                 }
             }
@@ -279,7 +288,7 @@ public class MetricCacher implements Runnable, InitializingBean {
 
                 log.info(String.format("Saved %d metrics in %d ms", metrics.size(), processed));
             } catch (Exception e) {
-                log.error("Failed to save metrics. Waiting 1 second before retry", e);
+                log.error("Failed to save metrics. Waiting " + retryMillis + " millis before retry", e);
 
                 statisticsService.accumulateMetric(AccumulatedMetric.NUMBER_OF_WRITE_ERRORS, 1);
 
