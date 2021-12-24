@@ -1,7 +1,7 @@
 FROM ubuntu:xenial
 
 ARG graphouse_branch=master
-ARG graphite_branch=1.1.7
+ARG graphite_branch=1.1.8
 ARG python_ver=3.7
 
 RUN apt-get -y update && \
