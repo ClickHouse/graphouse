@@ -17,7 +17,7 @@ RUN ln -sfn /usr/bin/python$python_ver /usr/bin/python3 && \
     ln -sfn /usr/bin/python3 /usr/bin/python && \
     ln -sfn /usr/bin/pip3 /usr/bin/pip
 
-RUN pip install --upgrade setuptools
+RUN pip install --upgrade setuptools==59.5.0
 
 RUN git clone -b $graphite_branch --depth 1 https://github.com/graphite-project/graphite-web.git /usr/local/src/graphite-web && \
     git clone -b $graphouse_branch --depth 1 https://github.com/yandex/graphouse.git /usr/local/src/graphouse
