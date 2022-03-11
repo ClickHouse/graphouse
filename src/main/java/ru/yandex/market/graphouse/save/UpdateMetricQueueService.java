@@ -25,14 +25,19 @@ public class UpdateMetricQueueService {
     private final StatisticsService statisticsService;
     private final String metricsTable;
     private final JdbcTemplate clickHouseJdbcTemplate;
+    private final boolean applyCurrentTimeWhenUpdatingMetrics;
     private final Queue<MetricDescription> updateQueue;
 
     public UpdateMetricQueueService(
-        StatisticsService statisticsService, String metricsTable, JdbcTemplate clickHouseJdbcTemplate
+        StatisticsService statisticsService,
+        String metricsTable,
+        boolean applyCurrentTimeWhenUpdatingMetrics,
+        JdbcTemplate clickHouseJdbcTemplate
     ) {
         this.statisticsService = statisticsService;
         this.metricsTable = metricsTable;
         this.clickHouseJdbcTemplate = clickHouseJdbcTemplate;
+        this.applyCurrentTimeWhenUpdatingMetrics = applyCurrentTimeWhenUpdatingMetrics;
         this.updateQueue = new ConcurrentLinkedQueue<>();
     }
 
@@ -89,6 +94,7 @@ public class UpdateMetricQueueService {
 
         final int batchesCount = (metrics.size() - 1) / BATCH_SIZE + 1;
 
+        Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
         for (int batchNum = 0; batchNum < batchesCount; batchNum++) {
 
             int firstIndex = batchNum * BATCH_SIZE;
@@ -106,7 +112,11 @@ public class UpdateMetricQueueService {
                     ps.setInt(2, metricDescription.getLevel());
                     ps.setString(3, (parent != null) ? parent.getName() : "");
                     ps.setString(4, metricDescription.getStatus().name());
-                    ps.setTimestamp(5, new Timestamp(metricDescription.getUpdateTimeMillis()));
+                    ps.setTimestamp(5,
+                        applyCurrentTimeWhenUpdatingMetrics
+                            ? currentTimestamp
+                            : new Timestamp(metricDescription.getUpdateTimeMillis())
+                    );
                 }
 
                 @Override

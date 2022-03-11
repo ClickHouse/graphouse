@@ -81,11 +81,15 @@ public class MetricsConfig {
     @Value("${graphouse.on-record-metric-cache.enable}")
     private boolean onRecordCacheEnable;
 
+    @Value("${graphouse.update-metric.apply-current-time.enable}")
+    private boolean applyCurrentTimeWhenUpdatingMetrics;
+
     @Bean
     public UpdateMetricQueueService updateMetricQueueService() {
         return new UpdateMetricQueueService(
             statisticsService,
             metricsTable,
+            applyCurrentTimeWhenUpdatingMetrics,
             clickHouseJdbcTemplateSearch
         );
     }
