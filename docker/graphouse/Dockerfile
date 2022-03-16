@@ -2,6 +2,7 @@ FROM openjdk:8
 
 ARG USER=graphouse
 ARG GRAPHOUSE_ROOT=/opt/graphouse
+ARG GRAPHOUSE_BRANCH=master
 
 RUN apt-get update && \
     apt-get install --no-install-recommends --allow-unauthenticated -y apt-transport-https git ca-certificates \
@@ -10,7 +11,7 @@ RUN apt-get update && \
     apt-get clean
 
 RUN cd /tmp/ && \
-    git clone https://github.com/yandex/graphouse.git && \
+    git clone -b $GRAPHOUSE_BRANCH https://github.com/yandex/graphouse.git && \
     cd graphouse && \
     JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF8 ./gradlew build installDist && \
     mv /tmp/graphouse/build/install/graphouse /opt/ && \
