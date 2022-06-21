@@ -117,12 +117,6 @@ public class MetricSearch implements InitializingBean, Runnable, MetricDescripti
     @Value("${graphouse.search.log-metrics-tree-state}")
     private boolean logMetricTreeState;
 
-    @Value("${graphouse.search.query-retry-count}")
-    private int queryRetryCount;
-
-    @Value("${graphouse.search.query-retry-increment-sec}")
-    private int queryRetryIncrementSec;
-
     @Value("${graphouse.search.max-metrics-per-query}")
     private int maxMetricsPerQuery;
 
@@ -137,6 +131,8 @@ public class MetricSearch implements InitializingBean, Runnable, MetricDescripti
 
     public MetricSearch(
         JdbcTemplate clickHouseJdbcTemplate,
+        int queryRetryCount,
+        int queryRetryIncrementSec,
         UpdateMetricQueueService updateMetricQueue,
         Monitoring monitoring,
         Monitoring ping,

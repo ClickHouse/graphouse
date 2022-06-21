@@ -101,13 +101,15 @@ public class DirContentBatcherTest {
     private MetricSearch createMetricSearchWithLazyQueryExecution(long queryExecutionMs) {
         JdbcTemplate clickHouseJdbcTemplate = Mockito.mock(JdbcTemplate.class);
         Mockito.doAnswer(i -> {
-            doSleep(queryExecutionMs);
-            return null;
-        })
+                doSleep(queryExecutionMs);
+                return null;
+            })
             .when(clickHouseJdbcTemplate)
             .query(Mockito.anyString(), Mockito.any(RowCallbackHandler.class), Mockito.any());
         return new MetricSearch(
             clickHouseJdbcTemplate,
+            0,
+            0,
             Mockito.mock(UpdateMetricQueueService.class),
             Mockito.mock(Monitoring.class),
             Mockito.mock(Monitoring.class),
