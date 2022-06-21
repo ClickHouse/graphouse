@@ -323,6 +323,7 @@ public class MetricSearch implements InitializingBean, Runnable, MetricDescripti
             clickHouseDirContentLoader.executeQuery(
                 "SELECT name, argMax(status, updated) as last_status " +
                     "FROM " + metricsTable + " PREWHERE level = ? WHERE status != ? GROUP BY name",
+                -1,
                 new MetricRowCallbackHandler(levelCount, false),
                 level, MetricStatus.AUTO_HIDDEN.name()
             );

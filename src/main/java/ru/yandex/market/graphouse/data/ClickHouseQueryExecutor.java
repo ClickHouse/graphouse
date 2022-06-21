@@ -23,18 +23,22 @@ public class ClickHouseQueryExecutor {
     }
 
     public void executeQuery(String sql, RowCallbackHandler handler, Object... args) {
+        this.executeQuery(sql, queryRetryCount, handler, args);
+    }
+
+    public void executeQuery(String sql, int retryCount, RowCallbackHandler handler, Object... args) {
         int attempts = 0;
         int waitTime = 1;
         while (!tryExecuteQuery(sql, handler, args)) {
             try {
                 attempts++;
-                if (attempts >= queryRetryCount) {
+                if (retryCount >= 0 && attempts >= retryCount) {
                     log.error("Can't execute query: \"{}\" with arguments {}", sql, args);
                     break;
                 } else {
                     log.warn(
                         "Failed to execute query. Attempt number {} / {}. Waiting {} second before retry",
-                        attempts, queryRetryCount, waitTime
+                        attempts, retryCount >= 0 ? retryCount : "inf", waitTime
                     );
                     TimeUnit.SECONDS.sleep(waitTime);
                     waitTime += queryRetryIncrementSec;
