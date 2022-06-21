@@ -1,4 +1,4 @@
-FROM ubuntu:xenial
+FROM ubuntu:bionic
 
 ARG graphouse_branch=master
 ARG graphite_branch=1.1.8
@@ -9,7 +9,7 @@ RUN apt-get -y update && \
     apt-get -y install git nginx uwsgi sqlite3 curl nano net-tools telnet bind9-host psmisc && \
     apt-get clean
 
-#installing python $python_ver for xenial
+#installing python $python_ver for bionic
 RUN apt-get update && apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && apt-get install -y python$python_ver python$python_ver-dev python$python_ver-distutils python3-requests python3-pip
 
