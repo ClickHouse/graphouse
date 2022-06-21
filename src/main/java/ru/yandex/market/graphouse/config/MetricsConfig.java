@@ -98,10 +98,13 @@ public class MetricsConfig {
     public MetricSearch metricSearch(
         OnRecordCacheUpdater onRecordCacheUpdater,
         UpdateMetricQueueService updateMetricQueueService,
-        @Value("${graphouse.search.directories-for-cache:}") String directoriesForSearchCache
+        @Value("${graphouse.search.directories-for-cache:}") String directoriesForSearchCache,
+        @Value("${graphouse.search.query-retry-count}") int queryRetryCount,
+        @Value("${graphouse.search.query-retry-increment-sec}") int queryRetryIncrementSec
     ) {
         return new MetricSearch(
-            clickHouseJdbcTemplateSearch, updateMetricQueueService, monitoring, ping,
+            clickHouseJdbcTemplateSearch, queryRetryCount, queryRetryIncrementSec,
+            updateMetricQueueService, monitoring, ping,
             metricValidator(), retentionProvider(), loadedMetricsCounter,
             onRecordCacheUpdater, metricsTable, directoriesForSearchCache
         );
