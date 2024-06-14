@@ -16,9 +16,12 @@ public class GraphouseMain {
     private GraphouseMain() {
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
 
         System.out.println("Graphouse path is: " + System.getProperty("app.home"));
+
+        System.setProperty("environment", System.getProperty("environment", "default"));
+        System.out.println("Environment: " + System.getProperty("environment"));
 
         AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
 

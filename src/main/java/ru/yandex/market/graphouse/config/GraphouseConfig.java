@@ -21,6 +21,8 @@ import ru.yandex.market.graphouse.search.MetricSearch;
     value = {
         "file:${app.home}/conf/graphouse.properties",
         "file:${app.home}/conf/local-application.properties",
+        "file:${app.home}/conf/${environment}/${environment}.properties",
+        "file:${app.home}/conf/secret.properties",
         "classpath:local-application.properties"
     },
     ignoreResourceNotFound = true
