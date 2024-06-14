@@ -36,6 +36,7 @@ public class DbConfig {
         @Value("${graphouse.clickhouse.connection-timeout-millis}") int socketTimeoutMillis,
         @Value("${graphouse.clickhouse.compress}") boolean compress,
         @Value("${graphouse.clickhouse.ssl}") boolean ssl,
+        @Value("${graphouse.clickhouse.ssl-root-certificate:}") String sslRootCertificate,
         @Value("${graphouse.clickhouse.max-query-size.bytes}") long maxQuerySizeBytes
     ) {
         final ClickHouseProperties clickHouseProperties = new ClickHouseProperties();
@@ -46,6 +47,10 @@ public class DbConfig {
         clickHouseProperties.setCompress(compress);
         clickHouseProperties.setDecompress(compress);
         clickHouseProperties.setSsl(ssl);
+        if (!sslRootCertificate.isEmpty()) {
+            clickHouseProperties.setSslRootCertificate(sslRootCertificate);
+        }
+
         clickHouseProperties.setUseServerTimeZone(true);
         clickHouseProperties.setUseServerTimeZoneForDates(true);
         clickHouseProperties.setMaxQuerySize(maxQuerySizeBytes);
